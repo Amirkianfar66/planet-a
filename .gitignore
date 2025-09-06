@@ -23,3 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 /.vs/planet-a/FileContentIndex/fb845e39-ce19-4514-ab42-e9b73117d842.vsidx
+/.vs/planet-a/FileContentIndex/a84de302-6e9d-45f2-ad37-cad88fb95944.vsidx
+/.gitignore
