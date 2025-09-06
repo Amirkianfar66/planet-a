@@ -66,12 +66,11 @@
               "Title": "main.jsx",
               "DocumentMoniker": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\main.jsx",
               "RelativeDocumentMoniker": "src\\main.jsx",
-              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\main.jsx*",
-              "RelativeToolTip": "src\\main.jsx*",
+              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\main.jsx",
+              "RelativeToolTip": "src\\main.jsx",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAoAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003663|",
-              "WhenOpened": "2025-09-05T02:07:49.519Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-05T02:07:49.519Z"
             },
             {
               "$type": "Document",
@@ -92,12 +91,11 @@
               "Title": "StationScene.jsx",
               "DocumentMoniker": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\scenes\\StationScene.jsx",
               "RelativeDocumentMoniker": "src\\scenes\\StationScene.jsx",
-              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\scenes\\StationScene.jsx*",
-              "RelativeToolTip": "src\\scenes\\StationScene.jsx*",
+              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\scenes\\StationScene.jsx",
+              "RelativeToolTip": "src\\scenes\\StationScene.jsx",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003663|",
-              "WhenOpened": "2025-09-05T02:07:25.438Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-05T02:07:25.438Z"
             },
             {
               "$type": "Document",
@@ -105,12 +103,11 @@
               "Title": "Player.jsx",
               "DocumentMoniker": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\components\\Player.jsx",
               "RelativeDocumentMoniker": "src\\components\\Player.jsx",
-              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\components\\Player.jsx*",
-              "RelativeToolTip": "src\\components\\Player.jsx*",
+              "ToolTip": "C:\\Users\\AmirKianfar\\source\\repos\\planet-a\\src\\components\\Player.jsx",
+              "RelativeToolTip": "src\\components\\Player.jsx",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003663|",
-              "WhenOpened": "2025-09-05T02:07:06.301Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-09-05T02:07:06.301Z"
             }
           ]
         }
