@@ -7,21 +7,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# Env
+.env
+.env.local
+.env.*.local
+
+# Editors
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+
+# Visual Studio
+.vs/
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-/.vs/planet-a/FileContentIndex/fb845e39-ce19-4514-ab42-e9b73117d842.vsidx
-/.vs/planet-a/FileContentIndex/a84de302-6e9d-45f2-ad37-cad88fb95944.vsidx
-/.gitignore
+*.user
+*.userosscache
+*.sln.docstates
+bin/
+obj/
