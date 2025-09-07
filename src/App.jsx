@@ -10,6 +10,8 @@ import { isHost, myPlayer, usePlayersList } from 'playroomkit';
 // ✅ Step 4: mount the 24h HUD + host debug panel
 import DayNightHUD from './ui/DayNightHUD';
 import TimeDebugPanel from './ui/TimeDebugPanel';
+import { useGameClock } from './systems/dayNightClock';
+
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -22,6 +24,23 @@ export default function App() {
     const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
+    const dayNumber = useGameClock(s => s.dayNumber);
+    const maxDays = useGameClock(s => s.maxDays);
+    const prevDayRef = useRef(dayNumber);
+
+    useEffect(() => {
+        if (!ready || !isHost()) return;
+        if (dayNumber !== prevDayRef.current) {
+            hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
+            prevDayRef.current = dayNumber;
+
+            // Optional: handle end-of-week/game here
+            if (dayNumber > maxDays) {
+                hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
+                // e.g. setPhase('end', true); setTimer(0, true);
+            }
+        }
+    }, [ready, dayNumber, maxDays, setEvents]);
 
     useEffect(() => { (async () => { await openLobby(); setReady(true); })(); }, []);
 
@@ -153,6 +172,8 @@ export default function App() {
 }
 
 function TopBar({ phase, timer, players }) {
+    const dayNumber = useGameClock(s => s.dayNumber);
+    const maxDays = useGameClock(s => s.maxDays);
     const mm = String(Math.floor(Number(timer) / 60)).padStart(2, '0');
     const ss = String(Number(timer) % 60).padStart(2, '0');
     return (
@@ -161,6 +182,7 @@ function TopBar({ phase, timer, players }) {
             background: '#0e1116', color: 'white', fontFamily: 'ui-sans-serif', fontSize: 14
         }}>
             <strong>Planet A — Prototype</strong>
+            <span>| Day: <b>DAY {dayNumber}/{maxDays}</b></span>
             <span>| Phase: <b>{String(phase)}</b></span>
             <span>| Time: <b>{mm}:{ss}</b></span>
             <span>| Alive: <b>{players}</b></span>
@@ -168,6 +190,7 @@ function TopBar({ phase, timer, players }) {
         </div>
     );
 }
+
 
 function MetersPanel({ phase, oxygen, power, cctv, onRepair, onSabotage }) {
     const me = myPlayer();
