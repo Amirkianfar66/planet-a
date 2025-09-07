@@ -11,6 +11,7 @@ import { isHost, myPlayer, usePlayersList } from "playroomkit";
 import DayNightHUD from "./ui/DayNightHUD";
 import TimeDebugPanel from "./ui/TimeDebugPanel";
 import { useGameClock } from "./systems/dayNightClock";
+import Lobby from './components/Lobby';
 
 /* -------------------------------------------------------
    Helpers
@@ -35,6 +36,9 @@ export default function App() {
     const players = usePlayersList(true);
 
     const [phase, setPhase] = usePhase();                // "day" | "meeting" | "night"
+    // Are we currently in an active gameplay phase?
+    const inGame = phase === "day" || phase === "meeting" || phase === "night";
+
     const [timer, setTimer] = useTimer();                // seconds left in current phase
     const { dayLength, meetingLength, nightLength } = useLengths();
 
@@ -57,54 +61,67 @@ export default function App() {
     /* ---------------------------------------------
      Host: 1s phase countdown
     --------------------------------------------- */
-    useEffect(() => {
-        if (!ready || !isHost()) return;
+     useEffect(() => {
+             if (!ready || !isHost() || !inGame) return;
         const id = setInterval(() => {
             setTimer((t) => Math.max(0, Number(t) - 1), true);
         }, 1000);
         return () => clearInterval(id);
-    }, [ready, setTimer]);
+        
+     }, [ready, inGame, setTimer]);
 
     /* ---------------------------------------------
      Host: Day ticker message + end-of-game check
     --------------------------------------------- */
-    useEffect(() => {
-        if (!ready || !isHost()) return;
-        if (dayNumber !== prevDayRef.current) {
-            hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
-            prevDayRef.current = dayNumber;
+     useEffect(() => {
+             if (!ready || !isHost()) return;
+         useEffect(() => {
+                 if (!ready || !isHost() || !inGame) return;
+            if (dayNumber !== prevDayRef.current) {
+                hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
+                prevDayRef.current = dayNumber;
 
-            if (dayNumber > maxDays) {
-                hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
-                // setPhase("end", true); setTimer(0, true); // optional end state
+                if (dayNumber > maxDays) {
+                    hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
+                }
             }
-        }
-    }, [ready, dayNumber, maxDays, setEvents]);
+            
+          }, [ready, inGame, dayNumber, maxDays, setEvents]);
+
 
     /* ---------------------------------------------
      Host: Assign NON-infected roles once
     --------------------------------------------- */
-    useEffect(() => {
-        if (!ready || !isHost() || rolesAssigned || phase !== "day") return;
-        const alive = players.filter((p) => !dead.includes(p.id));
-        if (alive.length < 1) return;
+         useEffect(() => {
+             if (!ready || !isHost() || rolesAssigned || phase !== "day") return;
 
-        // Cycle through role list; if more players than roles -> repeat
-        alive.forEach((p, i) => {
-            const role = ROLES[i % ROLES.length];
-            p.setState("role", role, true);
-        });
+             const alive = players.filter((p) => !dead.includes(p.id));
+             if (alive.length < 1) return;
 
-        setRolesAssigned(true, true);
-        hostAppendEvent(setEvents, `Crew roles assigned (${alive.length}).`);
-    }, [ready, phase, rolesAssigned, players, dead, setRolesAssigned, setEvents]);
+             let idx = 0;
+             let changed = false;
+
+             alive.forEach((p) => {
+                 const current = p.getState?.("role");
+                 if (!current) {
+                     const role = ROLES[idx % ROLES.length];
+                     p.setState?.("role", role, true);
+                     idx++;
+                     changed = true;
+                 }
+             });
+
+             setRolesAssigned(true, true); // mark done whether we changed or not
+             if (changed) hostAppendEvent(setEvents, `Crew roles filled for unassigned players.`);
+         }, [ready, phase, rolesAssigned, players, dead, setRolesAssigned, setEvents, isHost]);
+
 
     /* ---------------------------------------------
      Host: Process player actions (REPAIR only for now)
     --------------------------------------------- */
     const processedRef = useRef(new Map());
     useEffect(() => {
-        if (!ready || !isHost()) return;
+        if (!ready || !isHost() || !inGame) return;
 
         const applyDelta = (key, delta) => {
             if (key === "oxygen") setOxygen((v) => clamp01(v + delta), true);
@@ -138,7 +155,7 @@ export default function App() {
         }, 150);
 
         return () => clearInterval(id);
-    }, [ready, players, dead, setOxygen, setPower, setCCTV, setEvents]);
+    }, [ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents]);
 
     /* ---------------------------------------------
      Host: Phase transitions
@@ -196,14 +213,8 @@ export default function App() {
     /* ---------------------------------------------
      UI
     --------------------------------------------- */
-    if (!ready) {
-        return (
-            <Centered>
-                <h2>Opening lobby… (host clicks Launch)</h2>
-            </Centered>
-        );
-    }
-
+         if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
+         if (!inGame) return <Lobby />; // ← show Party / Invite / Launch
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
             <TopBar phase={phase} timer={timer} players={players.filter((p) => !dead.includes(p.id)).length} />
