@@ -71,22 +71,23 @@ export default function App() {
      }, [ready, inGame, setTimer]);
 
     /* ---------------------------------------------
-     Host: Day ticker message + end-of-game check
-    --------------------------------------------- */
-     useEffect(() => {
-             if (!ready || !isHost()) return;
-         useEffect(() => {
-                 if (!ready || !isHost() || !inGame) return;
-            if (dayNumber !== prevDayRef.current) {
-                hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
-                prevDayRef.current = dayNumber;
+    Host: Day ticker message + end-of-game check
+   --------------------------------------------- */
+    useEffect(() => {
+        if (!ready || !isHost() || !inGame) return;
 
-                if (dayNumber > maxDays) {
-                    hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
-                }
+        if (dayNumber !== prevDayRef.current) {
+            hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
+            prevDayRef.current = dayNumber;
+
+            if (dayNumber > maxDays) {
+                hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
+                // Optional end transition:
+                // setPhase("end", true); setTimer(0, true);
             }
-            
-          }, [ready, inGame, dayNumber, maxDays, setEvents]);
+        }
+    }, [ready, inGame, dayNumber, maxDays, setEvents]);
+
 
 
     /* ---------------------------------------------
@@ -113,7 +114,8 @@ export default function App() {
 
              setRolesAssigned(true, true); // mark done whether we changed or not
              if (changed) hostAppendEvent(setEvents, `Crew roles filled for unassigned players.`);
-         }, [ready, phase, rolesAssigned, players, dead, setRolesAssigned, setEvents, isHost]);
+         }, [ready, phase, rolesAssigned, players, dead, setRolesAssigned, setEvents]);
+
 
 
     /* ---------------------------------------------
