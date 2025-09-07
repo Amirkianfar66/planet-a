@@ -13,7 +13,18 @@ import {
 const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
 
-/** Canvas-text label → plane texture laid on floor */
+/* ---------------- Role styling ------------------ */
+const ROLE_STYLE = {
+    'Engineer': { accent: '#FF8D3A', prop: 'tablet' },
+    'Research': { accent: '#27C9B8', prop: 'tablet' },
+    'Station Director': { accent: '#FFC83D', prop: 'tablet' },
+    'Officer': { accent: '#3A7BFF', prop: 'tablet' },
+    'Guard': { accent: '#2B3A67', prop: 'shield' },
+    'Food Supplier': { accent: '#6BCB77', prop: 'crate' },
+};
+const DEFAULT_STYLE = { accent: '#68c7ff', prop: 'tablet' };
+
+/* ---------- Canvas-text floor label ----------- */
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = '#cfe7ff', outline = '#0d1117' }) {
     const { texture, aspect } = useMemo(() => {
         const canvas = document.createElement('canvas');
@@ -42,25 +53,185 @@ function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = '#cfe7ff'
     );
 }
 
-function SimpleAstronaut({ color = 'deepskyblue' }) {
+/* --------- Billboard (faces camera) ---------- */
+function Billboard({ position = [0, 0, 0], children }) {
+    const ref = useRef();
+    const { camera } = useThree();
+    useFrame(() => {
+        if (ref.current) ref.current.quaternion.copy(camera.quaternion);
+    });
+    return <group ref={ref} position={position}>{children}</group>;
+}
+
+/* --------- Name + role floating tag ---------- */
+function NameTag({ name = 'Anon', role = 'Crew', accent = '#68c7ff', position = [0, 2.2, 0] }) {
+    const texture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // bg pill
+        ctx.fillStyle = 'rgba(20,26,34,0.85)';
+        const r = 26, w = canvas.width - 8, h = 120, x = 4, y = 36;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
+
+        // name
+        ctx.font = '700 56px ui-sans-serif, system-ui';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, canvas.width / 2, 92);
+
+        // role
+        ctx.font = '500 40px ui-sans-serif, system-ui';
+        ctx.fillStyle = accent;
+        ctx.fillText(role, canvas.width / 2, 140);
+
+        // tiny dot
+        ctx.fillStyle = accent;
+        ctx.beginPath(); ctx.arc(44, 44, 10, 0, Math.PI * 2); ctx.fill();
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        return tex;
+    }, [name, role, accent]);
+
+    return (
+        <Billboard position={position}>
+            <mesh>
+                <planeGeometry args={[1.8, 0.7]} />
+                <meshBasicMaterial map={texture} transparent />
+            </mesh>
+        </Billboard>
+    );
+}
+
+/* -------------- Simple 3D “chibi” astronaut --------------- */
+function Astronaut3D({ accent = '#68c7ff', prop = 'tablet', showName = true, name = 'Anon', role = 'Crew' }) {
+    const suit = '#e8edf6';
+    const white = '#ffffff';
+    const dark = '#111318';
+
+    /* right-hand prop */
+    const RightProp = () => {
+        if (prop === 'shield') {
+            return (
+                <group position={[0.55, 1.0, 0.25]} rotation={[0, -Math.PI / 10, 0]}>
+                    <mesh>
+                        <boxGeometry args={[0.02, 0.9, 0.6]} /><meshStandardMaterial color={dark} />
+                    </mesh>
+                    <mesh position={[0.05, 0, 0]}>
+                        <boxGeometry args={[0.5, 0.8, 0.06]} />
+                        <meshStandardMaterial color={'#dfe5ee'} />
+                    </mesh>
+                </group>
+            );
+        }
+        if (prop === 'crate') {
+            return (
+                <group position={[0.6, 0.9, 0.2]}>
+                    <mesh>
+                        <boxGeometry args={[0.6, 0.5, 0.4]} />
+                        <meshStandardMaterial color={'#ff5a5a'} />
+                    </mesh>
+                    <mesh position={[0, 0.18, 0.21]}>
+                        <boxGeometry args={[0.62, 0.08, 0.04]} />
+                        <meshStandardMaterial color={dark} />
+                    </mesh>
+                </group>
+            );
+        }
+        // tablet
+        return (
+            <group position={[0.6, 1.0, 0.18]}>
+                <mesh>
+                    <boxGeometry args={[0.5, 0.35, 0.04]} />
+                    <meshStandardMaterial color={'#dfe5ee'} />
+                </mesh>
+                <mesh position={[0, 0, 0.025]}>
+                    <planeGeometry args={[0.42, 0.26]} />
+                    <meshBasicMaterial color={accent} />
+                </mesh>
+            </group>
+        );
+    };
+
     return (
         <group>
-            <mesh position={[0, 0.6, 0]}>
-                <cylinderGeometry args={[0.35, 0.35, 1.2, 16]} />
-                <meshStandardMaterial color={color} />
+            {/* body */}
+            <mesh position={[0, 0.75, 0]}>
+                <boxGeometry args={[0.9, 1.1, 0.45]} />
+                <meshStandardMaterial color={suit} />
             </mesh>
-            <mesh position={[0, 1.35, 0]}>
-                <sphereGeometry args={[0.3, 16, 16]} />
-                <meshStandardMaterial color={color} />
+            {/* belt */}
+            <mesh position={[0, 0.4, 0]}>
+                <boxGeometry args={[0.92, 0.12, 0.48]} />
+                <meshStandardMaterial color={accent} />
             </mesh>
-            <mesh position={[0, 1.35, 0.32]}>
-                <sphereGeometry args={[0.06, 12, 12]} />
-                <meshStandardMaterial color="white" />
+            {/* legs */}
+            <mesh position={[-0.22, 0.2, 0]}>
+                <boxGeometry args={[0.34, 0.4, 0.44]} />
+                <meshStandardMaterial color={suit} />
             </mesh>
+            <mesh position={[0.22, 0.2, 0]}>
+                <boxGeometry args={[0.34, 0.4, 0.44]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            {/* stripes */}
+            <mesh position={[-0.22, 0.3, 0.23]}>
+                <boxGeometry args={[0.32, 0.04, 0.02]} />
+                <meshStandardMaterial color={accent} />
+            </mesh>
+            <mesh position={[0.22, 0.3, 0.23]}>
+                <boxGeometry args={[0.32, 0.04, 0.02]} />
+                <meshStandardMaterial color={accent} />
+            </mesh>
+
+            {/* head */}
+            <mesh position={[0, 1.45, 0]}>
+                <boxGeometry args={[1.0, 0.7, 0.7]} />
+                <meshStandardMaterial color={white} />
+            </mesh>
+            {/* visor */}
+            <mesh position={[0, 1.45, 0.36]}>
+                <planeGeometry args={[0.8, 0.42]} />
+                <meshBasicMaterial color={dark} />
+            </mesh>
+            {/* ear pods */}
+            <mesh position={[-0.56, 1.45, 0]}>
+                <boxGeometry args={[0.18, 0.28, 0.28]} />
+                <meshStandardMaterial color={accent} />
+            </mesh>
+            <mesh position={[0.56, 1.45, 0]}>
+                <boxGeometry args={[0.18, 0.28, 0.28]} />
+                <meshStandardMaterial color={accent} />
+            </mesh>
+
+            {/* arms */}
+            <mesh position={[-0.6, 0.95, 0]}>
+                <boxGeometry args={[0.22, 0.36, 0.36]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            <mesh position={[0.6, 0.95, 0]}>
+                <boxGeometry args={[0.22, 0.36, 0.36]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+
+            {/* prop in right hand */}
+            <RightProp />
+
+            {/* name tag */}
+            {showName && <NameTag name={name} role={role} accent={accent} position={[0, 2.25, 0]} />}
         </group>
     );
 }
 
+/* ---------------- Floor, zones, walls ---------------- */
 function FloorAndWalls() {
     return (
         <group>
@@ -103,7 +274,7 @@ function FloorAndWalls() {
     );
 }
 
-// Collision vs wall boxes
+/* ---------------- Collision vs walls ---------------- */
 function resolveCollisions(next) {
     for (let pass = 0; pass < 2; pass++) {
         for (const b of wallAABBs) {
@@ -128,7 +299,7 @@ function resolveCollisions(next) {
     return next;
 }
 
-/** Local player controller + facing (yaw) + network sync */
+/* ---------------- Local controller + yaw sync ---------------- */
 function LocalMover() {
     const keys = useRef({});
     const [pos, setPos] = useState(() => getMyPos());
@@ -136,7 +307,7 @@ function LocalMover() {
     const dragging = useRef(false);
     const lastX = useRef(0);
 
-    // Input listeners (keyboard + right-mouse drag to rotate camera/yaw)
+    // keyboard + right mouse drag to rotate
     useEffect(() => {
         const down = e => (keys.current[e.key.toLowerCase()] = true);
         const up = e => (keys.current[e.key.toLowerCase()] = false);
@@ -146,9 +317,9 @@ function LocalMover() {
             if (!dragging.current) return;
             const dx = e.clientX - lastX.current;
             lastX.current = e.clientX;
-            yawRef.current -= dx * 0.003; // sensitivity
+            yawRef.current -= dx * 0.003;
         };
-        const cm = (e) => { if (dragging.current) e.preventDefault(); }; // disable context menu while dragging
+        const cm = (e) => { if (dragging.current) e.preventDefault(); };
         window.addEventListener('keydown', down);
         window.addEventListener('keyup', up);
         window.addEventListener('mousedown', md);
@@ -168,11 +339,11 @@ function LocalMover() {
     useFrame((_, dt) => {
         if (!dt) return;
 
-        // Q/E rotate (in addition to mouse)
+        // Q/E rotate (plus mouse)
         if (keys.current['q']) yawRef.current += 1.5 * dt;
         if (keys.current['e']) yawRef.current -= 1.5 * dt;
 
-        // Movement relative to yaw (W/S forward/back, A/D strafe)
+        // movement relative to yaw
         const forward = new THREE.Vector3(Math.sin(yawRef.current), 0, Math.cos(yawRef.current));
         const right = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current));
 
@@ -181,33 +352,34 @@ function LocalMover() {
         if (keys.current['s']) move.sub(forward);
         if (keys.current['d']) move.add(right);
         if (keys.current['a']) move.sub(right);
+
         if (move.lengthSq() > 0) {
             move.normalize().multiplyScalar(SPEED * dt);
             const next = { x: pos.x + move.x, y: pos.y, z: pos.z + move.z };
             resolveCollisions(next);
-            // keep within outer bounds
+            // bounds
             const m = WALL_THICKNESS + PLAYER_RADIUS + 0.05;
             next.x = Math.max(-FLOOR.w / 2 + m, Math.min(FLOOR.w / 2 - m, next.x));
             next.z = Math.max(-FLOOR.d / 2 + m, Math.min(FLOOR.d / 2 - m, next.z));
 
             setPos(next);
             setMyPos(next.x, next.y, next.z);
-            // Face movement direction (optional): blend towards camera-forward
+
+            // face move direction (blend)
             const targetYaw = Math.atan2(move.x, move.z);
-            const blend = 0.25; // smoothing
             const a = yawRef.current, b = targetYaw;
             const shortest = Math.atan2(Math.sin(b - a), Math.cos(b - a));
-            yawRef.current = a + shortest * blend;
+            yawRef.current = a + shortest * 0.25;
         }
 
-        // Broadcast yaw (unreliable is fine)
+        // broadcast yaw
         myPlayer().setState('yaw', yawRef.current, false);
     });
 
     return null;
 }
 
-/** Third-person camera following the local player */
+/* ---------------- Third-person camera ---------------- */
 function ThirdPersonCamera() {
     const { camera } = useThree();
     const curPos = useRef(new THREE.Vector3(0, 5, 8));
@@ -219,38 +391,47 @@ function ThirdPersonCamera() {
         const z = Number(p.getState('z') ?? 0);
         const yaw = Number(p.getState('yaw') ?? 0);
 
-        const height = 3.0;      // camera height above player
-        const distance = 6.0;    // camera distance behind player
+        const height = 3.0;
+        const distance = 6.0;
 
-        // behind vector (opposite of forward)
         const behind = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(distance);
         const desired = new THREE.Vector3(x, y + 1.2 + height, z).add(behind);
 
-        // smooth camera
         curPos.current.lerp(desired, 0.12);
         camera.position.copy(curPos.current);
 
-        // look at player chest
         lookAt.current.set(x, y + 1.2, z);
         camera.lookAt(lookAt.current);
     });
     return null;
 }
 
+/* ---------------- Players renderer ---------------- */
 function Players({ dead = [] }) {
     const players = usePlayersList(true);
     return (
         <>
             {players.map((p) => {
                 if (dead.includes(p.id)) return null;
+
                 const x = Number(p.getState('x') ?? 0);
                 const y = Number(p.getState('y') ?? 0);
                 const z = Number(p.getState('z') ?? 0);
                 const yaw = Number(p.getState('yaw') ?? 0);
-                const color = myPlayer().id === p.id ? '#ff6ec7' : '#68c7ff';
+
+                const profileName = p.getProfile().name || ('Player ' + p.id.slice(0, 4));
+                const role = String(p.getState('role') || 'Crew');
+                const style = ROLE_STYLE[role] || DEFAULT_STYLE;
+
                 return (
                     <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
-                        <SimpleAstronaut color={color} />
+                        <Astronaut3D
+                            accent={style.accent}
+                            prop={style.prop}
+                            name={profileName}
+                            role={role}
+                            showName={true}
+                        />
                     </group>
                 );
             })}
@@ -258,6 +439,7 @@ function Players({ dead = [] }) {
     );
 }
 
+/* ---------------- Root canvas ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
         <Canvas camera={{ position: [0, 8, 10], fov: 50 }}>
