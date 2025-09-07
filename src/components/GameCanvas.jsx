@@ -1,15 +1,13 @@
-// src/components/GameCanvas.jsx
 import { Canvas, useFrame } from '@react-three/fiber';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { myPlayer, usePlayersList } from 'playroomkit';
 import { getMyPos, setMyPos } from '../network/playroom';
 import { FLOOR, WALL_THICKNESS, WALL_HEIGHT, walls, wallAABBs } from '../map/deckA';
 
-const SPEED = 4;           // m/s
+const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
 
 function SimpleAstronaut({ color = 'deepskyblue' }) {
-    // Body (cylinder) + head (sphere)
     return (
         <group>
             <mesh position={[0, 0.6, 0]}>
@@ -20,7 +18,6 @@ function SimpleAstronaut({ color = 'deepskyblue' }) {
                 <sphereGeometry args={[0.3, 16, 16]} />
                 <meshStandardMaterial color={color} />
             </mesh>
-            {/* Facing indicator (small nose) */}
             <mesh position={[0, 1.35, 0.32]}>
                 <sphereGeometry args={[0.06, 12, 12]} />
                 <meshStandardMaterial color="white" />
@@ -33,13 +30,13 @@ function FloorAndWalls() {
     return (
         <group>
             {/* Floor */}
-            <mesh rotation-x={-Math.PI / 2} receiveShadow>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#1a1f29" />
             </mesh>
 
-            {/* Room hints (light grid lines) */}
-            <mesh rotation-x={-Math.PI / 2} position={[0, 0.001, 0]}>
+            {/* Grid overlay */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 18, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.15} />
             </mesh>
@@ -55,32 +52,24 @@ function FloorAndWalls() {
     );
 }
 
-// Simple AABB collision resolve against wall boxes
 function resolveCollisions(next) {
-    // We'll run two passes for corners
     for (let pass = 0; pass < 2; pass++) {
         for (const b of wallAABBs) {
             const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
             const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
             if (!(insideX && insideZ)) continue;
 
-            // Compute overlap on each axis
             const dxLeft = (next.x - (b.minX - PLAYER_RADIUS));
             const dxRight = ((b.maxX + PLAYER_RADIUS) - next.x);
             const dzTop = (next.z - (b.minZ - PLAYER_RADIUS));
             const dzBottom = ((b.maxZ + PLAYER_RADIUS) - next.z);
 
-            // Choose the shallowest axis to push out
             const minXPen = Math.min(dxLeft, dxRight);
             const minZPen = Math.min(dzTop, dzBottom);
             if (minXPen < minZPen) {
-                // push along X
-                if (dxLeft < dxRight) next.x = (b.minX - PLAYER_RADIUS);
-                else next.x = (b.maxX + PLAYER_RADIUS);
+                next.x = dxLeft < dxRight ? (b.minX - PLAYER_RADIUS) : (b.maxX + PLAYER_RADIUS);
             } else {
-                // push along Z
-                if (dzTop < dzBottom) next.z = (b.minZ - PLAYER_RADIUS);
-                else next.z = (b.maxZ + PLAYER_RADIUS);
+                next.z = dzTop < dzBottom ? (b.minZ - PLAYER_RADIUS) : (b.maxZ + PLAYER_RADIUS);
             }
         }
     }
@@ -90,7 +79,7 @@ function resolveCollisions(next) {
 function LocalMover() {
     const keys = useRef({});
     const [pos, setPos] = useState(() => getMyPos());
-    const yawRef = useRef(0); // radians
+    const yawRef = useRef(0);
 
     useEffect(() => {
         const down = e => (keys.current[e.key.toLowerCase()] = true);
@@ -114,24 +103,18 @@ function LocalMover() {
             const nx = dir.x / len, nz = dir.z / len;
             next.x += nx * SPEED * dt;
             next.z += nz * SPEED * dt;
-
-            // Rotate to face movement direction
-            yawRef.current = Math.atan2(nx, nz); // y-rotation (radians)
+            yawRef.current = Math.atan2(nx, nz);
         }
 
-        // Wall collisions
         next = resolveCollisions(next);
 
-        // Keep inside floor bounds (little margin so we don't clip outer wall)
         const m = WALL_THICKNESS + PLAYER_RADIUS + 0.05;
         next.x = Math.max(-FLOOR.w / 2 + m, Math.min(FLOOR.w / 2 - m, next.x));
         next.z = Math.max(-FLOOR.d / 2 + m, Math.min(FLOOR.d / 2 - m, next.z));
 
-        // Commit locally + sync
         if (next.x !== pos.x || next.z !== pos.z) {
             setPos(next);
             setMyPos(next.x, next.y, next.z);
-            // send yaw (unreliable is fine)
             myPlayer().setState('yaw', yawRef.current, false);
         }
     });
@@ -165,7 +148,6 @@ export default function GameCanvas({ dead = [] }) {
         <Canvas camera={{ position: [0, 10, 12], fov: 50 }}>
             <ambientLight intensity={0.7} />
             <directionalLight position={[5, 10, 3]} intensity={1} />
-
             <FloorAndWalls />
             <Players dead={dead} />
             <LocalMover />
