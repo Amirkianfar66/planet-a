@@ -64,11 +64,6 @@ export default function Lobby() {
     const [, setRolesAssigned] = useRolesAssigned();
     const [tab, setTab] = useState('party');
 
-    // ⏱️ control day start on launch + let App refill missing roles
-    const [, setTimer] = useTimer();
-    const { dayLength } = useLengths();
-    const [, setRolesAssigned] = useRolesAssigned();
-
     // Parse team param from URL to auto-join when arriving via invite
     React.useEffect(() => {
         const params = new URLSearchParams(window.location.search);
