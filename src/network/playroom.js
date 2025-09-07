@@ -1,33 +1,24 @@
 import { insertCoin, useMultiplayerState, myPlayer, isHost } from 'playroomkit';
 
-export async function openLobby() {
-  await insertCoin({
-    maxPlayersPerRoom: 12,
-    defaultStates: {
-      phase: 'day',
-      timer: 60,
-      dayLength: 60,
-      meetingLength: 30,
-      nightLength: 45,
-      oxygen: 100,
-      power: 100,
-      cctv: 100,
-      dead: [],
-      events: [],
-      rolesAssigned: false
-    },
-    defaultPlayerStates: {
-      x: 0, y: 0, z: 0,
-      name: '',
-      role: 'crew',
-      vote: '',
-      reqId: 0,
-      reqType: '',
-      reqTarget: '',
-      reqValue: 0
-    },
-  });
-}
+ export async function openLobby() {
+   await insertCoin({
+     maxPlayersPerRoom: 12,
+     defaultStates: {
+@@
+     },
+     defaultPlayerStates: {
+       x: 0, y: 0, z: 0,
+       name: '',
+       role: 'crew',
++      yaw: 0,           // radians, for character facing
+       vote: '',
+       reqId: 0,
+       reqType: '',
+       reqTarget: '',
+       reqValue: 0
+     },
+   });
+ }
 
 export function usePhase() { return useMultiplayerState('phase', 'day'); }
 export function useTimer() { return useMultiplayerState('timer', 60); }
