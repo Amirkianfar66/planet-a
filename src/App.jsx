@@ -240,8 +240,8 @@ export default function App() {
 
                  {phase === "meeting" && !dead.includes(myPlayer().id) && <VotePanel dead={dead} />}
              </div>
-         );
-     } // ← CLOSE App component cleanly here
+         );               // ✅ close the big `return ( ... )`
+     }                // ✅ close `export default function App() { ... }` right here
 
 // -------------------------------------------------------
 // UI bits
