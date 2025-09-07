@@ -59,6 +59,9 @@ export default function Lobby() {
     const players = usePlayersList(true); // include self
     const iAmHost = isHost?.() ?? false;
     const [phase, setPhase] = usePhase();
+    const [, setTimer] = useTimer();
+    const { dayLength } = useLengths();
+    const [, setRolesAssigned] = useRolesAssigned();
     const [tab, setTab] = useState('party');
 
     // ⏱️ control day start on launch + let App refill missing roles
@@ -197,15 +200,13 @@ export default function Lobby() {
 
     const onLaunch = useCallback(() => {
         if (!iAmHost) return;
-        if (!canLaunch) {
-            alert('Teams not ready yet.');
-            return;
-        }
-        // ✅ Let App fill any missing roles, and start Day 1
+        if (!canLaunch) { alert('Teams not ready yet.'); return; }
+
+        // Start game at Day 1 and allow App to fill any missing roles
         setRolesAssigned(false, true);
         setPhase('day', true);
         setTimer(dayLength, true);
-    }, [iAmHost, canLaunch, setPhase, setTimer, dayLength, setRolesAssigned]);
+    }, [iAmHost, canLaunch, setRolesAssigned, setPhase, setTimer, dayLength]);
 
     const showInviteTab = iAmHost || myIsLeader;
 
