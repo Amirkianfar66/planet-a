@@ -7,6 +7,10 @@ import {
 } from './network/playroom';
 import { isHost, myPlayer, usePlayersList } from 'playroomkit';
 
+// ✅ Step 4: mount the 24h HUD + host debug panel
+import DayNightHUD from './ui/DayNightHUD';
+import TimeDebugPanel from './ui/TimeDebugPanel';
+
 export default function App() {
     const [ready, setReady] = useState(false);
     const players = usePlayersList(true);
@@ -128,6 +132,13 @@ export default function App() {
             <TopBar phase={phase} timer={timer} players={players.filter(p => !dead.includes(p.id)).length} />
             <div style={{ position: 'relative' }}>
                 <GameCanvas dead={dead} />
+
+                {/* ✅ Day/Night 24h HUD */}
+                <DayNightHUD />
+
+                {/* ✅ Host-only time debug panel */}
+                {isHost() && <TimeDebugPanel />}
+
                 <MetersPanel
                     phase={phase}
                     oxygen={oxygen} power={power} cctv={cctv}
