@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import GameCanvas from "./components/GameCanvas";
 import {
     usePhase, useTimer, useLengths,
@@ -26,10 +26,8 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// extracted UI (NO MetersPanel / TeamChatPanel here)
+// extracted UI (HUD is the only overlay now)
 import { TopBar, EventsFeed, VotePanel, Centered } from "./ui";
-
-// HUD = single source overlay (status, role, chat, backpack)
 import HUD from "./ui/HUD";
 
 export default function App() {
@@ -78,7 +76,23 @@ export default function App() {
     const myId = meP?.id;
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
 
-    // Build the minimal game object HUD needs
+    // Ensure my name & team exist in Playroom state (so HUD’s Role/TeamChat can read them)
+    useEffect(() => {
+        if (!ready) return;
+        const me = myPlayer();
+        if (!me) return;
+
+        if (!me.getState?.("name")) {
+            const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
+            me.setState?.("name", fallback, true);
+        }
+        const currentTeam = me.getState?.("team") || me.getState?.("teamName");
+        if (!currentTeam) {
+            me.setState?.("team", "Team Alpha", true);
+        }
+    }, [ready]);
+
+    // Minimal game object HUD needs
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -86,11 +100,11 @@ export default function App() {
         },
         me: {
             id: myId || "me",
-            backpack: [], // plug your inventory if you have it
+            backpack: [],
             capacity: 8,
-            // NOTE: Role & team are read LIVE inside RolePanel/TeamChatPanel from Playroom
+            // Role & team are read LIVE by RolePanel/TeamChatPanel from Playroom state
         },
-        requestAction, // for HUD buttons: pingObjective, useItem, dropItem, chat
+        requestAction, // for HUD actions (pingObjective, useItem, dropItem, chat)
     };
 
     return (
@@ -106,13 +120,13 @@ export default function App() {
                 {/* You can keep EventsFeed separate from HUD */}
                 <EventsFeed events={events} />
 
-                {/* HUD is the ONLY overlay now (status, role, chat, backpack) */}
+                {/* HUD is the ONLY overlay now (status, role, chat pinned bottom-left, backpack) */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
             </div>
 
-            {matchPhase === "meeting" && !dead.includes(myPlayer().id) && (
+            {matchPhase === "meeting" && !dead.includes(myId) && (
                 <VotePanel dead={dead} />
             )}
         </div>

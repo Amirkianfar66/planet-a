@@ -83,19 +83,26 @@ export default function TeamChatPanel({
         const t = text.trim();
         if (!t) return;
 
-        if (onSend) {
-            onSend(t);
-        } else {
-            // local echo to my player state (so you see it immediately)
-            const now = Date.now();
-            const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, senderId: liveMyId, text: t, ts: now };
-            const key = `chat:${liveTeam}`;
-            const prev = me?.getState?.(key);
-            const next = Array.isArray(prev) ? [...prev, msg] : [msg];
-            me?.setState?.(key, next, true);
-        }
+        const now = Date.now();
+        const msg = {
+            id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
+            senderId: liveMyId,
+            text: t,
+            ts: now,
+        };
+
+        // local optimistic echo into Playroom state (and broadcast)
+        const key = `chat:${liveTeam}`;
+        const prev = me?.getState?.(key);
+        const next = Array.isArray(prev) ? [...prev, msg] : [msg];
+        me?.setState?.(key, next, true);
+
+        // still fire your network action if provided
+        onSend?.(t);
+
         setText("");
     };
+
 
     const namesLine = roster.length
         ? roster.map((m) => `${m.name}${m.role ? ` (${m.role})` : ""}`).join(", ")
