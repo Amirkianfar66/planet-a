@@ -2,7 +2,9 @@
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
-
+import ItemsAndDevices from "../world/ItemsAndDevices";
+import ItemsHostLogic from "../systems/ItemsHostLogic";
+import InteractionSystem from "../systems/InteractionSystem";
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls
@@ -11,6 +13,9 @@ import {
 import Players3D from "./Players3D";
 import LocalController from "../systems/LocalController";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera";
+import ItemsAndDevices from "../world/ItemsAndDevices";
+import ItemsHostLogic from "../systems/ItemsHostLogic";
+import InteractionSystem from "../systems/InteractionSystem";
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
@@ -85,20 +90,30 @@ function FloorAndWalls() {
 /* ---------------- Root canvas ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
-        <Canvas camera={{ position: [0, 8, 10], fov: 50 }}>
+        <Canvas shadows camera={{ position: [0, 8, 10], fov: 50 }}>
             <ambientLight intensity={0.7} />
             <directionalLight position={[5, 10, 3]} intensity={1} />
 
             <FloorAndWalls />
 
-            {/* Networked players with role components; receives spd/air props */}
+            {/* Items & devices in the world */}
+            <ItemsAndDevices />
+
+            {/* Players (role components) */}
             <Players3D dead={dead} />
 
-            {/* Local input + physics -> broadcasts yaw/spd/air */}
+            {/* Local input + physics → broadcasts yaw/spd/air */}
             <LocalController />
 
-            {/* Smooth follow camera */}
+            {/* Follow cam */}
             <ThirdPersonCamera />
+
+            {/* Host: process pickup/throw/use + item physics */}
+            <ItemsHostLogic />
+
+            {/* All clients: keybinds + context hint HUD */}
+            <InteractionSystem />
         </Canvas>
+
     );
 }

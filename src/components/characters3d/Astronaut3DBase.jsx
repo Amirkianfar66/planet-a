@@ -75,16 +75,7 @@ function NameTag({ name = "Anon", role = "Crew", accent = "#68c7ff", position = 
 }
 
 /* ---------- base character with animation ---------- */
-export default function Astronaut3DBase({
-    suit = "#68C7FF",
-    prop = "tablet",               // 'wrench' | 'syringe' | 'controller' | 'tablet' | 'gun' | 'backpack'
-    name = "Anon",
-    role = "Crew",
-    showName = true,
-    bob = true,
-    speed = 0,                    // horizontal speed (units/sec) from network
-    airborne = false,             // true while jumping/falling
-}) {
+export default function Astronaut3DBase({ suit, prop, name, role, showName, bob, speed, airborne, carry }) {
     const visor = "#0f1216";
     const secondary = useMemo(() => secondaryFromSuit(suit), [suit]);
 
@@ -205,6 +196,31 @@ export default function Astronaut3DBase({
                 return null;
         }
     };
+    // inside Astronaut3DBase.jsx (near RightProp)
+
+    function CarryProp({ type }) {
+        if (!type) return null;
+        switch (type) {
+            case "food":
+                return <mesh><boxGeometry args={[0.28, 0.22, 0.28]} /><meshStandardMaterial color="#ff9f43" /></mesh>;
+            case "battery":
+                return <mesh><cylinderGeometry args={[0.14, 0.14, 0.32, 12]} /><meshStandardMaterial color="#22c5b4" /></mesh>;
+            case "o2can":
+                return <mesh><cylinderGeometry args={[0.18, 0.18, 0.44, 14]} /><meshStandardMaterial color="#9bd1ff" /></mesh>;
+            case "fuel":
+                return <mesh><boxGeometry args={[0.1, 0.52, 0.1]} /><meshStandardMaterial color="#a78bfa" /></mesh>;
+            default:
+                return null;
+        }
+    }
+
+    // ...inside the returned <group> of the character, after the right arm group:
+    <group position={[-0.6, 1.0, 0]}>
+        {/* left hand carry mount */}
+        <group position={[0, -0.12, 0.18]}>
+            <CarryProp type={/* new prop */ (props.carry || "")} />
+        </group>
+    </group>
 
     return (
         <group ref={root}>
