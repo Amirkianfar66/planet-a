@@ -10,7 +10,7 @@ const TEAMS = [
 ];
 
 // Customize roles here
-const ROLES = ['Engineer', 'Research', 'StationDirector', 'Officer 'Guard', 'FoodSupplier'];
+const ROLES = ['Engineer', 'Research', 'StationDirector', 'Officer', 'Guard', 'FoodSupplier'];
 
 // --- launch rules (flip as you like) ---
 const REQUIRE_ROLE_FOR_ALL = true;  // everyone must pick a role before launch
