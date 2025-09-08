@@ -28,7 +28,7 @@ import {
 } from "./game/timePhaseEffects";
 
 // extracted UI (HUD is the only overlay now)
-import { TopBar, EventsFeed, VotePanel, Centered } from "./ui";
+import { TopBar, VotePanel, Centered } from "./ui";
 import HUD from "./ui/HUD";
 
 export default function App() {
@@ -123,13 +123,13 @@ export default function App() {
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
-            <TopBar phase={phaseLabel} timer={timer} players={aliveCount} />
+            <TopBar phase={phaseLabel} timer={timer} players={aliveCount} events={events} />
 
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
                 {isHost() && <TimeDebugPanel />}
 
-                <EventsFeed events={events} />
+               
 
                 {/* HUD: status, role, backpack + chat pinned bottom-left */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
