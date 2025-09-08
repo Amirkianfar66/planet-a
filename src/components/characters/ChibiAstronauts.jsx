@@ -1,409 +1,473 @@
-﻿import React from "react";
+﻿// src/components/GameCanvas.jsx
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { myPlayer, usePlayersList } from 'playroomkit';
+import { getMyPos, setMyPos } from '../network/playroom';
+import {
+    FLOOR, WALL_THICKNESS, WALL_HEIGHT,
+    OUTSIDE_AREA, STATION_AREA, ROOMS,
+    walls, wallAABBs
+} from '../map/deckA';
 
-/**
- * Astronaut base — draws the suit, visor, backpack, belt, legs, arms and a prop slot.
- * Role components below just pass different icon/prop builders + accent colors.
- *
- * Props:
- *  - size: px (number) — overall SVG size (default 256)
- *  - accent: hex string — role color
- *  - icon: "wrench" | "molecule" | "star" | "check" | "shield" | "food"
- *  - propType: "tablet" | "shield" | "crate"
- *  - decor: boolean — floating pixels (default true)
- */
-export function Astronaut({
-  size = 256,
-  accent = "#3A7BFF",
-  icon = "check",
-  propType = "tablet",
-  decor = true,
-}) {
-  const stroke = "#1A1A1A";
-  const suit = "#FFFFFF";
-  const panel = "#EDEFF3";
-  const visor = "#2C2F33";
-  const glare = "#A7B3C6";
+const SPEED = 4;
+const PLAYER_RADIUS = 0.35;
 
-  // Helper: chest icon path(s)
-  const ChestIcon = () => {
-    switch (icon) {
-      case "wrench":
-        return (
-          <path
-            d="M13 9l4 4m-1.2-6.4a3.2 3.2 0 11-2.6 2.6L7.6 7.6 5 10.2 4 9.2 6.7 6.5 6.5 4l1-1 2.6 2.6z"
-            fill="none"
-            stroke={stroke}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        );
-      case "molecule":
-        return (
-          <>
-            <circle cx="8" cy="12" r="2" fill={stroke} />
-            <circle cx="16" cy="11" r="2" fill={stroke} />
-            <circle cx="12" cy="7" r="2" fill={stroke} />
-            <path
-              d="M9.8 10.8L11 9m1.2 2.7L14 12m-2.2-3.6l1.4 1.1"
-              stroke={stroke}
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </>
-        );
-      case "star":
-        return (
-          <path
-            d="M12 6l2 4 4 .6-3 2.9.7 4.2L12 15l-3.7 2.7.7-4.2-3-2.9 4-.6z"
-            fill={stroke}
-          />
-        );
-      case "check":
-        return (
-          <path
-            d="M6.5 12.5l3.5 3.5 7-7"
-            fill="none"
-            stroke={stroke}
-            strokeWidth="2.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        );
-      case "shield":
-        return (
-          <path
-            d="M12 6l6 2v4.2c0 3-2.4 5.6-6 7.8-3.6-2.2-6-4.8-6-7.8V8z"
-            fill={stroke}
-          />
-        );
-      case "food":
-        return (
-          <>
-            <path
-              d="M9 14c0-1.7 1.3-3 3-3s3 1.3 3 3-1.3 3-3 3-3-1.3-3-3z"
-              fill={stroke}
-            />
-            <path
-              d="M12 9.2c1.2-1.6 2.2-1.6 3.2 0"
-              fill="none"
-              stroke={stroke}
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </>
-        );
-      default:
-        return null;
-    }
-  };
+/* ---------------- Role styling ------------------ */
+/* Your requested colors:
+   - Engineer: orange
+   - Research: white
+   - Station Director: red
+   - Officer: dark blue
+   - Guard: sky blue
+   - Food Supplier: yellow
+*/
+const ROLE_STYLE = {
+    'Engineer': { accent: '#FF8D3A', prop: 'tablet' },   // orange
+    'Research': { accent: '#FFFFFF', prop: 'tablet' },   // white
+    'Station Director': { accent: '#FF5A5A', prop: 'tablet' },   // red
+    'Officer': { accent: '#1E3A8A', prop: 'tablet' },   // dark blue
+    'Guard': { accent: '#68C7FF', prop: 'shield' },   // sky blue
+    'Food Supplier': { accent: '#FFC83D', prop: 'crate' },    // yellow
+};
+const DEFAULT_STYLE = { accent: '#68C7FF', prop: 'tablet' };
 
-  // Helper: right-hand prop
-  const RightProp = () => {
-    if (propType === "shield") {
-      return (
-        <g transform="translate(170,136)">
-          <rect
-            x="0"
-            y="0"
-            rx="10"
-            ry="10"
-            width="60"
-            height="76"
-            fill={panel}
-            stroke={stroke}
-            strokeWidth="6"
-          />
-          <path
-            d="M30 20l18 6v12c0 9-7.3 16.7-18 23.2-10.7-6.5-18-14.2-18-23.2V26z"
-            fill={accent}
-            stroke={stroke}
-            strokeWidth="4"
-          />
-        </g>
-      );
-    }
-    if (propType === "crate") {
-      return (
-        <g transform="translate(170,148)">
-          <rect
-            x="0"
-            y="0"
-            rx="12"
-            ry="12"
-            width="70"
-            height="64"
-            fill="#FF5A5A"
-            stroke={stroke}
-            strokeWidth="6"
-          />
-          {/* strap */}
-          <rect x="30" y="-8" width="10" height="80" fill={stroke} />
-          {/* food glyph */}
-          <circle cx="35" cy="32" r="12" fill={panel} />
-          <path
-            d="M35 26c4-5 6-5 9 0"
-            fill="none"
-            stroke={stroke}
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </g>
-      );
-    }
-    // default tablet
-    return (
-      <g transform="translate(176,148)">
-        <rect
-          x="0"
-          y="0"
-          rx="10"
-          ry="10"
-          width="64"
-          height="52"
-          fill={panel}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        <path
-          d="M10 34c10-10 20-10 30 0"
-          fill="none"
-          stroke={accent}
-          strokeWidth="6"
-          strokeLinecap="round"
-        />
-        <circle cx="50" cy="40" r="3" fill={accent} />
-      </g>
-    );
-  };
-
-  // Floating confetti/pixels
-  const Decor = () =>
-    decor ? (
-      <g>
-        <rect x="196" y="116" width="10" height="10" fill={accent} />
-        <rect x="216" y="120" width="8" height="8" fill="#FFC83D" />
-        <rect x="206" y="136" width="8" height="8" fill="#8BD3F7" />
-      </g>
-    ) : null;
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 256 256"
-      role="img"
-      aria-label="Astronaut character"
-    >
-      {/* base shadow */}
-      <ellipse cx="128" cy="236" rx="70" ry="10" fill="#000" opacity="0.2" />
-      {/* backpack */}
-      <g transform="translate(44,84)">
-        <rect
-          x="-24"
-          y="10"
-          width="52"
-          height="70"
-          rx="14"
-          ry="14"
-          fill={panel}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        {/* cable */}
-        <path
-          d="M22,24 c38,-26 76,-26 114,0"
-          fill="none"
-          stroke={accent}
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
-      </g>
-
-      {/* head + visor */}
-      <g transform="translate(36,12)">
-        {/* helmet */}
-        <rect
-          x="20"
-          y="8"
-          width="164"
-          height="108"
-          rx="28"
-          ry="28"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        {/* ear pods */}
-        <rect x="2" y="52" width="32" height="28" rx="8" fill={accent} stroke={stroke} strokeWidth="6" />
-        <rect x="170" y="52" width="32" height="28" rx="8" fill={accent} stroke={stroke} strokeWidth="6" />
-        {/* visor */}
-        <rect
-          x="34"
-          y="28"
-          width="136"
-          height="70"
-          rx="18"
-          fill={visor}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        {/* glare */}
-        <rect x="50" y="40" width="18" height="10" rx="4" fill={glare} opacity="0.7" />
-        <rect x="72" y="40" width="12" height="10" rx="4" fill={glare} opacity="0.4" />
-      </g>
-
-      {/* torso */}
-      <g transform="translate(48,120)">
-        <rect
-          x="0"
-          y="0"
-          width="160"
-          height="92"
-          rx="16"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        {/* chest panel */}
-        <g transform="translate(54,18)">
-          <rect
-            x="0"
-            y="0"
-            width="52"
-            height="40"
-            rx="8"
-            fill={accent}
-            stroke={stroke}
-            strokeWidth="6"
-          />
-          <g transform="translate(8,8) scale(1)">
-            <ChestIcon />
-          </g>
-        </g>
-
-        {/* belt */}
-        <rect
-          x="20"
-          y="58"
-          width="120"
-          height="16"
-          rx="8"
-          fill={panel}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        <rect
-          x="92"
-          y="54"
-          width="24"
-          height="24"
-          rx="6"
-          fill={accent}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-      </g>
-
-      {/* arms */}
-      <g transform="translate(36,120)">
-        {/* left arm */}
-        <rect
-          x="0"
-          y="18"
-          width="36"
-          height="24"
-          rx="10"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        <rect x="26" y="18" width="18" height="24" rx="10" fill={panel} stroke={stroke} strokeWidth="6" />
-      </g>
-
-      {/* right arm + prop */}
-      <g transform="translate(174,120)">
-        <rect
-          x="0"
-          y="18"
-          width="36"
-          height="24"
-          rx="10"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        <rect x="-6" y="18" width="18" height="24" rx="10" fill={panel} stroke={stroke} strokeWidth="6" />
-      </g>
-
-      {/* legs */}
-      <g transform="translate(76,212)">
-        <rect
-          x="0"
-          y="0"
-          width="36"
-          height="40"
-          rx="6"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        <rect
-          x="68"
-          y="0"
-          width="36"
-          height="40"
-          rx="6"
-          fill={suit}
-          stroke={stroke}
-          strokeWidth="6"
-        />
-        {/* leg bands pattern */}
-        <rect x="4" y="16" width="28" height="8" rx="4" fill={accent} />
-        <rect x="72" y="16" width="28" height="8" rx="4" fill={accent} />
-      </g>
-
-      {/* prop (right hand) */}
-      <RightProp />
-
-      {/* decor */}
-      <Decor />
-    </svg>
-  );
+/* Ensure accents remain visible against the light suit */
+function shadeHex(hex, amt = -40) {
+    const s = hex.replace('#', '');
+    const num = parseInt(s.length === 3
+        ? s.split('').map(ch => ch + ch).join('')
+        : s, 16);
+    const r = Math.min(255, Math.max(0, ((num >> 16) & 255) + amt));
+    const g = Math.min(255, Math.max(0, ((num >> 8) & 255) + amt));
+    const b = Math.min(255, Math.max(0, (num & 255) + amt));
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function ensureVisibleAccent(hex, suit = '#e8edf6') {
+    // If color is extremely light (like white), darken it for contrast.
+    const c = hex.replace('#', '');
+    const num = parseInt(c.length === 3 ? c.split('').map(ch => ch + ch).join('') : c, 16);
+    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    const l = 0.2126 * r + 0.7152 * g + 0.0722 * b; // relative luminance proxy
+    return l > 220 ? shadeHex(hex, -40) : hex;
 }
 
-/* ------------------- ROLE WRAPPERS ------------------- */
+/* ---------- Canvas-text floor label ----------- */
+function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = '#cfe7ff', outline = '#0d1117' }) {
+    const { texture, aspect } = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = 'bold 120px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 18;
+        ctx.strokeStyle = outline;
+        ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = color;
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        tex.anisotropy = 4;
+        return { texture: tex, aspect: canvas.width / canvas.height };
+    }, [text, color, outline]);
+    const h = width / (aspect || 4);
+    return (
+        <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[width, h]} />
+            <meshBasicMaterial map={texture} transparent depthWrite={false} />
+        </mesh>
+    );
+}
 
-export const Engineer = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#FF8D3A" icon="wrench" propType="tablet" />
-);
+/* --------- Billboard (faces camera) ---------- */
+function Billboard({ position = [0, 0, 0], children }) {
+    const ref = useRef();
+    const { camera } = useThree();
+    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
+    return <group ref={ref} position={position}>{children}</group>;
+}
 
-export const Research = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#27C9B8" icon="molecule" propType="tablet" />
-);
+/* --------- Name + role floating tag ---------- */
+function NameTag({ name = 'Anon', role = 'Crew', accent = '#68c7ff', position = [0, 2.2, 0] }) {
+    const texture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 192;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-export const StationDirector = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#FFC83D" icon="star" propType="tablet" />
-);
+        ctx.fillStyle = 'rgba(20,26,34,0.85)';
+        const r = 26, w = canvas.width - 8, h = 120, x = 4, y = 36;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
-export const Officer = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#3A7BFF" icon="check" propType="tablet" />
-);
+        ctx.font = '700 56px ui-sans-serif, system-ui';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(name, canvas.width / 2, 92);
 
-export const Guard = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#2B3A67" icon="shield" propType="shield" />
-);
+        ctx.font = '500 40px ui-sans-serif, system-ui';
+        ctx.fillStyle = accent;
+        ctx.fillText(role, canvas.width / 2, 140);
 
-export const FoodSupplier = ({ size = 256, decor = true }) => (
-  <Astronaut size={size} decor={decor} accent="#6BCB77" icon="food" propType="crate" />
-);
+        ctx.fillStyle = accent;
+        ctx.beginPath(); ctx.arc(44, 44, 10, 0, Math.PI * 2); ctx.fill();
 
-/* Optional: a simple role registry for dynamic rendering */
-export const ROLE_COMPONENTS = {
-  Engineer,
-  Research,
-  StationDirector,
-  Officer,
-  Guard,
-  FoodSupplier,
-};
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        return tex;
+    }, [name, role, accent]);
+
+    return (
+        <Billboard position={position}>
+            <mesh>
+                <planeGeometry args={[1.8, 0.7]} />
+                <meshBasicMaterial map={texture} transparent />
+            </mesh>
+        </Billboard>
+    );
+}
+
+/* -------------- Simple 3D “chibi” astronaut --------------- */
+function Astronaut3D({ accent = '#68c7ff', prop = 'tablet', showName = true, name = 'Anon', role = 'Crew' }) {
+    const suit = '#e8edf6';   // keep suit neutral + readable
+    const white = '#ffffff';
+    const dark = '#111318';
+
+    // ensure accent is visible against light suit
+    const accentPaint = useMemo(() => ensureVisibleAccent(accent, suit), [accent]);
+
+    /* right-hand prop */
+    const RightProp = () => {
+        if (prop === 'shield') {
+            return (
+                <group position={[0.55, 1.0, 0.25]} rotation={[0, -Math.PI / 10, 0]}>
+                    <mesh>
+                        <boxGeometry args={[0.02, 0.9, 0.6]} /><meshStandardMaterial color={dark} />
+                    </mesh>
+                    <mesh position={[0.05, 0, 0]}>
+                        <boxGeometry args={[0.5, 0.8, 0.06]} />
+                        <meshStandardMaterial color={'#dfe5ee'} />
+                    </mesh>
+                </group>
+            );
+        }
+        if (prop === 'crate') {
+            return (
+                <group position={[0.6, 0.9, 0.2]}>
+                    <mesh>
+                        <boxGeometry args={[0.6, 0.5, 0.4]} />
+                        <meshStandardMaterial color={'#ff5a5a'} />
+                    </mesh>
+                    <mesh position={[0, 0.18, 0.21]}>
+                        <boxGeometry args={[0.62, 0.08, 0.04]} />
+                        <meshStandardMaterial color={dark} />
+                    </mesh>
+                </group>
+            );
+        }
+        // tablet
+        return (
+            <group position={[0.6, 1.0, 0.18]}>
+                <mesh>
+                    <boxGeometry args={[0.5, 0.35, 0.04]} />
+                    <meshStandardMaterial color={'#dfe5ee'} />
+                </mesh>
+                <mesh position={[0, 0, 0.025]}>
+                    <planeGeometry args={[0.42, 0.26]} />
+                    <meshBasicMaterial color={accentPaint} />
+                </mesh>
+            </group>
+        );
+    };
+
+    return (
+        <group>
+            {/* body */}
+            <mesh position={[0, 0.75, 0]}>
+                <boxGeometry args={[0.9, 1.1, 0.45]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            {/* belt */}
+            <mesh position={[0, 0.4, 0]}>
+                <boxGeometry args={[0.92, 0.12, 0.48]} />
+                <meshStandardMaterial color={accentPaint} />
+            </mesh>
+            {/* legs */}
+            <mesh position={[-0.22, 0.2, 0]}>
+                <boxGeometry args={[0.34, 0.4, 0.44]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            <mesh position={[0.22, 0.2, 0]}>
+                <boxGeometry args={[0.34, 0.4, 0.44]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            {/* stripes */}
+            <mesh position={[-0.22, 0.3, 0.23]}>
+                <boxGeometry args={[0.32, 0.04, 0.02]} />
+                <meshStandardMaterial color={accentPaint} />
+            </mesh>
+            <mesh position={[0.22, 0.3, 0.23]}>
+                <boxGeometry args={[0.32, 0.04, 0.02]} />
+                <meshStandardMaterial color={accentPaint} />
+            </mesh>
+
+            {/* head */}
+            <mesh position={[0, 1.45, 0]}>
+                <boxGeometry args={[1.0, 0.7, 0.7]} />
+                <meshStandardMaterial color={white} />
+            </mesh>
+            {/* visor */}
+            <mesh position={[0, 1.45, 0.36]}>
+                <planeGeometry args={[0.8, 0.42]} />
+                <meshBasicMaterial color={dark} />
+            </mesh>
+            {/* ear pods */}
+            <mesh position={[-0.56, 1.45, 0]}>
+                <boxGeometry args={[0.18, 0.28, 0.28]} />
+                <meshStandardMaterial color={accentPaint} />
+            </mesh>
+            <mesh position={[0.56, 1.45, 0]}>
+                <boxGeometry args={[0.18, 0.28, 0.28]} />
+                <meshStandardMaterial color={accentPaint} />
+            </mesh>
+
+            {/* arms */}
+            <mesh position={[-0.6, 0.95, 0]}>
+                <boxGeometry args={[0.22, 0.36, 0.36]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+            <mesh position={[0.6, 0.95, 0]}>
+                <boxGeometry args={[0.22, 0.36, 0.36]} />
+                <meshStandardMaterial color={suit} />
+            </mesh>
+
+            {/* prop in right hand */}
+            <RightProp />
+
+            {/* name tag */}
+            {showName && <NameTag name={name} role={role} accent={accentPaint} position={[0, 2.25, 0]} />}
+        </group>
+    );
+}
+
+/* ---------------- Floor, zones, walls ---------------- */
+function FloorAndWalls() {
+    return (
+        <group>
+            {/* Base floor */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <planeGeometry args={[FLOOR.w, FLOOR.d]} />
+                <meshStandardMaterial color="#141a22" />
+            </mesh>
+
+            {/* Zones */}
+            <mesh position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
+                <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
+            </mesh>
+            <mesh position={[STATION_AREA.x, 0.003, STATION_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[STATION_AREA.w, STATION_AREA.d]} />
+                <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
+            </mesh>
+
+            {/* Grid */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
+                <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
+                <meshBasicMaterial wireframe transparent opacity={0.12} />
+            </mesh>
+
+            {/* Walls */}
+            {walls.map((w, i) => (
+                <mesh key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
+                    <boxGeometry args={[w.w, WALL_HEIGHT, w.d]} />
+                    <meshStandardMaterial color="#3b4a61" />
+                </mesh>
+            ))}
+
+            {/* Labels */}
+            <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
+            {ROOMS.map(r => (
+                <TextLabel key={r.key} text={r.name} position={[r.x, 0.01, r.z]} width={Math.min(r.w * 0.9, 8)} color="#d6eaff" />
+            ))}
+        </group>
+    );
+}
+
+/* ---------------- Collision vs walls ---------------- */
+function resolveCollisions(next) {
+    for (let pass = 0; pass < 2; pass++) {
+        for (const b of wallAABBs) {
+            const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
+            const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
+            if (!(insideX && insideZ)) continue;
+
+            const dxLeft = (next.x - (b.minX - PLAYER_RADIUS));
+            const dxRight = ((b.maxX + PLAYER_RADIUS) - next.x);
+            const dzTop = (next.z - (b.minZ - PLAYER_RADIUS));
+            const dzBottom = ((b.maxZ + PLAYER_RADIUS) - next.z);
+
+            const minXPen = Math.min(dxLeft, dxRight);
+            const minZPen = Math.min(dzTop, dzBottom);
+            if (minXPen < minZPen) {
+                next.x = dxLeft < dxRight ? (b.minX - PLAYER_RADIUS) : (b.maxX + PLAYER_RADIUS);
+            } else {
+                next.z = dzTop < dzBottom ? (b.minZ - PLAYER_RADIUS) : (b.maxZ + PLAYER_RADIUS);
+            }
+        }
+    }
+    return next;
+}
+
+/* ---------------- Local controller + yaw sync ---------------- */
+function LocalMover() {
+    const keys = useRef({});
+    const [pos, setPos] = useState(() => getMyPos());
+    const yawRef = useRef(0);
+    const dragging = useRef(false);
+    const lastX = useRef(0);
+
+    useEffect(() => {
+        const down = e => (keys.current[e.key.toLowerCase()] = true);
+        const up = e => (keys.current[e.key.toLowerCase()] = false);
+        const md = (e) => { if (e.button === 2) { dragging.current = true; lastX.current = e.clientX; } };
+        const mu = (e) => { if (e.button === 2) dragging.current = false; };
+        const mm = (e) => {
+            if (!dragging.current) return;
+            const dx = e.clientX - lastX.current;
+            lastX.current = e.clientX;
+            yawRef.current -= dx * 0.003;
+        };
+        const cm = (e) => { if (dragging.current) e.preventDefault(); };
+        window.addEventListener('keydown', down);
+        window.addEventListener('keyup', up);
+        window.addEventListener('mousedown', md);
+        window.addEventListener('mouseup', mu);
+        window.addEventListener('mousemove', mm);
+        window.addEventListener('contextmenu', cm);
+        return () => {
+            window.removeEventListener('keydown', down);
+            window.removeEventListener('keyup', up);
+            window.removeEventListener('mousedown', md);
+            window.removeEventListener('mouseup', mu);
+            window.removeEventListener('mousemove', mm);
+            window.removeEventListener('contextmenu', cm);
+        };
+    }, []);
+
+    useFrame((_, dt) => {
+        if (!dt) return;
+
+        if (keys.current['q']) yawRef.current += 1.5 * dt;
+        if (keys.current['e']) yawRef.current -= 1.5 * dt;
+
+        const forward = new THREE.Vector3(Math.sin(yawRef.current), 0, Math.cos(yawRef.current));
+        const right = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current));
+
+        let move = new THREE.Vector3();
+        if (keys.current['w']) move.add(forward);
+        if (keys.current['s']) move.sub(forward);
+        if (keys.current['d']) move.add(right);
+        if (keys.current['a']) move.sub(right);
+
+        if (move.lengthSq() > 0) {
+            move.normalize().multiplyScalar(SPEED * dt);
+            const next = { x: pos.x + move.x, y: pos.y, z: pos.z + move.z };
+            resolveCollisions(next);
+            const m = WALL_THICKNESS + PLAYER_RADIUS + 0.05;
+            next.x = Math.max(-FLOOR.w / 2 + m, Math.min(FLOOR.w / 2 - m, next.x));
+            next.z = Math.max(-FLOOR.d / 2 + m, Math.min(FLOOR.d / 2 - m, next.z));
+
+            setPos(next);
+            setMyPos(next.x, next.y, next.z);
+
+            const targetYaw = Math.atan2(move.x, move.z);
+            const a = yawRef.current, b = targetYaw;
+            const shortest = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+            yawRef.current = a + shortest * 0.25;
+        }
+
+        myPlayer().setState('yaw', yawRef.current, false);
+    });
+
+    return null;
+}
+
+/* ---------------- Third-person camera ---------------- */
+function ThirdPersonCamera() {
+    const { camera } = useThree();
+    const curPos = useRef(new THREE.Vector3(0, 5, 8));
+    const lookAt = useRef(new THREE.Vector3());
+    useFrame(() => {
+        const p = myPlayer();
+        const x = Number(p.getState('x') ?? 0);
+        const y = Number(p.getState('y') ?? 0);
+        const z = Number(p.getState('z') ?? 0);
+        const yaw = Number(p.getState('yaw') ?? 0);
+
+        const height = 3.0;
+        const distance = 6.0;
+
+        const behind = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(distance);
+        const desired = new THREE.Vector3(x, y + 1.2 + height, z).add(behind);
+
+        curPos.current.lerp(desired, 0.12);
+        camera.position.copy(curPos.current);
+
+        lookAt.current.set(x, y + 1.2, z);
+        camera.lookAt(lookAt.current);
+    });
+    return null;
+}
+
+/* ---------------- Players renderer ---------------- */
+function Players({ dead = [] }) {
+    const players = usePlayersList(true);
+    return (
+        <>
+            {players.map((p) => {
+                if (dead.includes(p.id)) return null;
+
+                const x = Number(p.getState('x') ?? 0);
+                const y = Number(p.getState('y') ?? 0);
+                const z = Number(p.getState('z') ?? 0);
+                const yaw = Number(p.getState('yaw') ?? 0);
+
+                const profileName = p.getProfile().name || ('Player ' + p.id.slice(0, 4));
+                const role = String(p.getState('role') || 'Crew');
+                const style = ROLE_STYLE[role] || DEFAULT_STYLE;
+
+                return (
+                    <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
+                        <Astronaut3D
+                            accent={style.accent}
+                            prop={style.prop}
+                            name={profileName}
+                            role={role}
+                            showName={true}
+                        />
+                    </group>
+                );
+            })}
+        </>
+    );
+}
+
+/* ---------------- Root canvas ---------------- */
+export default function GameCanvas({ dead = [] }) {
+    return (
+        <Canvas camera={{ position: [0, 8, 10], fov: 50 }}>
+            <ambientLight intensity={0.7} />
+            <directionalLight position={[5, 10, 3]} intensity={1} />
+            <FloorAndWalls />
+            <Players dead={dead} />
+            <LocalMover />
+            <ThirdPersonCamera />
+        </Canvas>
+    );
+}
