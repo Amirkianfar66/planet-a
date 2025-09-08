@@ -1,5 +1,6 @@
 // src/world/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
+import * as THREE from "three"; // <-- needed for CanvasTexture
 import { useFrame, useThree } from "@react-three/fiber";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
