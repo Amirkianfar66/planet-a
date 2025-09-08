@@ -4,25 +4,36 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { myPlayer, usePlayersList } from 'playroomkit';
 import { getMyPos, setMyPos } from '../network/playroom';
+        
 import {
     FLOOR, WALL_THICKNESS, WALL_HEIGHT,
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     walls, wallAABBs
 } from '../map/deckA';
+import { ROLE_COMPONENTS, Engineer as DefaultRole } from "./characters3d";
 
+// inside Players() map:
+const Comp = ROLE_COMPONENTS[role] || DefaultRole;
+return (
+    <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
+        <Comp name={profileName} showName />
+    </group>
+);
 const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
 
 /* ---------------- Role styling ------------------ */
-const ROLE_STYLE = {
-    'Engineer': { accent: '#FF8D3A', prop: 'tablet' },
-    'Research': { accent: '#27C9B8', prop: 'tablet' },
-    'Station Director': { accent: '#FFC83D', prop: 'tablet' },
-    'Officer': { accent: '#3A7BFF', prop: 'tablet' },
-    'Guard': { accent: '#2B3A67', prop: 'shield' },
-    'Food Supplier': { accent: '#6BCB77', prop: 'crate' },
-};
-const DEFAULT_STYLE = { accent: '#68c7ff', prop: 'tablet' };
+// at top of GameCanvas.jsx
+
+
+// inside Players() map:
+const Comp = ROLE_COMPONENTS[role] || DefaultRole;
+return (
+    <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
+        <Comp name={profileName} showName />
+    </group>
+);
+
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = '#cfe7ff', outline = '#0d1117' }) {
