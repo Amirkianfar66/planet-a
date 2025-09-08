@@ -12,7 +12,7 @@ import TimeDebugPanel from "./ui/TimeDebugPanel";
 import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby";
 
-// game effects
+// effects
 import {
     useLobbyReady,
     useDayTicker,
@@ -63,36 +63,38 @@ export default function App() {
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
 
-    function launchGame() {
-        if (!isHost()) return;
-        setPhase("day", true);
-        hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }
-
-    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
-    if (isInLobby) return <Lobby onLaunch={launchGame} />;
-
-    const meP = myPlayer();
-    const myId = meP?.id;
-    const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
-
-    // Ensure my name & team exist in Playroom state (so HUD’s Role/TeamChat can read them)
+    // ✅ ALWAYS call hooks before any early returns
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
         if (!me) return;
 
+        // Ensure display name
         if (!me.getState?.("name")) {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
         }
+        // Ensure team
         const currentTeam = me.getState?.("team") || me.getState?.("teamName");
         if (!currentTeam) {
             me.setState?.("team", "Team Alpha", true);
         }
     }, [ready]);
 
-    // Minimal game object HUD needs
+    function launchGame() {
+        if (!isHost()) return;
+        setPhase("day", true);
+        hostAppendEvent(setEvents, "Mission launch — Day 1");
+    }
+
+    // You can read myId safely (not a hook)
+    const meP = myPlayer();
+    const myId = meP?.id;
+    const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
+
+    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
+    if (isInLobby) return <Lobby onLaunch={launchGame} />;
+
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -102,25 +104,22 @@ export default function App() {
             id: myId || "me",
             backpack: [],
             capacity: 8,
-            // Role & team are read LIVE by RolePanel/TeamChatPanel from Playroom state
+            // Role & team read LIVE in RolePanel/TeamChatPanel
         },
-        requestAction, // for HUD actions (pingObjective, useItem, dropItem, chat)
+        requestAction,
     };
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
-            {/* Top bar with day/night, phase, and meeting timer */}
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} />
 
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
-
                 {isHost() && <TimeDebugPanel />}
 
-                {/* You can keep EventsFeed separate from HUD */}
                 <EventsFeed events={events} />
 
-                {/* HUD is the ONLY overlay now (status, role, chat pinned bottom-left, backpack) */}
+                {/* HUD: status, role, backpack + chat pinned bottom-left */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
