@@ -15,7 +15,7 @@ const ROLES = ['Engineer', 'Medic', 'Scientist', 'Scout', 'Technician', 'Pilot']
 // --- launch rules (flip as you like) ---
 const REQUIRE_ROLE_FOR_ALL = true;  // everyone must pick a role before launch
 const REQUIRE_TEAM_FOR_ALL = true;  // everyone must be in a team
-const REQUIRE_FULL_TEAMS = true; // if true: each team must have exactly 3 players
+const REQUIRE_FULL_TEAMS = false; // if true: each team must have exactly 3 players
 
 // --- helpers to read/write simple per-player state safely ---
 function getPState(p, key, fallback = undefined) {
