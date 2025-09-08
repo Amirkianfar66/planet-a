@@ -1,236 +1,343 @@
-// src/App.jsx
-import React, { useMemo, useState } from 'react';
-import GameCanvas from './components/GameCanvas';
+import React, { useMemo, useRef, useState } from "react";
+import GameCanvas from "./components/GameCanvas";
 import {
-  openLobby, usePhase, useTimer, useLengths,
-  useDead, useEvents, useMeters, useRolesAssigned,
-  requestAction,
-} from './network/playroom';
-import { isHost, myPlayer, usePlayersList } from 'playroomkit';
+    openLobby, usePhase, useTimer, useLengths,
+    useDead, useEvents, useMeters, useRolesAssigned,
+    hostAppendEvent, requestAction,
+} from "./network/playroom";
+import { isHost, myPlayer, usePlayersList } from "playroomkit";
 
-// HUD + Debug
-import DayNightHUD from './ui/DayNightHUD';
-import TimeDebugPanel from './ui/TimeDebugPanel';
-import { useGameClock } from './systems/dayNightClock';
-import Lobby from './components/Lobby';
+// HUD + debug
+import DayNightHUD from "./ui/DayNightHUD";
+import TimeDebugPanel from "./ui/TimeDebugPanel";
+import { useGameClock } from "./systems/dayNightClock";
+import Lobby from "./components/Lobby";
 
-// ✅ NEW: import game effects
+// ⬇️ New: tiny time/phase effects powered by the clock
 import {
-  useLobbyReady,
-  usePhaseCountdown,
-  useDayTicker,
-  useAssignCrewRoles,
-  useProcessActions,
-  usePhaseTransitions,
-} from './game/effects';
+    useSyncPhaseToClock,
+    useMeetingFromClock,
+    useMeetingCountdown,
+} from "./game/timePhaseEffects";
 
+/* -------------------------------------------------------
+   Helpers (unchanged)
+------------------------------------------------------- */
+const ROLES = ["Engineer", "Research", "Station Director", "Officer", "Guard", "Food Supplier"];
+const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
+const clamp01 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+
+/* -------------------------------------------------------
+   App
+------------------------------------------------------- */
 export default function App() {
-  const [ready, setReady] = useState(false);
-  const players = usePlayersList(true);
+    const [ready, setReady] = useState(false);
+    const players = usePlayersList(true);
 
-  // Core state from your playroom hooks
-  const [phase, setPhase] = usePhase();                      // 'day' | 'meeting' | 'night'
-  const inGame = phase === 'day' || phase === 'meeting' || phase === 'night';
+    // Treat this as the shared "match phase".
+    // Values:
+    //   - 'meeting'
+    //   - OR a label mirrored from the clock: 'day' | 'night' (host keeps it in sync)
+    const [phase, setPhase] = usePhase();
 
-  const [timer, setTimer] = useTimer();
-  const { dayLength, meetingLength, nightLength } = useLengths();
+    // For UI gating we can derive the *display label*:
+    const clockPhase = useGameClock((s) => s.phase); // function -> 'day'|'night'
+    const phaseLabel = phase === "meeting" ? "meeting" : clockPhase(); // UI-only label
+    const inGame = phaseLabel === "day" || phaseLabel === "night" || phaseLabel === "meeting";
 
-  const [dead, setDead] = useDead();
-  const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
-  const [events, setEvents] = useEvents();
-  const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
+    const [timer, setTimer] = useTimer(); // used only for meeting
+    const { meetingLength } = useLengths(); // day/night lengths no longer needed here
 
-  // Day counter (from the 24h clock system)
-  const dayNumber = useGameClock((s) => s.dayNumber);
-  const maxDays   = useGameClock((s) => s.maxDays);
+    const [dead, setDead] = useDead();
+    const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
+    const [events, setEvents] = useEvents();
+    const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-  /* ------------------------------
-     Wire up “effects” in one-liners
-  ------------------------------ */
-  useLobbyReady(setReady);
-  usePhaseCountdown({ ready, inGame, setTimer });
-  useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
-  useAssignCrewRoles({ ready, phase, rolesAssigned, players, dead, setRolesAssigned, setEvents });
-  useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-  usePhaseTransitions({
-    ready, timer, phase,
-    meetingLength, nightLength, dayLength,
-    players, dead, setDead, setPhase, setTimer, setEvents,
-  });
+    const dayNumber = useGameClock((s) => s.dayNumber);
+    const maxDays = useGameClock((s) => s.maxDays);
+    const prevDayRef = useRef(dayNumber);
 
-  /* ------------------------------
-     UI
-  ------------------------------ */
-  if (!ready)   return <Centered><h2>Opening lobby…</h2></Centered>;
-  if (!inGame)  return <Lobby />;
+    /* ---------------------------------------------
+       Open lobby -> ready
+    --------------------------------------------- */
+    React.useEffect(() => { (async () => { await openLobby(); setReady(true); })(); }, []);
 
-  return (
-    <div style={{ height: '100dvh', display: 'grid', gridTemplateRows: 'auto 1fr' }}>
-      <TopBar phase={phase} timer={timer} players={players.filter(p => !dead.includes(p.id)).length} />
-      <div style={{ position: 'relative' }}>
-        <GameCanvas dead={dead} />
+    /* ---------------------------------------------
+       Host-only: Sync phase label to clock (no duplication)
+    --------------------------------------------- */
+    useSyncPhaseToClock({ ready, matchPhase: phase, setPhase });
 
-        {/* 24h HUD */}
-        <DayNightHUD />
+    /* ---------------------------------------------
+       Host-only: Meeting at dusk + meeting countdown
+    --------------------------------------------- */
+    useMeetingFromClock({
+        ready,
+        matchPhase: phase,
+        setPhase,
+        timer,
+        setTimer,
+        meetingLength,
+        setEvents,
+    });
+    useMeetingCountdown({ ready, matchPhase: phase, timer, setTimer, setPhase, setEvents });
 
-        {/* Host-only time debug */}
-        {isHost() && <TimeDebugPanel />}
+    /* ---------------------------------------------
+       Day ticker (optional, unchanged)
+    --------------------------------------------- */
+    React.useEffect(() => {
+        if (!ready || !isHost() || !inGame) return;
+        if (dayNumber !== prevDayRef.current) {
+            hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
+            prevDayRef.current = dayNumber;
+        }
+    }, [ready, inGame, dayNumber, setEvents]);
 
-        <MetersPanel
-          phase={phase}
-          oxygen={oxygen}
-          power={power}
-          cctv={cctv}
-          onRepair={(m) => requestAction('repair', m, +10)}
-        />
+    /* ---------------------------------------------
+       Assign crew roles once (unchanged)
+    --------------------------------------------- */
+    React.useEffect(() => {
+        if (!ready || !isHost() || rolesAssigned || phaseLabel !== "day") return;
+        const alive = players.filter((p) => !dead.includes(p.id));
+        if (alive.length < 1) return;
 
-        <EventsFeed events={events} />
-      </div>
+        let idx = 0, changed = false;
+        for (const p of alive) {
+            const current = p.getState?.("role");
+            if (!current) {
+                const role = ROLES[idx % ROLES.length];
+                p.setState?.("role", role, true);
+                idx++; changed = true;
+            }
+        }
+        setRolesAssigned(true, true);
+        if (changed) hostAppendEvent(setEvents, `Crew roles filled for unassigned players.`);
+    }, [ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents]);
 
-      {phase === 'meeting' && !dead.includes(myPlayer().id) && <VotePanel dead={dead} />}
-    </div>
-  );
+    /* ---------------------------------------------
+       Process player actions (repair only, unchanged)
+    --------------------------------------------- */
+    const processedRef = useRef(new Map());
+    React.useEffect(() => {
+        if (!ready || !isHost() || !inGame) return;
+
+        const applyDelta = (key, delta) => {
+            if (key === "oxygen") setOxygen((v) => clamp01(v + delta), true);
+            if (key === "power") setPower((v) => clamp01(v + delta), true);
+            if (key === "cctv") setCCTV((v) => clamp01(v + delta), true);
+        };
+
+        const id = setInterval(() => {
+            for (const p of players) {
+                if (dead.includes(p.id)) continue;
+                const reqId = Number(p.getState("reqId") || 0);
+                const last = processedRef.current.get(p.id) || 0;
+                if (reqId <= last) continue;
+
+                const type = String(p.getState("reqType") || "");
+                const target = String(p.getState("reqTarget") || "");
+                const value = Number(p.getState("reqValue") || 0);
+
+                const ok = type === "repair" && isMeter(target) && value > 0;
+                const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
+                if (ok) {
+                    applyDelta(target, value);
+                    hostAppendEvent(setEvents, `${name} repaired ${target.toUpperCase()} +${value}.`);
+                }
+                processedRef.current.set(p.id, reqId);
+            }
+        }, 150);
+
+        return () => clearInterval(id);
+    }, [ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents]);
+
+    /* ---------------------------------------------
+       Vote resolution (when matchPhase === 'meeting')
+    --------------------------------------------- */
+    React.useEffect(() => {
+        if (!ready || !isHost()) return;
+        if (phase !== "meeting") return;
+        if (Number(timer) > 0) return; // wait until meeting countdown ends
+
+        // Resolve votes
+        const aliveIds = new Set(players.filter((p) => !dead.includes(p.id)).map((p) => p.id));
+        const counts = new Map();
+        for (const p of players) {
+            if (!aliveIds.has(p.id)) continue;
+            const v = String(p.getState("vote") || "");
+            if (!v || v === "skip") continue;
+            counts.set(v, (counts.get(v) || 0) + 1);
+        }
+        let target = "", top = 0;
+        for (const [id, c] of counts.entries()) {
+            if (c > top) { top = c; target = id; }
+            else if (c === top) { target = ""; }
+        }
+        if (target && aliveIds.has(target)) {
+            const ejected = players.find((p) => p.id === target);
+            const name = ejected ? (ejected.getProfile().name || "Player " + ejected.id.slice(0, 4)) : "Unknown";
+            const role = ejected ? String(ejected.getState("role") || "Crew") : "Crew";
+            setDead(Array.from(new Set([...dead, target])), true);
+            hostAppendEvent(setEvents, `Ejected ${name} (${role}).`);
+        } else {
+            hostAppendEvent(setEvents, "Vote ended: no ejection.");
+        }
+        // Meeting end is handled by useMeetingCountdown → it restores the label from the clock
+    }, [ready, phase, timer, players, dead, setDead, setEvents]);
+
+    /* ---------------------------------------------
+       UI
+    --------------------------------------------- */
+    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
+    if (!inGame) return <Lobby />;
+
+    return (
+        <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
+            <TopBar phase={phaseLabel} timer={timer} players={players.filter((p) => !dead.includes(p.id)).length} />
+            <div style={{ position: "relative" }}>
+                <GameCanvas dead={dead} />
+
+                <DayNightHUD />
+                {isHost() && <TimeDebugPanel />}
+
+                <MetersPanel
+                    phase={phaseLabel}
+                    oxygen={oxygen}
+                    power={power}
+                    cctv={cctv}
+                    onRepair={(m) => requestAction("repair", m, +10)}
+                />
+
+                <EventsFeed events={events} />
+            </div>
+            {phase === "meeting" && !dead.includes(myPlayer().id) && <VotePanel dead={dead} />}
+        </div>
+    );
 }
 
-/* ------------------------------
-   UI bits (unchanged)
------------------------------- */
+/* ------- UI bits (unchanged) ------- */
 function TopBar({ phase, timer, players }) {
-  const dayNumber = useGameClock((s) => s.dayNumber);
-  const maxDays   = useGameClock((s) => s.maxDays);
-  const mm = String(Math.floor(Number(timer) / 60)).padStart(2, '0');
-  const ss = String(Number(timer) % 60).padStart(2, '0');
-  return (
-    <div style={{
-      display: 'flex', gap: 16, alignItems: 'center', padding: '8px 12px',
-      background: '#0e1116', color: 'white', fontFamily: 'ui-sans-serif', fontSize: 14,
-    }}>
-      <strong>Planet A — Prototype</strong>
-      <span>| Day: <b>DAY {dayNumber}/{maxDays}</b></span>
-      <span>| Phase: <b>{String(phase)}</b></span>
-      <span>| Time: <b>{mm}:{ss}</b></span>
-      <span>| Alive: <b>{players}</b></span>
-      <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
-        you are: {myPlayer().getProfile().name || 'Anon'}
-      </span>
-    </div>
-  );
+    const dayNumber = useGameClock((s) => s.dayNumber);
+    const maxDays = useGameClock((s) => s.maxDays);
+    const mm = String(Math.floor(Number(timer) / 60)).padStart(2, "0");
+    const ss = String(Number(timer) % 60).padStart(2, "0");
+    return (
+        <div style={{
+            display: "flex", gap: 16, alignItems: "center", padding: "8px 12px",
+            background: "#0e1116", color: "white", fontFamily: "ui-sans-serif", fontSize: 14,
+        }}>
+            <strong>Planet A — Prototype</strong>
+            <span>| Day: <b>DAY {dayNumber}/{maxDays}</b></span>
+            <span>| Phase: <b>{String(phase)}</b></span>
+            <span>| Time: <b>{mm}:{ss}</b></span>
+            <span>| Alive: <b>{players}</b></span>
+            <span style={{ marginLeft: "auto", opacity: 0.7 }}>
+                you are: {myPlayer().getProfile().name || "Anon"}
+            </span>
+        </div>
+    );
 }
 
 function MetersPanel({ phase, oxygen, power, cctv, onRepair }) {
-  const me = myPlayer();
-  const role = String(me.getState('role') || 'Crew');
-
-  const Bar = ({ label, value }) => (
-    <div style={{ display: 'grid', gap: 4 }}>
-      <div style={{ fontSize: 12, opacity: 0.8 }}>{label} — {value}%</div>
-      <div style={{ width: 200, height: 10, background: '#2a3242', borderRadius: 6, overflow: 'hidden' }}>
+    const me = myPlayer();
+    const role = String(me.getState("role") || "Crew");
+    const Bar = ({ label, value }) => (
+        <div style={{ display: "grid", gap: 4 }}>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{label} — {value}%</div>
+            <div style={{ width: 200, height: 10, background: "#2a3242", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{
+                    width: `${value}%`, height: "100%",
+                    background: label === "CCTV" ? "#7dd3fc" : (label === "Power" ? "#a7f3d0" : "#fca5a5"),
+                }} />
+            </div>
+        </div>
+    );
+    return (
         <div style={{
-          width: `${value}%`, height: '100%',
-          background: label === 'CCTV' ? '#7dd3fc' : (label === 'Power' ? '#a7f3d0' : '#fca5a5'),
-        }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{
-      position: 'absolute', top: 10, right: 10, background: 'rgba(14,17,22,0.9)',
-      border: '1px solid #2a3242', padding: 10, borderRadius: 10,
-      display: 'grid', gap: 10, color: 'white',
-    }}>
-      <Bar label="Oxygen" value={Number(oxygen)} />
-      <Bar label="Power"  value={Number(power)} />
-      <Bar label="CCTV"   value={Number(cctv)} />
-
-      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-        <button onClick={() => onRepair('oxygen')}>Repair O₂ +10</button>
-        <button onClick={() => onRepair('power')}>Repair Power +10</button>
-        <button onClick={() => onRepair('cctv')}>Repair CCTV +10</button>
-      </div>
-
-      <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>Your role: <b>{role}</b></div>
-      <div style={{ fontSize: 11, opacity: 0.6 }}>
-        {phase === 'day'
-          ? 'Day: Repair systems'
-          : phase === 'night'
-            ? 'Night: Repair (no sabotage in this build)'
-            : 'Meeting: Vote'}
-      </div>
-    </div>
-  );
+            position: "absolute", top: 10, right: 10, background: "rgba(14,17,22,0.9)",
+            border: "1px solid #2a3242", padding: 10, borderRadius: 10, display: "grid", gap: 10, color: "white",
+        }}>
+            <Bar label="Oxygen" value={Number(oxygen)} />
+            <Bar label="Power" value={Number(power)} />
+            <Bar label="CCTV" value={Number(cctv)} />
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <button onClick={() => onRepair("oxygen")}>Repair O₂ +10</button>
+                <button onClick={() => onRepair("power")}>Repair Power +10</button>
+                <button onClick={() => onRepair("cctv")}>Repair CCTV +10</button>
+            </div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>Your role: <b>{role}</b></div>
+            <div style={{ fontSize: 11, opacity: 0.6 }}>
+                {phase === "meeting"
+                    ? "Meeting: Vote"
+                    : (phase === "day" ? "Day: Repair systems" : "Night: Repair (no sabotage in this build)")}
+            </div>
+        </div>
+    );
 }
 
-function EventsFeed({ events }) {
-  return (
-    <div style={{
-      position: 'absolute', left: 10, bottom: 10, width: 420,
-      background: 'rgba(14,17,22,0.85)', border: '1px solid #2a3242',
-      color: 'white', padding: 10, borderRadius: 10, fontFamily: 'ui-sans-serif',
-      fontSize: 12, lineHeight: 1.3,
-    }}>
-      <div style={{ opacity: 0.7, marginBottom: 6 }}>Events</div>
-      <div style={{ display: 'grid', gap: 4, maxHeight: 160, overflow: 'auto' }}>
-        {(Array.isArray(events) ? events : []).map((e, i) => <div key={i}>• {String(e)}</div>)}
-      </div>
-    </div>
-  );
+function EventsFeed({ events }) { /* unchanged */
+    return (
+        <div style={{
+            position: "absolute", left: 10, bottom: 10, width: 420,
+            background: "rgba(14,17,22,0.85)", border: "1px solid #2a3242",
+            color: "white", padding: 10, borderRadius: 10, fontFamily: "ui-sans-serif", fontSize: 12, lineHeight: 1.3,
+        }}>
+            <div style={{ opacity: 0.7, marginBottom: 6 }}>Events</div>
+            <div style={{ display: "grid", gap: 4, maxHeight: 160, overflow: "auto" }}>
+                {(Array.isArray(events) ? events : []).map((e, i) => <div key={i}>• {String(e)}</div>)}
+            </div>
+        </div>
+    );
 }
 
-function VotePanel({ dead }) {
-  const players = usePlayersList(true);
-  const alive = useMemo(() => players.filter((p) => !dead.includes(p.id)), [players, dead]);
-  const me = myPlayer();
-  const myVote = String(me.getState('vote') || '');
-  const choose = (id) => me.setState('vote', id || 'skip', true);
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, display: 'grid', placeItems: 'center',
-      background: 'rgba(0,0,0,0.5)', color: 'white', fontFamily: 'ui-sans-serif',
-    }}>
-      <div style={{ background: '#141922', padding: 16, borderRadius: 10, width: 420 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-          <h3 style={{ margin: 0 }}>Meeting — Vote</h3>
-          <small style={{ opacity: 0.7 }}>select a suspect</small>
+function VotePanel({ dead }) { /* unchanged */
+    const players = usePlayersList(true);
+    const alive = useMemo(() => players.filter((p) => !dead.includes(p.id)), [players, dead]);
+    const me = myPlayer();
+    const myVote = String(me.getState("vote") || "");
+    const choose = (id) => me.setState("vote", id || "skip", true);
+    return (
+        <div style={{
+            position: "fixed", inset: 0, display: "grid", placeItems: "center",
+            background: "rgba(0,0,0,0.5)", color: "white", fontFamily: "ui-sans-serif",
+        }}>
+            <div style={{ background: "#141922", padding: 16, borderRadius: 10, width: 420 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                    <h3 style={{ margin: 0 }}>Meeting — Vote</h3>
+                    <small style={{ opacity: 0.7 }}>select a suspect</small>
+                </div>
+                <div style={{ display: "grid", gap: 8, maxHeight: 320, overflow: "auto" }}>
+                    {alive.map((p) => {
+                        const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
+                        const selected = myVote === p.id;
+                        return (
+                            <button
+                                key={p.id}
+                                onClick={() => choose(p.id)}
+                                style={{
+                                    textAlign: "left", padding: "8px 10px", borderRadius: 8,
+                                    border: selected ? "2px solid #6ee7ff" : "1px solid #2a3242",
+                                    background: selected ? "#0e2a33" : "#1a2230", color: "white",
+                                }}
+                            >
+                                {name}
+                            </button>
+                        );
+                    })}
+                    <button
+                        onClick={() => choose("skip")}
+                        style={{
+                            padding: "8px 10px", borderRadius: 8, border: "1px solid #2a3242",
+                            background: myVote === "skip" ? "#2a1a1a" : "#1f1a1a", color: "#ffb4b4",
+                        }}
+                    >
+                        Skip vote
+                    </button>
+                </div>
+            </div>
         </div>
-        <div style={{ display: 'grid', gap: 8, maxHeight: 320, overflow: 'auto' }}>
-          {alive.map((p) => {
-            const name = p.getProfile().name || 'Player ' + p.id.slice(0, 4);
-            const selected = myVote === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => choose(p.id)}
-                style={{
-                  textAlign: 'left', padding: '8px 10px', borderRadius: 8,
-                  border: selected ? '2px solid #6ee7ff' : '1px solid #2a3242',
-                  background: selected ? '#0e2a33' : '#1a2230', color: 'white',
-                }}
-              >
-                {name}
-              </button>
-            );
-          })}
-          <button
-            onClick={() => choose('skip')}
-            style={{
-              padding: '8px 10px', borderRadius: 8, border: '1px solid #2a3242',
-              background: myVote === 'skip' ? '#2a1a1a' : '#1f1a1a', color: '#ffb4b4',
-            }}
-          >
-            Skip vote
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 function Centered({ children }) {
-  return (
-    <div style={{ display: 'grid', placeItems: 'center', height: '100dvh', fontFamily: 'sans-serif' }}>
-      {children}
-    </div>
-  );
+    return <div style={{ display: "grid", placeItems: "center", height: "100dvh", fontFamily: "sans-serif" }}>{children}</div>;
 }
