@@ -1,17 +1,7 @@
+// src/ui/TeamChatPanel.jsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
 
-/**
- * TeamChatPanel — compact card (bottom-left), sync with App **and** Playroom.
- * Props (preferred; if omitted, falls back to Playroom):
- *  - teamName?: string
- *  - members?: Array<{ id, name, role?, color?, isOnline? }>
- *  - messages?: Array<{ id, senderId, text, ts }>
- *  - myId?: string
- *  - onSend?: (text) => void
- *  - inputDisabled?: boolean
- *  - style?: React.CSSProperties
- */
 export default function TeamChatPanel({
     teamName,
     members,
@@ -29,32 +19,26 @@ export default function TeamChatPanel({
     const allPlayers = usePlayersList(true);
 
     // TEAM NAME: props win; then Playroom
-    const liveTeam = firstNonEmpty(
-        teamName,
-        me?.getState?.("team"),
-        me?.getState?.("teamName")
-    ) || "Team";
+    const liveTeam =
+        firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
 
-    // MEMBERS: if props provided, use them; else build from Playroom
+    // ROSTER: props win; else build from Playroom
     const roster = useMemo(() => {
         if (Array.isArray(members) && members.length > 0) return members;
-
-        // Build from Playroom
         const built = allPlayers.map((p) => ({
             id: p.id,
             name: firstNonEmpty(p?.profile?.name, p?.name, p?.getState?.("name"), shortId(p.id)),
-            role: safeString(p?.getState?.("role")),                // read role from player state
+            role: safeString(p?.getState?.("role")),
             team: firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")),
             isOnline: true,
             color: p?.profile?.color,
         }));
-
-        // If I have a team, show only that team; otherwise show all
-        const myTeam = liveTeam || "";
-        return myTeam ? built.filter((m) => m.team === myTeam) : built;
+        return built.filter((m) => !liveTeam || m.team === liveTeam);
     }, [members, allPlayers, liveTeam]);
 
-    // MESSAGES: props win; else try Playroom
+    const liveMyId = myId || me?.id || "me";
+
+    // MESSAGES: props win; else read from myPlayer() state
     const liveMessages = useMemo(() => {
         if (Array.isArray(messages)) return messages;
         const perTeam = me?.getState?.(`chat:${liveTeam}`);
@@ -64,13 +48,10 @@ export default function TeamChatPanel({
         return [];
     }, [messages, me, liveTeam]);
 
-    const liveMyId = myId || me?.id || "me";
-
-    // UI
     const [text, setText] = useState("");
     const listRef = useRef(null);
 
-    // autoscroll when near bottom
+    // autoscroll when already near bottom
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
@@ -83,26 +64,19 @@ export default function TeamChatPanel({
         const t = text.trim();
         if (!t) return;
 
+        // 1) Optimistic local echo into Playroom state (so it shows immediately)
         const now = Date.now();
-        const msg = {
-            id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
-            senderId: liveMyId,
-            text: t,
-            ts: now,
-        };
-
-        // local optimistic echo into Playroom state (and broadcast)
+        const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, senderId: liveMyId, text: t, ts: now };
         const key = `chat:${liveTeam}`;
         const prev = me?.getState?.(key);
         const next = Array.isArray(prev) ? [...prev, msg] : [msg];
         me?.setState?.(key, next, true);
 
-        // still fire your network action if provided
+        // 2) Still call your network action, if provided
         onSend?.(t);
 
         setText("");
     };
-
 
     const namesLine = roster.length
         ? roster.map((m) => `${m.name}${m.role ? ` (${m.role})` : ""}`).join(", ")
@@ -112,8 +86,8 @@ export default function TeamChatPanel({
         <div
             style={{
                 position: "absolute",
-                left: 10,
-                bottom: 10, // bottom-left anchor
+                left: 16,
+                bottom: 16,
                 background: "rgba(14,17,22,0.9)",
                 border: "1px solid #2a3242",
                 padding: 10,
@@ -124,20 +98,18 @@ export default function TeamChatPanel({
                 width: 360,
                 maxHeight: "46vh",
                 gridTemplateRows: "auto auto 1fr auto",
+                pointerEvents: "auto",
                 ...style,
             }}
         >
-            {/* Team name (same style as RolePanel/MetersPanel headers) */}
             <div style={{ display: "grid", gap: 4 }}>
                 <div style={{ fontSize: 12, opacity: 0.8 }}>Team — {liveTeam}</div>
             </div>
 
-            {/* Members + roles */}
             <div style={{ display: "grid", gap: 4 }}>
                 <div style={{ fontSize: 12, opacity: 0.8 }}>Members — {namesLine}</div>
             </div>
 
-            {/* Messages */}
             <div
                 ref={listRef}
                 style={{
@@ -194,7 +166,6 @@ export default function TeamChatPanel({
                 })}
             </div>
 
-            {/* Input */}
             <form onSubmit={send} style={{ display: "flex", gap: 6 }}>
                 <input
                     type="text"
