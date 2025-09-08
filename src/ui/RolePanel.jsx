@@ -4,24 +4,31 @@ import "./ui.css";
 
 /**
  * RolePanel — compact card matching MetersPanel style
- * Props:
- *  - role?: string                 // optional override; if omitted, reads from Playroom
- *  - objective?: string            // optional override; else uses ROLE_OBJECTIVES[role]
- *  - onPingObjective?: () => void
- *  - style?: React.CSSProperties   // optional container style overrides
+ * - Reads role exactly like your working ref: myPlayer().getState("role")
+ * - No "Crew" fallback. Shows "Unassigned" if empty.
+ * - Live-sync via a tiny 400ms poll so UI updates when role changes.
  */
-export default function RolePanel({ role, objective, onPingObjective, style }) {
-    const liveRole = useMyRoleFromPlayroom(); // live value from Playroom
-    const resolvedRole = role ?? (liveRole || "Unassigned");
-    const resolvedObjective =
-        objective ?? ROLE_OBJECTIVES[resolvedRole] ?? "No objective set.";
+export default function RolePanel({ onPingObjective, style }) {
+    // force a re-render on an interval so role changes are reflected
+    const [, force] = React.useReducer((x) => x + 1, 0);
+    React.useEffect(() => {
+        const id = setInterval(force, 400);
+        return () => clearInterval(id);
+    }, []);
 
-    const Container = ({ children }) => (
+    // READ ROLE EXACTLY LIKE YOUR REF
+    const me = myPlayer();
+    const rawRole = String(me?.getState?.("role") || "");
+    const role = rawRole || "Unassigned";
+
+    const objective = ROLE_OBJECTIVES[rawRole] || "No objective set.";
+
+    return (
         <div
             style={{
                 position: "absolute",
                 top: 10,
-                left: 10, // MetersPanel is top-right; RolePanel sits top-left
+                left: 10, // MetersPanel is top-right; this sits top-left
                 background: "rgba(14,17,22,0.9)",
                 border: "1px solid #2a3242",
                 padding: 10,
@@ -32,23 +39,14 @@ export default function RolePanel({ role, objective, onPingObjective, style }) {
                 ...style,
             }}
         >
-            {children}
-        </div>
-    );
-
-    const Label = ({ title, value }) => (
-        <div style={{ display: "grid", gap: 4 }}>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
-                {title} — {value}
+            {/* Title line in the same compact style as your bars */}
+            <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    Role — {role}
+                </div>
             </div>
-        </div>
-    );
 
-    return (
-        <Container>
-            <Label title="Role" value={resolvedRole} />
-
-            {/* Objective block styled to echo the bar container */}
+            {/* Objective block styled like a bar container */}
             <div
                 style={{
                     width: 220,
@@ -61,7 +59,7 @@ export default function RolePanel({ role, objective, onPingObjective, style }) {
                     opacity: 0.95,
                 }}
             >
-                {resolvedObjective}
+                {objective}
             </div>
 
             <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
@@ -69,43 +67,8 @@ export default function RolePanel({ role, objective, onPingObjective, style }) {
                     Ping Objective
                 </button>
             </div>
-        </Container>
+        </div>
     );
-}
-
-/* ---------------- live role hook ---------------- */
-function useMyRoleFromPlayroom(intervalMs = 400) {
-    const [role, setRole] = React.useState(() => {
-        const me = safeMyPlayer();
-        return me ? safeString(me.getState?.("role")) : "";
-    });
-
-    React.useEffect(() => {
-        const me = safeMyPlayer();
-        let mounted = true;
-
-        const read = () => {
-            if (!mounted || !me) return;
-            setRole(safeString(me.getState?.("role")));
-        };
-
-        read();
-        const id = setInterval(read, intervalMs);
-        return () => {
-            mounted = false;
-            clearInterval(id);
-        };
-    }, [intervalMs]);
-
-    return role;
-}
-
-function safeMyPlayer() {
-    try { return myPlayer?.(); } catch { return null; }
-}
-function safeString(v) {
-    if (v == null) return "";
-    try { return String(v).trim(); } catch { return ""; }
 }
 
 /* -------- exact objectives (match your characters index) -------- */
