@@ -30,8 +30,8 @@ export default function HUD({ game = {} }) {
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
                     <StatusBarsPanel
-                        energy={Number(meters.energy ?? 0)}
-                        oxygen={Number(meters.oxygen ?? 0)}
+                        energy={Number(meters.energy ?? 100)}
+                        oxygen={Number(meters.oxygen ?? 100)}
                     />
                     <div style={{ minHeight: 0 }}>
                         {/* Role reads live from Playroom; no role prop */}

@@ -19,6 +19,7 @@ import {
     useAssignCrewRoles,
     useProcessActions,
     useMeetingVoteResolution,
+    useMetersInitAndDailyDecay
 } from "./game/effects";
 import {
     useSyncPhaseToClock,
@@ -62,6 +63,17 @@ export default function App() {
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
+    // Initialize meters to 100 on Day 1; halve Energy each new day
+    useMetersInitAndDailyDecay({
+        ready,
+        inGame,
+        dayNumber,
+        power,
+        oxygen,
+        setPower,
+        setOxygen,
+        setEvents,
+    });
 
     // ✅ ALWAYS call hooks before any early returns
     useEffect(() => {

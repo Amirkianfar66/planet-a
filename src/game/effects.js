@@ -127,3 +127,40 @@ export function useMeetingVoteResolution({
         }
     }, [ready, matchPhase, timer, players, dead, setDead, setEvents]);
 }
+/** 6) Initialize meters to 100% on Day 1, then halve Energy at the start of each new day (host-only) */
+export function useMetersInitAndDailyDecay({
+    ready,
+    inGame,
+    dayNumber,
+    power,
+    oxygen,
+    setPower,
+    setOxygen,
+    setEvents,
+}) {
+    const lastProcessedDayRef = useRef(0);
+
+    useEffect(() => {
+        if (!ready || !inGame || !isHost()) return;
+
+        // avoid multiple runs for the same day
+        if (dayNumber === lastProcessedDayRef.current) return;
+
+        if (dayNumber === 1) {
+            // boot-up defaults
+            if (oxygen !== 100) setOxygen(100, true);
+            if (power !== 100) setPower(100, true);
+            hostAppendEvent(setEvents, "Systems online — Oxygen 100%, Energy 100%");
+        } else if (dayNumber > 1) {
+            // halve energy once at the start of each new day
+            const base = typeof power === "number" ? power : 100;
+            const next = Math.max(0, Math.round(base * 0.5));
+            if (next !== base) {
+                setPower(next, true);
+                hostAppendEvent(setEvents, `Day ${dayNumber}: Energy reduced by 50% → ${next}%`);
+            }
+        }
+
+        lastProcessedDayRef.current = dayNumber;
+    }, [ready, inGame, dayNumber, power, oxygen, setPower, setOxygen, setEvents]);
+}
