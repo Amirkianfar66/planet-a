@@ -12,9 +12,6 @@ import TimeDebugPanel from "./ui/TimeDebugPanel";
 import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby";
 
-
-
-
 // game effects
 import {
     useLobbyReady,
@@ -29,11 +26,10 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// extracted UI
-import { TopBar, MetersPanel, TeamChatPanel, EventsFeed, VotePanel, Centered } from "./ui";
+// extracted UI (NO MetersPanel / TeamChatPanel here)
+import { TopBar, EventsFeed, VotePanel, Centered } from "./ui";
 
-
-// NEW: HUD overlay composed of Status/Role/Backpack/TeamChat
+// HUD = single source overlay (status, role, chat, backpack)
 import HUD from "./ui/HUD";
 
 export default function App() {
@@ -82,34 +78,24 @@ export default function App() {
     const myId = meP?.id;
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
 
-    // ---------- NEW: Build a `game` object for HUD ----------
+    // Build the minimal game object HUD needs
     const game = {
         meters: {
-            energy: typeof power === "number" ? power : 0,   // map Power -> Energy for HUD
-            oxygen: typeof oxygen === "number" ? oxygen : 0,
+            energy: Number(power ?? 0),
+            oxygen: Number(oxygen ?? 0),
         },
         me: {
             id: myId || "me",
-            role: (rolesAssigned && myId && rolesAssigned[myId]) || "Crewmate",
-            objective: "Complete daily maintenance tasks.",  // replace with your role-based objective if you wish
-            roleTips: [],
-            backpack: [],          // plug your inventory array here
+            backpack: [], // plug your inventory if you have it
             capacity: 8,
-            teamName: "Team Alpha", // plug your real team name here if you have it
+            // NOTE: Role & team are read LIVE inside RolePanel/TeamChatPanel from Playroom
         },
-        teamMembers: players.map((p) => ({
-            id: p.id,
-            name: p?.profile?.name || p?.name || "Crew",
-            color: p?.profile?.color,
-            isOnline: !dead.includes(p.id),
-        })),
-        teamMessages: [], // plug your chat messages array here
-        requestAction,    // pass through to HUD buttons (useItem, dropItem, chat, pingObjective)
+        requestAction, // for HUD buttons: pingObjective, useItem, dropItem, chat
     };
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
-            {/* TopBar with day/night, phase chip, progress, and meeting timer */}
+            {/* Top bar with day/night, phase, and meeting timer */}
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} />
 
             <div style={{ position: "relative" }}>
@@ -117,42 +103,13 @@ export default function App() {
 
                 {isHost() && <TimeDebugPanel />}
 
-                <MetersPanel
-                    phase={phaseLabel}
-                    oxygen={oxygen}
-                    power={power}
-                    cctv={cctv}
-                    onRepair={(m) => requestAction("repair", m, +10)}
-                />
-
+                {/* You can keep EventsFeed separate from HUD */}
                 <EventsFeed events={events} />
 
-                {/* Left–bottom Team Chat (live-synced) */}
-                <TeamChatPanel
-                    teamName={game.me.teamName}
-                    members={players.map((p) => ({
-                        id: p.id,
-                        name: p?.profile?.name || p?.name || p.id.slice(0, 6),
-                        role:
-                            (rolesAssigned instanceof Map
-                                ? rolesAssigned.get(p.id)
-                                : rolesAssigned?.[p.id]) ||
-                            p?.getState?.("role") ||
-                            "",
-                        isOnline: !dead.includes(p.id),
-                    }))}
-                    myId={myId}
-                    onSend={(text) => requestAction("chat", { text, team: game.me.teamName })}
-                />
-
-                {/* -------- NEW: HUD overlay (clickable) -------- */}
-                <div style={{ position: "absolute", inset: 16, pointerEvents: "none" }}>
-                    <div style={{ pointerEvents: "auto" }}>
-                        <HUD game={game} />
-                    </div>
+                {/* HUD is the ONLY overlay now (status, role, chat, backpack) */}
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                    <HUD game={game} />
                 </div>
-
-                {/* --------------------------------------------- */}
             </div>
 
             {matchPhase === "meeting" && !dead.includes(myPlayer().id) && (
