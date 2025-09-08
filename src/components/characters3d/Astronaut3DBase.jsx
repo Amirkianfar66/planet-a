@@ -75,7 +75,10 @@ function NameTag({ name = "Anon", role = "Crew", accent = "#68c7ff", position = 
 }
 
 /* ---------- base character with animation ---------- */
-export default function Astronaut3DBase({ suit, prop, name, role, showName, bob, speed, airborne, carry }) {
+export default function Astronaut3DBase({
+  suit, prop, name, role, showName, bob, speed, airborne,
+      carry, isLocal, onClickCarry, onContextMenuCarry
+    }) {
     const visor = "#0f1216";
     const secondary = useMemo(() => secondaryFromSuit(suit), [suit]);
 
@@ -215,12 +218,28 @@ export default function Astronaut3DBase({ suit, prop, name, role, showName, bob,
     }
 
     // ...inside the returned <group> of the character, after the right arm group:
-    <group position={[-0.6, 1.0, 0]}>
+    
         {/* left hand carry mount */}
-        <group position={[0, -0.12, 0.18]}>
-            <CarryProp type={carry || ""} />
-        </group>
-    </group>
+    <group position={[-0.6, 1.0, 0]}>
+               <group
+         position={[0, -0.12, 0.18]}
+                 onClick={(e) => {
+                       if (!isLocal) return;
+                       e.stopPropagation();
+                       if (carry && onClickCarry) onClickCarry();
+                     }}
+                 onContextMenu={(e) => {
+                       if (!isLocal) return;
+                       e.stopPropagation();
+                       e.preventDefault();
+                       if (carry && onContextMenuCarry) onContextMenuCarry();
+                     }}
+                 onPointerOver={() => { if (isLocal && carry) document.body.style.cursor = "pointer"; }}
+                 onPointerOut={() => { if (isLocal) document.body.style.cursor = ""; }}
+       >
+                 <CarryProp type={carry || ""} />
+               </group>
+             </group >
 
     return (
         <group ref={root}>

@@ -2,7 +2,8 @@
 import React from "react";
 import { StatusBarsPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
 import "./ui.css";
-
+import { myPlayer } from "playroomkit";
+import { requestAction } from "../network/playroom";
 /* ------- Tiny UI helpers ------- */
 function Key({ children }) {
     return (
@@ -110,6 +111,13 @@ export default function HUD({ game = {} }) {
                         capacity={me.capacity ?? 8}
                         onUse={(id) => game.requestAction?.("useItem", { id })}
                         onDrop={(id) => game.requestAction?.("dropItem", { id })}
+                        onThrow={(id) => {
+                            const yaw = Number(myPlayer().getState("yaw") || 0);
+                            // If your host expects the same contract as world throw:
+                            requestAction("throw", id, yaw);
+                            // If you implemented a different host handler:
+                            // game.requestAction?.("throwItem", { id, yaw });
+                        }}
                     />
                 </div>
             </div>

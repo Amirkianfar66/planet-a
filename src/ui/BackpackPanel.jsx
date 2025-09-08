@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import "./ui.css";
 
 /**
@@ -8,15 +8,19 @@ import "./ui.css";
  *  - capacity?: number (for header chip)
  *  - onUse?: (id) => void
  *  - onDrop?: (id) => void
+ *  - onThrow?: (id) => void   // NEW: right-click to throw
+ *  - title?: string
  */
 export default function BackpackPanel({
     items = [],
     capacity,
     onUse,
     onDrop,
+    onThrow, // 👈 NEW
     title = "Backpack",
 }) {
     const used = items.reduce((a, b) => a + (b.qty || 1), 0);
+
     return (
         <section className="ui-panel">
             <header className="ui-panel__header">
@@ -30,7 +34,17 @@ export default function BackpackPanel({
                 ) : (
                     <div className="inv-grid">
                         {items.map((it) => (
-                            <div className="inv-slot" key={it.id} title={it.name}>
+                            <div
+                                className="inv-slot"
+                                key={it.id}
+                                title={`${it.name} — right-click to throw`}
+                                onContextMenu={(e) => {
+                                    if (!onThrow) return;
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onThrow(it.id);
+                                }}
+                            >
                                 <div className="inv-icon">{renderIcon(it)}</div>
                                 <div className="inv-name" aria-label={it.name}>{it.name}</div>
                                 {it.qty > 1 && <div className="inv-qty">{it.qty}</div>}
@@ -51,6 +65,13 @@ export default function BackpackPanel({
                     </div>
                 )}
             </div>
+
+            {/* Optional tiny hint */}
+            {onThrow && items.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>
+                    Tip: <b>Right-click</b> an item to <b>throw</b> it.
+                </div>
+            )}
         </section>
     );
 }
