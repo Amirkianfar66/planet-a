@@ -1,8 +1,13 @@
-import { StatusBarsPanel, RolePanel, BackpackPanel, TeamChatPanel } from "./ui";
-import "./ui/ui.css";
+import React from "react";
+
+// ⬇️ FIX: import from the current folder's index.js (barrel)
+import { StatusBarsPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
+
+// ⬇️ FIX: correct relative path to the CSS
+import "./ui.css";
 
 export default function HUD({ game }) {
-    const me = game.me; // { id, role, objective, backpack:[], teamName, teamMembers:[] }
+    const me = game.me;
     return (
         <div style={{
             position: "absolute", inset: 16, display: "grid", gap: 16,
@@ -18,7 +23,7 @@ export default function HUD({ game }) {
                 />
             </div>
 
-            {/* Center column could be the game viewport or EventsFeed/VotePanel, etc. */}
+            {/* Center column is free for EventsFeed/VotePanel/etc. */}
 
             <div style={{ display: "grid", gap: 16 }}>
                 <BackpackPanel
