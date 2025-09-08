@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState } from "react";
 import GameCanvas from "./components/GameCanvas";
 import {
@@ -27,6 +28,9 @@ import {
 
 // extracted UI
 import { TopBar, MetersPanel, EventsFeed, VotePanel, Centered } from "./ui";
+
+// NEW: HUD overlay composed of Status/Role/Backpack/TeamChat
+import HUD from "./ui/HUD";
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -70,11 +74,38 @@ export default function App() {
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
+    const meP = myPlayer();
+    const myId = meP?.id;
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
+
+    // ---------- NEW: Build a `game` object for HUD ----------
+    const game = {
+        meters: {
+            energy: typeof power === "number" ? power : 0,   // map Power -> Energy for HUD
+            oxygen: typeof oxygen === "number" ? oxygen : 0,
+        },
+        me: {
+            id: myId || "me",
+            role: (rolesAssigned && myId && rolesAssigned[myId]) || "Crewmate",
+            objective: "Complete daily maintenance tasks.",  // replace with your role-based objective if you wish
+            roleTips: [],
+            backpack: [],          // plug your inventory array here
+            capacity: 8,
+            teamName: "Team Alpha", // plug your real team name here if you have it
+        },
+        teamMembers: players.map((p) => ({
+            id: p.id,
+            name: p?.profile?.name || p?.name || "Crew",
+            color: p?.profile?.color,
+            isOnline: !dead.includes(p.id),
+        })),
+        teamMessages: [], // plug your chat messages array here
+        requestAction,    // pass through to HUD buttons (useItem, dropItem, chat, pingObjective)
+    };
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
-            {/* TopBar now includes day/night clock, phase chip, progress, and meeting timer */}
+            {/* TopBar with day/night, phase chip, progress, and meeting timer */}
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} />
 
             <div style={{ position: "relative" }}>
@@ -91,6 +122,14 @@ export default function App() {
                 />
 
                 <EventsFeed events={events} />
+
+                {/* -------- NEW: HUD overlay (clickable) -------- */}
+                <div style={{ position: "absolute", inset: 16, pointerEvents: "none" }}>
+                    <div style={{ pointerEvents: "auto" }}>
+                        <HUD game={game} />
+                    </div>
+                </div>
+                {/* --------------------------------------------- */}
             </div>
 
             {matchPhase === "meeting" && !dead.includes(myPlayer().id) && (
