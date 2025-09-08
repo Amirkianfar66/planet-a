@@ -14,42 +14,35 @@ const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
 
 /* ---------------- Role styling ------------------ */
-/* Your requested colors:
-   - Engineer: orange
-   - Research: white
-   - Station Director: red
-   - Officer: dark blue
-   - Guard: sky blue
-   - Food Supplier: yellow
-*/
+/* Whole-suit colors by role */
 const ROLE_STYLE = {
-    'Engineer': { accent: '#FF8D3A', prop: 'tablet' },   // orange
-    'Research': { accent: '#FFFFFF', prop: 'tablet' },   // white
-    'Station Director': { accent: '#FF5A5A', prop: 'tablet' },   // red
-    'Officer': { accent: '#1E3A8A', prop: 'tablet' },   // dark blue
-    'Guard': { accent: '#68C7FF', prop: 'shield' },   // sky blue
-    'Food Supplier': { accent: '#FFC83D', prop: 'crate' },    // yellow
+    'Engineer': { suit: '#FF8D3A', prop: 'wrench' },      // orange
+    'Research': { suit: '#FFFFFF', prop: 'syringe' },     // white
+    'Station Director': { suit: '#FF5A5A', prop: 'controller' },  // red
+    'Officer': { suit: '#1E3A8A', prop: 'tablet' },      // dark blue
+    'Guard': { suit: '#68C7FF', prop: 'gun' },         // sky blue
+    'Food Supplier': { suit: '#FFC83D', prop: 'backpack' },    // yellow
 };
-const DEFAULT_STYLE = { accent: '#68C7FF', prop: 'tablet' };
+const DEFAULT_STYLE = { suit: '#68C7FF', prop: 'tablet' };
 
-/* Ensure accents remain visible against the light suit */
-function shadeHex(hex, amt = -40) {
+/* --- tiny color utilities for readable panels/stripes/name tags --- */
+function parseHex(hex) {
     const s = hex.replace('#', '');
-    const num = parseInt(s.length === 3
-        ? s.split('').map(ch => ch + ch).join('')
-        : s, 16);
-    const r = Math.min(255, Math.max(0, ((num >> 16) & 255) + amt));
-    const g = Math.min(255, Math.max(0, ((num >> 8) & 255) + amt));
-    const b = Math.min(255, Math.max(0, (num & 255) + amt));
-    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    const full = s.length === 3 ? s.split('').map(c => c + c).join('') : s;
+    const n = parseInt(full, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
-function ensureVisibleAccent(hex, suit = '#e8edf6') {
-    // If color is extremely light (like white), darken it for contrast.
-    const c = hex.replace('#', '');
-    const num = parseInt(c.length === 3 ? c.split('').map(ch => ch + ch).join('') : c, 16);
-    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
-    const l = 0.2126 * r + 0.7152 * g + 0.0722 * b; // relative luminance proxy
-    return l > 220 ? shadeHex(hex, -40) : hex;
+function shadeHex(hex, amt = -40) {
+    const { r, g, b } = parseHex(hex);
+    const clamp = (v) => Math.min(255, Math.max(0, v + amt));
+    const toHex = (v) => v.toString(16).padStart(2, '0');
+    return '#' + toHex(clamp(r)) + toHex(clamp(g)) + toHex(clamp(b));
+}
+function luminance({ r, g, b }) { return 0.2126 * r + 0.7152 * g + 0.0722 * b; }
+function secondaryFromSuit(hex) {
+    const lum = luminance(parseHex(hex));
+    // If the suit is light (like white / yellow / sky), use a darker secondary; if dark, use a lighter secondary
+    return lum > 170 ? shadeHex(hex, -70) : shadeHex(hex, +70);
 }
 
 /* ---------- Canvas-text floor label ----------- */
@@ -133,72 +126,153 @@ function NameTag({ name = 'Anon', role = 'Crew', accent = '#68c7ff', position = 
     );
 }
 
-/* -------------- Simple 3D “chibi” astronaut --------------- */
-function Astronaut3D({ accent = '#68c7ff', prop = 'tablet', showName = true, name = 'Anon', role = 'Crew' }) {
-    const suit = '#e8edf6';   // keep suit neutral + readable
+/* -------------- 3D chibi astronaut (whole suit tinted) --------------- */
+function Astronaut3D({ suit = '#68c7ff', prop = 'tablet', showName = true, name = 'Anon', role = 'Crew' }) {
     const white = '#ffffff';
     const dark = '#111318';
+    const visor = '#0f1216';
 
-    // ensure accent is visible against light suit
-    const accentPaint = useMemo(() => ensureVisibleAccent(accent, suit), [accent]);
+    const secondary = useMemo(() => secondaryFromSuit(suit), [suit]);
 
-    /* right-hand prop */
+    /* right-hand prop (simple shapes for performance) */
     const RightProp = () => {
-        if (prop === 'shield') {
-            return (
-                <group position={[0.55, 1.0, 0.25]} rotation={[0, -Math.PI / 10, 0]}>
-                    <mesh>
-                        <boxGeometry args={[0.02, 0.9, 0.6]} /><meshStandardMaterial color={dark} />
-                    </mesh>
-                    <mesh position={[0.05, 0, 0]}>
-                        <boxGeometry args={[0.5, 0.8, 0.06]} />
-                        <meshStandardMaterial color={'#dfe5ee'} />
-                    </mesh>
-                </group>
-            );
+        // Position near right hand
+        const basePos = [0.6, 1.0, 0.18];
+
+        switch (prop) {
+            case 'wrench': // Engineer
+                return (
+                    <group position={[0.6, 1.0, 0.2]} rotation={[0, -Math.PI / 10, 0]}>
+                        {/* handle */}
+                        <mesh position={[0, -0.05, 0]}>
+                            <cylinderGeometry args={[0.04, 0.04, 0.5, 12]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        {/* head (crescent-ish) */}
+                        <mesh position={[0, 0.25, 0]}>
+                            <boxGeometry args={[0.22, 0.12, 0.08]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        <mesh position={[0.08, 0.25, 0]}>
+                            <boxGeometry args={[0.1, 0.18, 0.08]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                    </group>
+                );
+            case 'syringe': // Research
+                return (
+                    <group position={basePos} rotation={[0, -Math.PI / 18, 0]}>
+                        {/* barrel */}
+                        <mesh>
+                            <cylinderGeometry args={[0.06, 0.06, 0.42, 12]} />
+                            <meshStandardMaterial color={white} />
+                        </mesh>
+                        {/* blood */}
+                        <mesh position={[0, 0.02, 0]}>
+                            <cylinderGeometry args={[0.055, 0.055, 0.34, 12]} />
+                            <meshStandardMaterial color={'#d62828'} />
+                        </mesh>
+                        {/* plunger */}
+                        <mesh position={[0, 0.25, 0]}>
+                            <cylinderGeometry args={[0.07, 0.07, 0.06, 12]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        {/* needle */}
+                        <mesh position={[0, -0.24, 0]}>
+                            <cylinderGeometry args={[0.01, 0.005, 0.18, 8]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                    </group>
+                );
+            case 'controller': // Station Director (remote/controller)
+                return (
+                    <group position={basePos}>
+                        <mesh>
+                            <boxGeometry args={[0.5, 0.24, 0.08]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        {/* screen / LEDs */}
+                        <mesh position={[0, 0.02, 0.045]}>
+                            <planeGeometry args={[0.38, 0.12]} />
+                            <meshBasicMaterial color={white} />
+                        </mesh>
+                        <mesh position={[-0.16, -0.06, 0.045]}>
+                            <planeGeometry args={[0.06, 0.06]} />
+                            <meshBasicMaterial color={'#43D7C5'} />
+                        </mesh>
+                        <mesh position={[0.16, -0.06, 0.045]}>
+                            <planeGeometry args={[0.06, 0.06]} />
+                            <meshBasicMaterial color={'#FFC83D'} />
+                        </mesh>
+                    </group>
+                );
+            case 'tablet': // Officer
+                return (
+                    <group position={basePos}>
+                        <mesh>
+                            <boxGeometry args={[0.5, 0.35, 0.04]} />
+                            <meshStandardMaterial color={'#dfe5ee'} />
+                        </mesh>
+                        <mesh position={[0, 0, 0.025]}>
+                            <planeGeometry args={[0.42, 0.26]} />
+                            <meshBasicMaterial color={secondary} />
+                        </mesh>
+                    </group>
+                );
+            case 'gun': // Guard (simple sci-fi pistol)
+                return (
+                    <group position={[0.6, 0.95, 0.18]} rotation={[0, -Math.PI / 10, 0]}>
+                        <mesh>
+                            <boxGeometry args={[0.34, 0.16, 0.12]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        <mesh position={[-0.08, -0.18, 0]}>
+                            <boxGeometry args={[0.12, 0.24, 0.1]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        <mesh position={[0.12, 0, 0]}>
+                            <boxGeometry args={[0.16, 0.06, 0.1]} />
+                            <meshStandardMaterial color={shadeHex(secondary, -30)} />
+                        </mesh>
+                    </group>
+                );
+            case 'backpack': // Food Supplier (hand-carried pack)
+                return (
+                    <group position={[0.6, 0.9, 0.2]}>
+                        <mesh>
+                            <boxGeometry args={[0.55, 0.6, 0.35]} />
+                            <meshStandardMaterial color={secondary} />
+                        </mesh>
+                        {/* top handle */}
+                        <mesh position={[0, 0.35, 0]}>
+                            <torusGeometry args={[0.16, 0.04, 8, 16]} />
+                            <meshStandardMaterial color={shadeHex(secondary, -30)} />
+                        </mesh>
+                        {/* food emblem */}
+                        <mesh position={[0, 0.06, 0.18]}>
+                            <planeGeometry args={[0.24, 0.24]} />
+                            <meshBasicMaterial color={'#F8FAFC'} />
+                        </mesh>
+                    </group>
+                );
+            default:
+                return null;
         }
-        if (prop === 'crate') {
-            return (
-                <group position={[0.6, 0.9, 0.2]}>
-                    <mesh>
-                        <boxGeometry args={[0.6, 0.5, 0.4]} />
-                        <meshStandardMaterial color={'#ff5a5a'} />
-                    </mesh>
-                    <mesh position={[0, 0.18, 0.21]}>
-                        <boxGeometry args={[0.62, 0.08, 0.04]} />
-                        <meshStandardMaterial color={dark} />
-                    </mesh>
-                </group>
-            );
-        }
-        // tablet
-        return (
-            <group position={[0.6, 1.0, 0.18]}>
-                <mesh>
-                    <boxGeometry args={[0.5, 0.35, 0.04]} />
-                    <meshStandardMaterial color={'#dfe5ee'} />
-                </mesh>
-                <mesh position={[0, 0, 0.025]}>
-                    <planeGeometry args={[0.42, 0.26]} />
-                    <meshBasicMaterial color={accentPaint} />
-                </mesh>
-            </group>
-        );
     };
 
     return (
         <group>
-            {/* body */}
+            {/* body (tinted) */}
             <mesh position={[0, 0.75, 0]}>
                 <boxGeometry args={[0.9, 1.1, 0.45]} />
                 <meshStandardMaterial color={suit} />
             </mesh>
-            {/* belt */}
+            {/* belt / panel (secondary for contrast) */}
             <mesh position={[0, 0.4, 0]}>
                 <boxGeometry args={[0.92, 0.12, 0.48]} />
-                <meshStandardMaterial color={accentPaint} />
+                <meshStandardMaterial color={secondary} />
             </mesh>
-            {/* legs */}
+            {/* legs (tinted) */}
             <mesh position={[-0.22, 0.2, 0]}>
                 <boxGeometry args={[0.34, 0.4, 0.44]} />
                 <meshStandardMaterial color={suit} />
@@ -207,37 +281,37 @@ function Astronaut3D({ accent = '#68c7ff', prop = 'tablet', showName = true, nam
                 <boxGeometry args={[0.34, 0.4, 0.44]} />
                 <meshStandardMaterial color={suit} />
             </mesh>
-            {/* stripes */}
+            {/* stripes (secondary) */}
             <mesh position={[-0.22, 0.3, 0.23]}>
                 <boxGeometry args={[0.32, 0.04, 0.02]} />
-                <meshStandardMaterial color={accentPaint} />
+                <meshStandardMaterial color={secondary} />
             </mesh>
             <mesh position={[0.22, 0.3, 0.23]}>
                 <boxGeometry args={[0.32, 0.04, 0.02]} />
-                <meshStandardMaterial color={accentPaint} />
+                <meshStandardMaterial color={secondary} />
             </mesh>
 
-            {/* head */}
+            {/* head (helmet tinted) */}
             <mesh position={[0, 1.45, 0]}>
                 <boxGeometry args={[1.0, 0.7, 0.7]} />
-                <meshStandardMaterial color={white} />
+                <meshStandardMaterial color={suit} />
             </mesh>
-            {/* visor */}
+            {/* visor (dark) */}
             <mesh position={[0, 1.45, 0.36]}>
                 <planeGeometry args={[0.8, 0.42]} />
-                <meshBasicMaterial color={dark} />
+                <meshBasicMaterial color={visor} />
             </mesh>
-            {/* ear pods */}
+            {/* ear pods (secondary) */}
             <mesh position={[-0.56, 1.45, 0]}>
                 <boxGeometry args={[0.18, 0.28, 0.28]} />
-                <meshStandardMaterial color={accentPaint} />
+                <meshStandardMaterial color={secondary} />
             </mesh>
             <mesh position={[0.56, 1.45, 0]}>
                 <boxGeometry args={[0.18, 0.28, 0.28]} />
-                <meshStandardMaterial color={accentPaint} />
+                <meshStandardMaterial color={secondary} />
             </mesh>
 
-            {/* arms */}
+            {/* arms (tinted) */}
             <mesh position={[-0.6, 0.95, 0]}>
                 <boxGeometry args={[0.22, 0.36, 0.36]} />
                 <meshStandardMaterial color={suit} />
@@ -250,8 +324,8 @@ function Astronaut3D({ accent = '#68c7ff', prop = 'tablet', showName = true, nam
             {/* prop in right hand */}
             <RightProp />
 
-            {/* name tag */}
-            {showName && <NameTag name={name} role={role} accent={accentPaint} position={[0, 2.25, 0]} />}
+            {/* name tag uses secondary for text accent */}
+            {showName && <NameTag name={name} role={role} accent={secondary} position={[0, 2.25, 0]} />}
         </group>
     );
 }
@@ -440,13 +514,13 @@ function Players({ dead = [] }) {
 
                 const profileName = p.getProfile().name || ('Player ' + p.id.slice(0, 4));
                 const role = String(p.getState('role') || 'Crew');
-                const style = ROLE_STYLE[role] || DEFAULT_STYLE;
+                const { suit, prop } = ROLE_STYLE[role] || DEFAULT_STYLE;
 
                 return (
                     <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
                         <Astronaut3D
-                            accent={style.accent}
-                            prop={style.prop}
+                            suit={suit}
+                            prop={prop}
                             name={profileName}
                             role={role}
                             showName={true}
