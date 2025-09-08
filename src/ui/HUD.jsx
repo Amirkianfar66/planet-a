@@ -5,11 +5,11 @@ import "./ui.css";
 
 /**
  * HUD – single source overlay
- * - Left column: Status (O2/Energy), Role
- * - Right column: Backpack
- * - TeamChat is pinned bottom-left (absolute), independent of the grid
+ * - Left: Status (O2/Energy), Role
+ * - Right: Backpack
+ * - Chat: pinned bottom-left
  */
-export default function HUD({ game }) {
+export default function HUD({ game = {} }) {
     const me = game?.me || {};
     const meters = game?.meters || {};
 
@@ -34,12 +34,12 @@ export default function HUD({ game }) {
                         oxygen={Number(meters.oxygen ?? 0)}
                     />
                     <div style={{ minHeight: 0 }}>
-                        {/* Role reads live from Playroom; we don't pass a role prop */}
+                        {/* Role reads live from Playroom; no role prop */}
                         <RolePanel onPingObjective={() => game.requestAction?.("pingObjective")} />
                     </div>
                 </div>
 
-                {/* CENTER column (free for future overlays) */}
+                {/* CENTER column (free) */}
                 <div />
 
                 {/* RIGHT: Backpack */}
@@ -60,14 +60,15 @@ export default function HUD({ game }) {
                     left: 16,
                     bottom: 16,
                     width: 360,
-                    pointerEvents: "auto", // ensure input is clickable
+                    pointerEvents: "auto",
                 }}
             >
                 <TeamChatPanel
-                    // TEMP: remove onSend so the panel locally echoes to Playroom
+                    // Re-enable once local echo works for you:
                     // onSend={(text) => game.requestAction?.("chat", { text })}
-                    style={{ position: "static" }} // since the wrapper is already absolute
+                    style={{ position: "static" }}
                 />
             </div>
+        </div>
     );
 }
