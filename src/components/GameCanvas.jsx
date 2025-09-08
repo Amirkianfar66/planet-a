@@ -43,12 +43,10 @@ function TextLabel({
     }, [text, color, outline]);
 
     const h = width / (aspect || 4);
+    const noRay = useMemo(() => ({ raycast: () => null }), []);
+
     return (
-        <mesh
-            raycast={() => null}                    {/* ⬅️ don't block raycasts */}
-            position={position}
-            rotation={[-Math.PI / 2, 0, 0]}
-        >
+        <mesh {...noRay} position={position} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[width, h]} />
             <meshBasicMaterial map={texture} transparent depthWrite={false} />
         </mesh>
@@ -57,7 +55,7 @@ function TextLabel({
 
 /* ---------------- Floor, zones, walls ---------------- */
 function FloorAndWalls() {
-    const noRay = { raycast: () => null };      // ⬅️ helper to disable raycasts
+    const noRay = useMemo(() => ({ raycast: () => null }), []);
 
     return (
         <group>
@@ -114,7 +112,6 @@ export default function GameCanvas({ dead = [] }) {
                 shadows
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 onPointerMissed={(e) => {
-                    // reset cursor when clicking empty space
                     const el = e?.event?.target;
                     if (el && el.style) el.style.cursor = "";
                 }}
@@ -123,7 +120,7 @@ export default function GameCanvas({ dead = [] }) {
                 <directionalLight position={[5, 10, 3]} intensity={1} />
 
                 <FloorAndWalls />
-                <ItemsAndDevices />   {/* this sets gl.domElement.style.cursor on hover/click */}
+                <ItemsAndDevices />
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
