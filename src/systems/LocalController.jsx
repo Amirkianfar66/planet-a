@@ -17,12 +17,10 @@ function resolveCollisions(next) {
       const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
       const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
       if (!(insideX && insideZ)) continue;
-
-      const dxLeft = (next.x - (b.minX - PLAYER_RADIUS));
-      const dxRight = ((b.maxX + PLAYER_RADIUS) - next.x);
-      const dzTop = (next.z - (b.minZ - PLAYER_RADIUS));
-      const dzBottom = ((b.maxZ + PLAYER_RADIUS) - next.z);
-
+      const dxLeft = next.x - (b.minX - PLAYER_RADIUS);
+      const dxRight = (b.maxX + PLAYER_RADIUS) - next.x;
+      const dzTop = next.z - (b.minZ - PLAYER_RADIUS);
+      const dzBottom = (b.maxZ + PLAYER_RADIUS) - next.z;
       const minXPen = Math.min(dxLeft, dxRight);
       const minZPen = Math.min(dzTop, dzBottom);
       if (minXPen < minZPen) {
@@ -82,11 +80,9 @@ export default function LocalController() {
   useFrame((_, dt) => {
     if (!dt) return;
 
-    // rotate
     if (keys.current["q"]) yawRef.current += 1.5 * dt;
     if (keys.current["e"]) yawRef.current -= 1.5 * dt;
 
-    // WASD in yaw space
     const forward = new THREE.Vector3(Math.sin(yawRef.current), 0, Math.cos(yawRef.current));
     const right   = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current));
 
@@ -110,14 +106,12 @@ export default function LocalController() {
       next.x = Math.max(-FLOOR.w / 2 + m, Math.min(FLOOR.w / 2 - m, next.x));
       next.z = Math.max(-FLOOR.d / 2 + m, Math.min(FLOOR.d / 2 - m, next.z));
 
-      // face move direction
       const targetYaw = Math.atan2(move.x, move.z);
       const a = yawRef.current, b = targetYaw;
       const shortest = Math.atan2(Math.sin(b - a), Math.cos(b - a));
       yawRef.current = a + shortest * 0.25;
     }
 
-    // gravity/jump
     vyRef.current -= GRAVITY * dt;
     next.y += vyRef.current * dt;
     if (next.y <= GROUND_Y) {
@@ -131,7 +125,6 @@ export default function LocalController() {
     setPos(next);
     setMyPos(next.x, next.y, next.z);
 
-    // broadcast animation params
     myPlayer().setState("yaw", yawRef.current, false);
     myPlayer().setState("spd", horizSpeed, false);
     myPlayer().setState("air", !groundedRef.current, false);
