@@ -1,5 +1,6 @@
+// src/ui/StatusBarsPanel.jsx
 import React from "react";
-import * as MeterMod from "./MetersPanel"; // works whether default or named export
+import * as MeterMod from "./MetersPanel";
 const MetersPanel = MeterMod.default ?? MeterMod.MetersPanel;
 
 /** Two fixed meters: Energy + Oxygen */
