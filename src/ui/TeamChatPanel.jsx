@@ -2,25 +2,29 @@ import React, { useEffect, useRef, useState } from "react";
 import "./ui.css";
 
 /**
- * TeamChatPanel (left-bottom anchored)
+ * TeamChatPanel — compact card, bottom-left anchored (matches RolePanel style)
  * Props:
- *  - teamName, members, messages, myId, onSend, inputDisabled
- *  - style?: React.CSSProperties  // optional overrides (width, offsets, etc.)
+ *  - teamName: string
+ *  - members: Array<{ id:string, name:string }>
+ *  - messages: Array<{ id:string, senderId:string, text:string, ts:number }>
+ *  - myId: string
+ *  - onSend: (text:string) => void
+ *  - inputDisabled?: boolean
+ *  - style?: React.CSSProperties
  */
 export default function TeamChatPanel({
-    teamName = "Team Alpha",
+    teamName = "Team",
     members = [],
     messages = [],
     myId,
     onSend,
     inputDisabled = false,
-    title = "Team Chat",
     style,
 }) {
     const [text, setText] = useState("");
     const listRef = useRef(null);
 
-    // autoscroll when already near bottom
+    // autoscroll to bottom if already near bottom
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
@@ -36,93 +40,127 @@ export default function TeamChatPanel({
         setText("");
     };
 
+    const namesLine =
+        members.length > 0 ? members.map((m) => m.name || "Player").join(", ") : "—";
+
     return (
-        <section
-            className="ui-panel team-chat"
+        <div
             style={{
                 position: "absolute",
                 left: 10,
-                bottom: 10,             // ⬅️ anchored to left-bottom
-                width: 340,             // tweak as you like
-                maxHeight: "46vh",      // keeps it from covering the whole screen
+                bottom: 10, // ⬅️ left-bottom corner
+                background: "rgba(14,17,22,0.9)",
+                border: "1px solid #2a3242",
+                padding: 10,
+                borderRadius: 10,
                 display: "grid",
-                gridTemplateRows: "auto 1fr",
+                gap: 10,
+                color: "white",
+                width: 340,
+                maxHeight: "46vh",
+                gridTemplateRows: "auto auto 1fr auto",
                 ...style,
             }}
         >
-            <header className="ui-panel__header">
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span>{title}</span>
-                    <span className="ui-chip">{teamName}</span>
+            {/* Title line (matches RolePanel label style) */}
+            <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    Team — {teamName}
                 </div>
-                <div className="member-row">
-                    {members.map((m) => (
+            </div>
+
+            {/* Members line */}
+            <div style={{ display: "grid", gap: 4 }}>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    Members — {namesLine}
+                </div>
+            </div>
+
+            {/* Messages list */}
+            <div
+                ref={listRef}
+                style={{
+                    minHeight: 0,
+                    overflow: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                    paddingRight: 2,
+                }}
+            >
+                {messages.length === 0 && (
+                    <div
+                        style={{
+                            fontSize: 12,
+                            opacity: 0.7,
+                            padding: "8px 10px",
+                            background: "#1b2433",
+                            border: "1px solid #2a3242",
+                            borderRadius: 6,
+                        }}
+                    >
+                        No messages yet.
+                    </div>
+                )}
+
+                {messages.map((m) => {
+                    const mine = m.senderId === myId;
+                    return (
                         <div
                             key={m.id}
-                            className="member-pill"
-                            title={m.name}
-                            style={{ borderColor: m.color || "var(--ui-border)" }}
+                            style={{
+                                alignSelf: mine ? "flex-end" : "flex-start",
+                                maxWidth: "85%",
+                                background: mine ? "#19324a" : "#1b2433",
+                                border: "1px solid #2a3242",
+                                borderRadius: 6,
+                                padding: "8px 10px",
+                                fontSize: 12,
+                                lineHeight: 1.35,
+                            }}
+                            title={new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         >
-                            <div className="ui-avatar" style={{ background: m.color || undefined }}>
-                                {initials(m.name)}
-                            </div>
-                            <span>{m.name}</span>
-                            <span className={`dot ${m.isOnline ? "on" : "off"}`} />
+                            {!mine && (
+                                <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4 }}>
+                                    {memberName(members, m.senderId)}
+                                </div>
+                            )}
+                            {m.text}
                         </div>
-                    ))}
-                </div>
-            </header>
-
-            <div className="ui-panel__body chat-body" style={{ minHeight: 0 }}>
-                <div className="chat-list" ref={listRef}>
-                    {messages.length === 0 && <div className="ui-empty">No messages yet.</div>}
-                    {messages.map((m) => {
-                        const mine = m.senderId === myId;
-                        const sender = members.find((x) => x.id === m.senderId);
-                        return (
-                            <div key={m.id} className={`bubble ${mine ? "me" : "them"}`}>
-                                {!mine && (
-                                    <div className="bubble-author">
-                                        <div className="ui-avatar" style={{ background: sender?.color || undefined }}>
-                                            {initials(sender?.name || "??")}
-                                        </div>
-                                        <span>{sender?.name || "Unknown"}</span>
-                                    </div>
-                                )}
-                                <div className="bubble-text">{m.text}</div>
-                                <time className="bubble-time" dateTime={new Date(m.ts).toISOString()}>
-                                    {clock(m.ts)}
-                                </time>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <form className="chat-input" onSubmit={submit}>
-                    <input
-                        type="text"
-                        placeholder="Send a message to your team…"
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        disabled={inputDisabled}
-                    />
-                    <button className="ui-btn ui-btn--primary" disabled={inputDisabled || text.trim() === ""}>
-                        Send
-                    </button>
-                </form>
+                    );
+                })}
             </div>
-        </section>
+
+            {/* Input row */}
+            <form onSubmit={submit} style={{ display: "flex", gap: 6 }}>
+                <input
+                    type="text"
+                    placeholder="Send a message to your team…"
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    disabled={inputDisabled}
+                    style={{
+                        flex: 1,
+                        background: "#0e141f",
+                        border: "1px solid #2a3242",
+                        color: "white",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                    }}
+                />
+                <button
+                    className="ui-btn ui-btn--primary"
+                    disabled={inputDisabled || text.trim() === ""}
+                    style={{ padding: "8px 10px" }}
+                >
+                    Send
+                </button>
+            </form>
+        </div>
     );
 }
 
-function initials(name = "") {
-    const [a, b] = String(name).trim().split(/\s+/);
-    return ((a?.[0] || "") + (b?.[0] || "")).toUpperCase() || (a?.slice(0, 2).toUpperCase() || "??");
-}
-function clock(ts) {
-    try {
-        return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } catch {
-        return "—";
-    }
+function memberName(members, id) {
+    return members.find((m) => m.id === id)?.name || "Unknown";
 }
