@@ -2,9 +2,7 @@
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
-import ItemsAndDevices from "../world/ItemsAndDevices";
-import ItemsHostLogic from "../systems/ItemsHostLogic";
-import InteractionSystem from "../systems/InteractionSystem";
+
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls
@@ -114,6 +112,5 @@ export default function GameCanvas({ dead = [] }) {
             {/* All clients: keybinds + context hint HUD */}
             <InteractionSystem />
         </Canvas>
-
     );
 }
