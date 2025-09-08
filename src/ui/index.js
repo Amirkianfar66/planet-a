@@ -8,7 +8,6 @@ import * as StatusBarsPanelMod from "./StatusBarsPanel.jsx";
 import * as RolePanelMod from "./RolePanel.jsx";
 import * as BackpackPanelMod from "./BackpackPanel.jsx";
 import * as TeamChatPanelMod from "./TeamChatPanel.jsx";
-import * as VoiceChatPanelMod from "./VoiceChatPanel.jsx";
 
 // Re-export as NAMED symbols, whether each module uses default or named exports
 export const Centered = CenteredMod.default ?? CenteredMod.Centered;
@@ -20,4 +19,3 @@ export const StatusBarsPanel = StatusBarsPanelMod.default ?? StatusBarsPanelMod.
 export const RolePanel = RolePanelMod.default ?? RolePanelMod.RolePanel;
 export const BackpackPanel = BackpackPanelMod.default ?? BackpackPanelMod.BackpackPanel;
 export const TeamChatPanel = TeamChatPanelMod.default ?? TeamChatPanelMod.TeamChatPanel;
-export const VoiceChatPanel = VoiceChatPanelMod.default ?? VoiceChatPanelMod.VoiceChatPanel;
