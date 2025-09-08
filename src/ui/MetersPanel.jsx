@@ -1,14 +1,21 @@
 import React from "react";
-import { myPlayer } from "playroomkit";
 
-export function MetersPanel({ phase, oxygen, power, cctv, onRepair }) {
-    const me = myPlayer();
-    const role = String(me.getState("role") || "Crew");
+/**
+ * MetersPanel — Oxygen + Energy only
+ * Props:
+ *  - oxygen: number (0-100)
+ *  - power?: number (0-100)  // used as Energy label
+ *  - energy?: number         // optional alias; if provided, overrides power
+ *  - onRepair?: (key: "oxygen" | "power" | "energy") => void
+ */
+export function MetersPanel({ oxygen, power, energy, onRepair }) {
+    const energyVal = Number(energy ?? power ?? 0);
+    const oxygenVal = Number(oxygen ?? 0);
 
-    const Bar = ({ label, value }) => (
+    const Bar = ({ label, value, color }) => (
         <div style={{ display: "grid", gap: 4 }}>
             <div style={{ fontSize: 12, opacity: 0.8 }}>
-                {label} — {value}%
+                {label} — {Math.max(0, Math.min(100, Math.round(value)))}%
             </div>
             <div
                 style={{
@@ -21,14 +28,10 @@ export function MetersPanel({ phase, oxygen, power, cctv, onRepair }) {
             >
                 <div
                     style={{
-                        width: `${value}%`,
+                        width: `${Math.max(0, Math.min(100, value))}%`,
                         height: "100%",
-                        background:
-                            label === "CCTV"
-                                ? "#7dd3fc"
-                                : label === "Power"
-                                    ? "#a7f3d0"
-                                    : "#fca5a5",
+                        background: color,
+                        transition: "width .25s ease",
                     }}
                 />
             </div>
@@ -50,25 +53,15 @@ export function MetersPanel({ phase, oxygen, power, cctv, onRepair }) {
                 color: "white",
             }}
         >
-            <Bar label="Oxygen" value={Number(oxygen)} />
-            <Bar label="Power" value={Number(power)} />
-            <Bar label="CCTV" value={Number(cctv)} />
+            <Bar label="Oxygen" value={oxygenVal} color="#fca5a5" />
+            <Bar label="Energy" value={energyVal} color="#a7f3d0" />
 
             <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button onClick={() => onRepair("oxygen")}>Repair O₂ +10</button>
-                <button onClick={() => onRepair("power")}>Repair Power +10</button>
-                <button onClick={() => onRepair("cctv")}>Repair CCTV +10</button>
-            </div>
-
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
-                Your role: <b>{role}</b>
-            </div>
-            <div style={{ fontSize: 11, opacity: 0.6 }}>
-                {phase === "meeting"
-                    ? "Meeting: Vote"
-                    : phase === "day"
-                        ? "Day: Repair systems"
-                        : "Night: Repair (no sabotage in this build)"}
+                <button onClick={() => onRepair?.("oxygen")}>Repair O₂ +10</button>
+                {/* If your backend key is still "power", keep it; if you renamed it, change to "energy" */}
+                <button onClick={() => onRepair?.(energy !== undefined ? "energy" : "power")}>
+                    Repair Energy +10
+                </button>
             </div>
         </div>
     );
