@@ -28,19 +28,16 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-/* ---------- UI helpers ---------- */
-const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
-
 export default function App() {
     const [ready, setReady] = useState(false);
     const players = usePlayersList(true);
 
-    // Networked match phase: 'lobby' | 'meeting' | 'end' | (or clock label: 'day'/'night')
+    // Networked phase: 'lobby' | 'meeting' | 'end' | (or mirrored 'day'/'night')
     const [phase, setPhase] = usePhase();
     const matchPhase = phase || "lobby";
     const isInLobby = matchPhase === "lobby";
 
-    // Meeting timer only (day/night length is handled by the clock)
+    // Only used for meeting
     const [timer, setTimer] = useTimer();
     const { meetingLength } = useLengths();
 
@@ -49,49 +46,34 @@ export default function App() {
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    // Clock-derived
-    const clockPhaseFn = useGameClock((s) => s.phase);   // function → 'day' | 'night'
+    // Clock-derived (single source of truth for day/night + day number)
+    const clockPhaseFn = useGameClock((s) => s.phase);
     const dayNumber = useGameClock((s) => s.dayNumber);
     const maxDays = useGameClock((s) => s.maxDays);
 
-    // UI label: meeting beats clock; otherwise show the clock’s phase
+    // UI label (meeting beats clock)
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
 
-    // Game loops should not run in lobby/end
+    // Don’t run game loops in lobby/end
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    /* ---------- Effects wiring (one-liners) ---------- */
-
-    // Lobby → ready
+    // Effects (one-liners)
     useLobbyReady(setReady);
-
-    // Clock ↔ phase sync (never override lobby/meeting/end)
     useSyncPhaseToClock({ ready, matchPhase, setPhase });
-
-    // Meeting at 18:00 + countdown and exit
     useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
     useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents });
-
-    // Optional ticker when a new in-game day begins
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
-
-    // Crew role assignment (once, during Day)
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
-
-    // Process player actions (repair-only for now)
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-
-    // Resolve voting when meeting timer hits 0
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
 
-    /* ---------- Launch from Lobby (host) ---------- */
+    // Host starts the match from Lobby
     function launchGame() {
         if (!isHost()) return;
-        setPhase("day", true); // hand labels back to the clock afterwards
+        setPhase("day", true);                // after this, the clock keeps it in sync
         hostAppendEvent(setEvents, "Mission launch — Day 1");
     }
 
-    /* ---------- UI ---------- */
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
@@ -103,7 +85,6 @@ export default function App() {
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
 
-                {/* Clock HUD + Host Debug */}
                 <DayNightHUD />
                 {isHost() && <TimeDebugPanel />}
 
@@ -254,9 +235,5 @@ function VotePanel({ dead }) {
 }
 
 function Centered({ children }) {
-    return (
-        <div style={{ display: "grid", placeItems: "center", height: "100dvh", fontFamily: "sans-serif" }}>
-            {children}
-        </div>
-    );
+    return <div style={{ display: "grid", placeItems: "center", height: "100dvh", fontFamily: "sans-serif" }}>{children}</div>;
 }
