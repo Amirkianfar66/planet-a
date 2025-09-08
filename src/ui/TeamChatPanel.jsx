@@ -2,14 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import "./ui.css";
 
 /**
- * TeamChatPanel
+ * TeamChatPanel (left-bottom anchored)
  * Props:
- *  - teamName: string
- *  - members: Array<{ id:string, name:string, color?:string, isOnline?:boolean }>
- *  - messages: Array<{ id:string, senderId:string, text:string, ts:number }>
- *  - myId: string
- *  - onSend: (text:string) => void
- *  - inputDisabled?: boolean
+ *  - teamName, members, messages, myId, onSend, inputDisabled
+ *  - style?: React.CSSProperties  // optional overrides (width, offsets, etc.)
  */
 export default function TeamChatPanel({
     teamName = "Team Alpha",
@@ -19,11 +15,12 @@ export default function TeamChatPanel({
     onSend,
     inputDisabled = false,
     title = "Team Chat",
+    style,
 }) {
     const [text, setText] = useState("");
     const listRef = useRef(null);
 
-    // autoscroll to bottom when new messages arrive if already near bottom
+    // autoscroll when already near bottom
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
@@ -40,7 +37,19 @@ export default function TeamChatPanel({
     };
 
     return (
-        <section className="ui-panel team-chat">
+        <section
+            className="ui-panel team-chat"
+            style={{
+                position: "absolute",
+                left: 10,
+                bottom: 10,             // ⬅️ anchored to left-bottom
+                width: 340,             // tweak as you like
+                maxHeight: "46vh",      // keeps it from covering the whole screen
+                display: "grid",
+                gridTemplateRows: "auto 1fr",
+                ...style,
+            }}
+        >
             <header className="ui-panel__header">
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span>{title}</span>
@@ -48,7 +57,12 @@ export default function TeamChatPanel({
                 </div>
                 <div className="member-row">
                     {members.map((m) => (
-                        <div key={m.id} className="member-pill" title={m.name} style={{ borderColor: m.color || "var(--ui-border)" }}>
+                        <div
+                            key={m.id}
+                            className="member-pill"
+                            title={m.name}
+                            style={{ borderColor: m.color || "var(--ui-border)" }}
+                        >
                             <div className="ui-avatar" style={{ background: m.color || undefined }}>
                                 {initials(m.name)}
                             </div>
@@ -59,12 +73,12 @@ export default function TeamChatPanel({
                 </div>
             </header>
 
-            <div className="ui-panel__body chat-body">
+            <div className="ui-panel__body chat-body" style={{ minHeight: 0 }}>
                 <div className="chat-list" ref={listRef}>
                     {messages.length === 0 && <div className="ui-empty">No messages yet.</div>}
                     {messages.map((m) => {
                         const mine = m.senderId === myId;
-                        const sender = members.find(x => x.id === m.senderId);
+                        const sender = members.find((x) => x.id === m.senderId);
                         return (
                             <div key={m.id} className={`bubble ${mine ? "me" : "them"}`}>
                                 {!mine && (
@@ -106,6 +120,9 @@ function initials(name = "") {
     return ((a?.[0] || "") + (b?.[0] || "")).toUpperCase() || (a?.slice(0, 2).toUpperCase() || "??");
 }
 function clock(ts) {
-    try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
-    catch { return "—"; }
+    try {
+        return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+        return "—";
+    }
 }
