@@ -1,6 +1,6 @@
 // src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
-import { isHost, myPlayer, usePlayersList } from "playroomkit";
+import { isHost, usePlayersList } from "playroomkit";
 import useItemsSync from "./useItemsSync.js"; // explicit .js for Vercel
 import { useMeters, hostAppendEvent, useEvents } from "../network/playroom";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js"; // explicit .js
@@ -8,7 +8,7 @@ import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js"; // expli
 const THROW_SPEED = 8;
 const GRAV = 16;
 const FLOOR_Y = 0;
-const PICKUP_RADIUS = 2.0; // more forgiving for click testing (dial back to 1.25 later)
+const PICKUP_RADIUS = 2.0; // more forgiving for testing
 
 export default function ItemsHostLogic() {
     const host = isHost();
@@ -37,9 +37,7 @@ export default function ItemsHostLogic() {
                             vx *= 0.7;
                             vz *= 0.7;
                             if (Math.abs(vy) < 0.5) {
-                                vy = 0;
-                                vx = 0;
-                                vz = 0;
+                                vy = 0; vx = 0; vz = 0;
                             }
                         }
                     }
@@ -61,6 +59,10 @@ export default function ItemsHostLogic() {
                 const type = String(p.getState("reqType") || "");
                 const target = String(p.getState("reqTarget") || "");
                 const value = Number(p.getState("reqValue") || 0);
+
+                // 🔎 TELEMETRY: verify requests are arriving (host console)
+                // eslint-disable-next-line no-console
+                console.log(`[HOST] req from ${p.id.slice(0, 4)} t=${type} target=${target} value=${value} reqId=${reqId}`);
 
                 const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
                 const px = Number(p.getState("x") || 0);
