@@ -1,15 +1,20 @@
 // src/ui/index.js
+
+// Base UI
+import * as TopBarMod from "./TopBar.jsx";
 import * as CenteredMod from "./Centered.jsx";
 import * as MetersPanelMod from "./MetersPanel.jsx";
 import * as EventsFeedMod from "./EventsFeed.jsx";
 import * as VotePanelMod from "./VotePanel.jsx";
 
+// New panels
 import * as StatusBarsPanelMod from "./StatusBarsPanel.jsx";
 import * as RolePanelMod from "./RolePanel.jsx";
 import * as BackpackPanelMod from "./BackpackPanel.jsx";
 import * as TeamChatPanelMod from "./TeamChatPanel.jsx";
 
-// Re-export as NAMED symbols, whether each module uses default or named exports
+// Export *named* symbols that work whether modules use default or named exports
+export const TopBar = TopBarMod.default ?? TopBarMod.TopBar;
 export const Centered = CenteredMod.default ?? CenteredMod.Centered;
 export const MetersPanel = MetersPanelMod.default ?? MetersPanelMod.MetersPanel;
 export const EventsFeed = EventsFeedMod.default ?? EventsFeedMod.EventsFeed;
