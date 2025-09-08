@@ -10,24 +10,24 @@ export default function TeamChatPanel({
     inputDisabled = false,
     style,
 }) {
-    // force refresh so Playroom state changes are visible even if parent doesn't re-render
+    // force refresh so remote state changes render even if parent doesn't re-render
     const [, force] = useReducer((x) => x + 1, 0);
     useEffect(() => { const id = setInterval(force, 400); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
     const allPlayers = usePlayersList(true);
 
-    // TEAM: prop wins; then Playroom; then "Team"
-    const liveTeam = firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
-    const teamKey = `chat:${liveTeam}`; // single source key
+    // TEAM name: prop wins; else my state; else "Team"
+    const liveTeam =
+        firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
+    const teamKey = `chat:${liveTeam}`;
 
-    // --- LOCAL FALLBACK BUFFER (ensures you see your message instantly even if Playroom write fails) ---
+    // Local fallback buffer (so you see your message immediately even if network is slow)
     const [localMsgs, setLocalMsgs] = useState([]);
 
-    // ROSTER: props win; else build from Playroom
+    // Roster: props win; else build from all players (filter by team)
     const roster = useMemo(() => {
         if (Array.isArray(members) && members.length > 0) return members;
-
         const built = allPlayers.map((p) => ({
             id: p.id,
             name: firstNonEmpty(p?.profile?.name, p?.name, p?.getState?.("name"), shortId(p.id)),
@@ -36,26 +36,60 @@ export default function TeamChatPanel({
             isOnline: true,
             color: p?.profile?.color,
         }));
-        // If I have a team, show only that team; else everyone
-        return liveTeam ? built.filter((m) => m.team === liveTeam) : built;
+        return built.filter((m) => !liveTeam || m.team === liveTeam);
     }, [members, allPlayers, liveTeam]);
 
     const liveMyId = myId || me?.id || "me";
 
-    // MESSAGES (display): props → Playroom per-team → Playroom generic → local buffer
+    // 🔽 Aggregate messages from ALL players in this team
+    const aggregatedFromPlayers = useMemo(() => {
+        const collected = [];
+        for (const p of allPlayers) {
+            const pTeam = firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName"));
+            if (liveTeam && pTeam !== liveTeam) continue;
+            const arr = p?.getState?.(teamKey);
+            if (Array.isArray(arr)) {
+                for (const m of arr) {
+                    // normalize and tag the origin to help dedupe
+                    collected.push({
+                        id: String(m.id ?? `${m.senderId ?? p.id}-${m.ts ?? 0}`),
+                        senderId: m.senderId ?? p.id,
+                        text: String(m.text ?? ""),
+                        ts: Number(m.ts ?? 0),
+                        _from: p.id,
+                    });
+                }
+            }
+        }
+        // dedupe by id, then sort by ts asc
+        const map = new Map();
+        for (const m of collected) if (!map.has(m.id)) map.set(m.id, m);
+        return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
+    }, [allPlayers, liveTeam, teamKey]);
+
+    // Final messages: props → aggregatedFromPlayers → my own state → local buffer
     const liveMessages = useMemo(() => {
         if (Array.isArray(messages)) return messages;
+        const fromMe = me?.getState?.(teamKey);
+        const combined = [
+            ...(aggregatedFromPlayers || []),
+            ...(Array.isArray(fromMe)
+                ? fromMe.map((m) => ({
+                    id: String(m.id ?? `${m.senderId ?? liveMyId}-${m.ts ?? 0}`),
+                    senderId: m.senderId ?? liveMyId,
+                    text: String(m.text ?? ""),
+                    ts: Number(m.ts ?? 0),
+                }))
+                : []),
+            ...(localMsgs || []),
+        ];
+        // dedupe and sort again in case of overlap
+        const map = new Map();
+        for (const m of combined) if (!map.has(m.id)) map.set(m.id, m);
+        return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
+    }, [messages, aggregatedFromPlayers, me, teamKey, localMsgs, liveMyId]);
 
-        const perTeam = me?.getState?.(teamKey);
-        if (Array.isArray(perTeam)) return perTeam;
-
-        const generic = me?.getState?.("teamChat") || me?.getState?.("teamMessages");
-        if (Array.isArray(generic)) return generic;
-
-        return localMsgs; // final fallback so something shows
-    }, [messages, me, teamKey, localMsgs]);
-
-    // Basic UI state
+    // ui state
     const [text, setText] = useState("");
     const listRef = useRef(null);
 
@@ -72,21 +106,25 @@ export default function TeamChatPanel({
         const t = text.trim();
         if (!t) return;
 
-        // Construct message once
         const now = Date.now();
-        const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, senderId: liveMyId, text: t, ts: now };
+        const msg = {
+            id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
+            senderId: liveMyId,
+            text: t,
+            ts: now,
+        };
 
-        // 1) Local echo (guaranteed immediate UI)
+        // 1) local echo for instantaneous UI
         setLocalMsgs((curr) => [...curr, msg]);
 
-        // 2) Write to Playroom (if API exists)
+        // 2) write to *my* Playroom player state, broadcast=true
         try {
             const prev = me?.getState?.(teamKey);
             const next = Array.isArray(prev) ? [...prev, msg] : [msg];
             me?.setState?.(teamKey, next, true);
         } catch { }
 
-        // 3) Upstream action (your networking)
+        // 3) optional network action (host can rebroadcast / persist)
         try { onSend?.(t); } catch { }
 
         setText("");
@@ -116,13 +154,8 @@ export default function TeamChatPanel({
                 ...style,
             }}
         >
-            <div style={{ display: "grid", gap: 4 }}>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>Team — {liveTeam}</div>
-            </div>
-
-            <div style={{ display: "grid", gap: 4 }}>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>Members — {namesLine}</div>
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Team — {liveTeam}</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Members — {namesLine}</div>
 
             <div
                 ref={listRef}
