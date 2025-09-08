@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import GameCanvas from "./components/GameCanvas";
 import {
     usePhase, useTimer, useLengths,
@@ -7,7 +7,6 @@ import {
 } from "./network/playroom";
 import { isHost, myPlayer, usePlayersList } from "playroomkit";
 
-import DayNightHUD from "./ui/DayNightHUD";
 import TimeDebugPanel from "./ui/TimeDebugPanel";
 import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby";
@@ -26,7 +25,7 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// ⬇️ new: import extracted UI
+// extracted UI
 import { TopBar, MetersPanel, EventsFeed, VotePanel, Centered } from "./ui";
 
 export default function App() {
@@ -75,11 +74,12 @@ export default function App() {
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
+            {/* TopBar now includes day/night clock, phase chip, progress, and meeting timer */}
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} />
+
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
 
-                <DayNightHUD />
                 {isHost() && <TimeDebugPanel />}
 
                 <MetersPanel
