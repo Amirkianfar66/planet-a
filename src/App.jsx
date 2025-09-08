@@ -13,6 +13,8 @@ import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby";
 
 
+
+
 // game effects
 import {
     useLobbyReady,
@@ -28,7 +30,7 @@ import {
 } from "./game/timePhaseEffects";
 
 // extracted UI
-import { TopBar, MetersPanel, EventsFeed, VotePanel, Centered } from "./ui";
+import { TopBar, MetersPanel, TeamChatPanel, EventsFeed, VotePanel, Centered } from "./ui";
 
 
 // NEW: HUD overlay composed of Status/Role/Backpack/TeamChat
