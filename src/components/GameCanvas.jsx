@@ -85,32 +85,24 @@ function FloorAndWalls() {
     );
 }
 
-/* ---------------- Root canvas ---------------- */
+/* ---------------- Root canvas + overlays ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
-        <Canvas shadows camera={{ position: [0, 8, 10], fov: 50 }}>
-            <ambientLight intensity={0.7} />
-            <directionalLight position={[5, 10, 3]} intensity={1} />
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <Canvas shadows camera={{ position: [0, 8, 10], fov: 50 }}>
+                <ambientLight intensity={0.7} />
+                <directionalLight position={[5, 10, 3]} intensity={1} />
 
-            <FloorAndWalls />
+                <FloorAndWalls />
+                <ItemsAndDevices />
+                <Players3D dead={dead} />
+                <LocalController />
+                <ThirdPersonCamera />
+            </Canvas>
 
-            {/* Items & devices in the world */}
-            <ItemsAndDevices />
-
-            {/* Players (role components) */}
-            <Players3D dead={dead} />
-
-            {/* Local input + physics → broadcasts yaw/spd/air */}
-            <LocalController />
-
-            {/* Follow cam */}
-            <ThirdPersonCamera />
-
-            {/* Host: process pickup/throw/use + item physics */}
-            <ItemsHostLogic />
-
-            {/* All clients: keybinds + context hint HUD */}
+            {/* DOM overlay + host logic outside Canvas */}
             <InteractionSystem />
-        </Canvas>
+            <ItemsHostLogic />
+        </div>
     );
 }
