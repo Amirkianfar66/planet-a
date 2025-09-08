@@ -44,7 +44,11 @@ function TextLabel({
 
     const h = width / (aspect || 4);
     return (
-        <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh
+            raycast={() => null}                    {/* ⬅️ don't block raycasts */}
+            position={position}
+            rotation={[-Math.PI / 2, 0, 0]}
+        >
             <planeGeometry args={[width, h]} />
             <meshBasicMaterial map={texture} transparent depthWrite={false} />
         </mesh>
@@ -53,33 +57,35 @@ function TextLabel({
 
 /* ---------------- Floor, zones, walls ---------------- */
 function FloorAndWalls() {
+    const noRay = { raycast: () => null };      // ⬅️ helper to disable raycasts
+
     return (
         <group>
             {/* Base floor */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
             </mesh>
 
             {/* Zones */}
-            <mesh position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
                 <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
             </mesh>
-            <mesh position={[STATION_AREA.x, 0.003, STATION_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh {...noRay} position={[STATION_AREA.x, 0.003, STATION_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[STATION_AREA.w, STATION_AREA.d]} />
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
             {/* Grid */}
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
+            <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
             </mesh>
 
             {/* Walls */}
             {walls.map((w, i) => (
-                <mesh key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
+                <mesh {...noRay} key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
                     <boxGeometry args={[w.w, WALL_HEIGHT, w.d]} />
                     <meshStandardMaterial color="#3b4a61" />
                 </mesh>
@@ -104,12 +110,20 @@ function FloorAndWalls() {
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
-            <Canvas shadows camera={{ position: [0, 8, 10], fov: 50 }}>
+            <Canvas
+                shadows
+                camera={{ position: [0, 8, 10], fov: 50 }}
+                onPointerMissed={(e) => {
+                    // reset cursor when clicking empty space
+                    const el = e?.event?.target;
+                    if (el && el.style) el.style.cursor = "";
+                }}
+            >
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 10, 3]} intensity={1} />
 
                 <FloorAndWalls />
-                <ItemsAndDevices />
+                <ItemsAndDevices />   {/* this sets gl.domElement.style.cursor on hover/click */}
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />

@@ -1,6 +1,6 @@
 // src/world/ItemsAndDevices.jsx
-import React, { useMemo, useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+import React, { useMemo, useRef, useEffect } from "react";
+import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
@@ -9,7 +9,19 @@ import { requestAction as _requestAction } from "../network/playroom";
 
 const PICKUP_RADIUS = 2.0; // keep in sync with ItemsHostLogic
 
-// robust sender with fallback to direct state writes
+// set cursor on the WebGL canvas, not on body
+function useCanvasCursor() {
+    const { gl } = useThree();
+    const prev = useRef("");
+    useEffect(() => {
+        const el = gl.domElement;
+        prev.current = el.style.cursor || "";
+        return () => { el.style.cursor = prev.current; }; // restore on unmount
+    }, [gl]);
+    return (value = "") => { gl.domElement.style.cursor = value; };
+}
+
+// robust sender with fallback
 function sendAction(type, target, value = 0) {
     try {
         if (typeof _requestAction === "function") {
@@ -35,18 +47,12 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-function setCursor(style = "") {
-    document.body.style.cursor = style;
-}
-
 /* ---------- Billboard label (clickable) ---------- */
-function ItemLabel({ text = "Item", offsetY = 0.9, onPointerHandlers }) {
+function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
     const { camera } = useThree();
     const ref = useRef();
 
-    useFrame(() => {
-        if (ref.current) ref.current.quaternion.copy(camera.quaternion);
-    });
+    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
 
     const { tex, aspect } = useMemo(() => {
         const canvas = document.createElement("canvas");
@@ -79,7 +85,7 @@ function ItemLabel({ text = "Item", offsetY = 0.9, onPointerHandlers }) {
 
     return (
         <group ref={ref} position={[0, offsetY, 0]}>
-            <mesh {...onPointerHandlers}>
+            <mesh {...handlers}>
                 <planeGeometry args={[width, height]} />
                 <meshBasicMaterial map={tex} transparent depthWrite={false} />
             </mesh>
@@ -99,10 +105,39 @@ function prettyName(type) {
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
+    const setCanvasCursor = useCanvasCursor();
+
+    const handlersFor = (it) => {
+        const actionable = () => canPickUp(it);
+        const updateCursor = () => setCanvasCursor(actionable() ? "grab" : "not-allowed");
+        const clearCursor = () => setCanvasCursor("");
+
+        const pick = (e) => {
+            e?.stopPropagation?.();
+            if (actionable()) {
+                setCanvasCursor("grabbing");
+                sendAction("pickup", it.id, 0);
+                // ensure reset even if the mesh gets removed immediately
+                requestAnimationFrame(() => setCanvasCursor(""));
+            } else {
+                // flash not-allowed briefly
+                setCanvasCursor("not-allowed");
+                setTimeout(() => setCanvasCursor(""), 150);
+            }
+        };
+
+        return {
+            onPointerMove: (e) => { e.stopPropagation(); updateCursor(); },
+            onPointerOver: (e) => { e.stopPropagation(); updateCursor(); },
+            onPointerOut: (e) => { e.stopPropagation(); clearCursor(); },
+            onPointerDown: (e) => { e.stopPropagation(); pick(e); },
+            onClick: (e) => { e.stopPropagation(); pick(e); },
+        };
+    };
 
     return (
         <group>
-            {/* Devices (visual) */}
+            {/* Devices (visual only here) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -116,35 +151,12 @@ export default function ItemsAndDevices() {
                 </group>
             ))}
 
-            {/* Items (hover → cursor reflects actionable; click → pickup) */}
+            {/* Items */}
             {items.map((it) => {
-                if (it.holder) return null; // not on floor
+                if (it.holder) return null;
                 const pos = [it.x, it.y + 0.25, it.z];
                 const label = it.name || prettyName(it.type);
-
-                const pick = (e) => {
-                    e?.stopPropagation?.();
-                    if (canPickUp(it)) {
-                        setCursor("grabbing");
-                        sendAction("pickup", it.id, 0);
-                        // item will likely disappear; ensure cursor resets even if pointerout doesn’t fire
-                        requestAnimationFrame(() => setCursor(""));
-                    }
-                };
-
-                const updateCursor = () => {
-                    setCursor(canPickUp(it) ? "grab" : "not-allowed");
-                };
-
-                const clearCursor = () => setCursor("");
-
-                const handlers = {
-                    onPointerMove: (e) => { e.stopPropagation(); updateCursor(); },
-                    onPointerOver: (e) => { e.stopPropagation(); updateCursor(); },
-                    onPointerOut: (e) => { e.stopPropagation(); clearCursor(); },
-                    onPointerDown: (e) => { e.stopPropagation(); pick(e); },
-                    onClick: (e) => { e.stopPropagation(); pick(e); },
-                };
+                const handlers = handlersFor(it);
 
                 switch (it.type) {
                     case "food":
@@ -154,7 +166,7 @@ export default function ItemsAndDevices() {
                                     <boxGeometry args={[0.35, 0.25, 0.35]} />
                                     <meshStandardMaterial color="#ff9f43" />
                                 </mesh>
-                                <ItemLabel text={label} onPointerHandlers={handlers} />
+                                <ItemLabel text={label} handlers={handlers} />
                             </group>
                         );
                     case "battery":
@@ -168,7 +180,7 @@ export default function ItemsAndDevices() {
                                     <cylinderGeometry args={[0.06, 0.06, 0.1, 12]} />
                                     <meshStandardMaterial color="#0f172a" />
                                 </mesh>
-                                <ItemLabel text={label} onPointerHandlers={handlers} />
+                                <ItemLabel text={label} handlers={handlers} />
                             </group>
                         );
                     case "o2can":
@@ -182,7 +194,7 @@ export default function ItemsAndDevices() {
                                     <boxGeometry args={[0.08, 0.12, 0.08]} />
                                     <meshStandardMaterial color="#1e293b" />
                                 </mesh>
-                                <ItemLabel text={label} onPointerHandlers={handlers} />
+                                <ItemLabel text={label} handlers={handlers} />
                             </group>
                         );
                     case "fuel":
@@ -192,7 +204,7 @@ export default function ItemsAndDevices() {
                                     <boxGeometry args={[0.12, 0.6, 0.12]} />
                                     <meshStandardMaterial color="#a78bfa" />
                                 </mesh>
-                                <ItemLabel text={label} onPointerHandlers={handlers} />
+                                <ItemLabel text={label} handlers={handlers} />
                             </group>
                         );
                     default:
@@ -202,7 +214,7 @@ export default function ItemsAndDevices() {
                                     <boxGeometry args={[0.3, 0.3, 0.3]} />
                                     <meshStandardMaterial color="#9ca3af" />
                                 </mesh>
-                                <ItemLabel text={label} onPointerHandlers={handlers} />
+                                <ItemLabel text={label} handlers={handlers} />
                             </group>
                         );
                 }
