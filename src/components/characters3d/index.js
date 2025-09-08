@@ -13,8 +13,8 @@ export { Engineer, Research, StationDirector, Officer, Guard, FoodSupplier };
 export const ROLE_COMPONENTS = {
   Engineer,
   Research,
-  "Station Director": StationDirector,
+  "StationDirector": StationDirector,
   Officer,
   Guard,
-  "Food Supplier": FoodSupplier,
+  "FoodSupplier": FoodSupplier,
 };

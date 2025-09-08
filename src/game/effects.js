@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { openLobby, hostAppendEvent } from "../network/playroom";
 import { isHost } from "playroomkit";
 
-const ROLES = ["Engineer", "Research", "Station Director", "Officer", "Guard", "Food Supplier"];
+const ROLES = ["Engineer", "Research", "StationDirector", "Officer", "Guard", "FoodSupplier"];
 const clamp01 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
 const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
 

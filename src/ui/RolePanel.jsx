@@ -76,7 +76,7 @@ const ROLE_OBJECTIVES = {
     Research: "Search for cures and run blood tests.",
     Guard: "Defend the station by securing critical areas.",
     Engineer: "Maintain station systems and fix spaceship modules.",
-    "Station Director": "Oversee blood tests and call meetings when needed.",
-    "Food Supplier": "Collect ingredients and prepare food capsules.",
+    "StationDirector": "Oversee blood tests and call meetings when needed.",
+    "FoodSupplier": "Collect ingredients and prepare food capsules.",
     Officer: "Analyze CCTV, question players, and request blood tests.",
 };
