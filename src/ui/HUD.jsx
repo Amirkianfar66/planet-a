@@ -95,4 +95,40 @@ export default function HUD({ game = {} }) {
                         oxygen={Number(meters.oxygen ?? 100)}
                     />
                     <div style={{ minHeight: 0 }}>
-                        {/* Role reads live from Playroom; no role prop*
+                        {/* Role reads live from Playroom; no role prop */}
+                        <RolePanel onPingObjective={() => game.requestAction?.("pingObjective")} />
+                    </div>
+                </div>
+
+                {/* CENTER column (free) */}
+                <div />
+
+                {/* RIGHT: Backpack */}
+                <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
+                    <BackpackPanel
+                        items={me.backpack || []}
+                        capacity={me.capacity ?? 8}
+                        onUse={(id) => game.requestAction?.("useItem", { id })}
+                        onDrop={(id) => game.requestAction?.("dropItem", { id })}
+                    />
+                </div>
+            </div>
+
+            {/* BOTTOM-LEFT: Team chat (pinned) */}
+            <div
+                style={{
+                    position: "absolute",
+                    left: 16,
+                    bottom: 16,
+                    width: 360,
+                    pointerEvents: "auto",
+                }}
+            >
+                <TeamChatPanel
+                    // onSend={(text) => game.requestAction?.("chat", { text })}
+                    style={{ position: "static" }}
+                />
+            </div>
+        </div>
+    );
+}
