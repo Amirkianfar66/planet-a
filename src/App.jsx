@@ -28,7 +28,7 @@ import {
 } from "./game/timePhaseEffects";
 
 // extracted UI
-import { TopBar, EventsFeed, VotePanel, Centered } from "./ui";
+import { TopBar, MetersPanel, EventsFeed, VotePanel, Centered } from "./ui";
 
 
 // NEW: HUD overlay composed of Status/Role/Backpack/TeamChat
