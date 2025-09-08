@@ -125,12 +125,31 @@ export default function App() {
 
                 <EventsFeed events={events} />
 
+                {/* Left–bottom Team Chat (live-synced) */}
+                <TeamChatPanel
+                    teamName={game.me.teamName}
+                    members={players.map((p) => ({
+                        id: p.id,
+                        name: p?.profile?.name || p?.name || p.id.slice(0, 6),
+                        role:
+                            (rolesAssigned instanceof Map
+                                ? rolesAssigned.get(p.id)
+                                : rolesAssigned?.[p.id]) ||
+                            p?.getState?.("role") ||
+                            "",
+                        isOnline: !dead.includes(p.id),
+                    }))}
+                    myId={myId}
+                    onSend={(text) => requestAction("chat", { text, team: game.me.teamName })}
+                />
+
                 {/* -------- NEW: HUD overlay (clickable) -------- */}
                 <div style={{ position: "absolute", inset: 16, pointerEvents: "none" }}>
                     <div style={{ pointerEvents: "auto" }}>
                         <HUD game={game} />
                     </div>
                 </div>
+
                 {/* --------------------------------------------- */}
             </div>
 
