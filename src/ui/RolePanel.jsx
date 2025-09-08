@@ -4,16 +4,8 @@ import "./ui.css";
 
 /**
  * RolePanel
- * - If `role` prop is omitted, it reads from myPlayer().getState("role")
- * - If `objective` prop is omitted, it uses a default per-role objective
- *
- * Props:
- *  - role?: string
- *  - objective?: string
- *  - badgeColor?: string
- *  - tips?: string[]
- *  - onPingObjective?: () => void
- *  - title?: string
+ * - If `role` is not provided, it reads from myPlayer().getState("role") or profile.role.
+ * - If `objective` is not provided, it uses ROLE_OBJECTIVES[role] with a neutral fallback.
  */
 export default function RolePanel({
     role,
@@ -24,14 +16,17 @@ export default function RolePanel({
     title = "Your Role",
 }) {
     const me = safeMyPlayer();
-    const resolvedRole =
-        role ??
-        safeString(me?.getState?.("role")) ||
-        safeString(me?.profile?.role) ||
-        "Crew";
 
-    const resolvedObjective =
-        objective ?? defaultObjectiveFor(resolvedRole) ?? "Complete daily tasks.";
+    // choose the first non-empty string
+    const resolvedRole =
+        firstNonEmpty(
+            role,
+            me?.getState?.("role"),
+            me?.profile?.role,
+            "Unassigned"
+        ) || "Unassigned";
+
+    const resolvedObjective = objective ?? defaultObjectiveFor(resolvedRole);
 
     return (
         <section className="ui-panel">
@@ -71,6 +66,7 @@ export default function RolePanel({
     );
 }
 
+// ---------- helpers ----------
 function safeMyPlayer() {
     try { return myPlayer?.(); } catch { return null; }
 }
@@ -78,19 +74,26 @@ function safeString(v) {
     if (v == null) return "";
     try { return String(v).trim(); } catch { return ""; }
 }
+// Return the first non-empty string from a list of candidates
+function firstNonEmpty(...vals) {
+    for (const v of vals) {
+        const s = safeString(v);
+        if (s) return s;
+    }
+    return "";
+}
 
-// ----- Exact-match objectives (no alias mapping) -----
+// ----- Exact-match objectives (must match your characters index) -----
 const ROLE_OBJECTIVES = {
-    Researcher: "Search for cures and run blood tests.",
+    Research: "Search for cures and run blood tests.",
     Guard: "Defend the station by securing critical areas.",
     Engineer: "Maintain station systems and fix spaceship modules.",
-    Lab Director: "Oversee blood tests and call meetings when needed.",
-    Food Supplier: "Collect ingredients and prepare food capsules.",
+    "Station Director": "Oversee blood tests and call meetings when needed.",
+    "Food Supplier": "Collect ingredients and prepare food capsules.",
     Officer: "Analyze CCTV, question players, and request blood tests.",
 };
 
-// No canonicalRole/ALIAS — exact match only
 function defaultObjectiveFor(role) {
-    const key = String(role || "");
-    return ROLE_OBJECTIVES[key] ?? ROLE_OBJECTIVES.Crewmate;
+    const key = safeString(role);
+    return ROLE_OBJECTIVES[key] ?? "No objective set.";
 }

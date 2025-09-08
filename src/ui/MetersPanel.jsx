@@ -1,68 +1,99 @@
 import React from "react";
+import { myPlayer } from "playroomkit";
+import "./ui.css";
 
 /**
- * MetersPanel — Oxygen + Energy only
- * Props:
- *  - oxygen: number (0-100)
- *  - power?: number (0-100)  // used as Energy label
- *  - energy?: number         // optional alias; if provided, overrides power
- *  - onRepair?: (key: "oxygen" | "power" | "energy") => void
+ * RolePanel
+ * - If `role` is not provided, it reads from myPlayer().getState("role") or profile.role.
+ * - If `objective` is not provided, it uses ROLE_OBJECTIVES[role] with a neutral fallback.
  */
-export function MetersPanel({ oxygen, power, energy, onRepair }) {
-    const energyVal = Number(energy ?? power ?? 0);
-    const oxygenVal = Number(oxygen ?? 0);
+export default function RolePanel({
+    role,
+    objective,
+    badgeColor,
+    tips = [],
+    onPingObjective,
+    title = "Your Role",
+}) {
+    const me = safeMyPlayer();
 
-    const Bar = ({ label, value, color }) => (
-        <div style={{ display: "grid", gap: 4 }}>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
-                {label} — {Math.max(0, Math.min(100, Math.round(value)))}%
-            </div>
-            <div
-                style={{
-                    width: 200,
-                    height: 10,
-                    background: "#2a3242",
-                    borderRadius: 6,
-                    overflow: "hidden",
-                }}
-            >
-                <div
-                    style={{
-                        width: `${Math.max(0, Math.min(100, value))}%`,
-                        height: "100%",
-                        background: color,
-                        transition: "width .25s ease",
-                    }}
-                />
-            </div>
-        </div>
-    );
+    // choose the first non-empty string
+    const resolvedRole =
+        firstNonEmpty(
+            role,
+            me?.getState?.("role"),
+            me?.profile?.role,
+            "Unassigned"
+        ) || "Unassigned";
+
+    const resolvedObjective = objective ?? defaultObjectiveFor(resolvedRole);
 
     return (
-        <div
-            style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: "rgba(14,17,22,0.9)",
-                border: "1px solid #2a3242",
-                padding: 10,
-                borderRadius: 10,
-                display: "grid",
-                gap: 10,
-                color: "white",
-            }}
-        >
-            <Bar label="Oxygen" value={oxygenVal} color="#fca5a5" />
-            <Bar label="Energy" value={energyVal} color="#a7f3d0" />
+        <section className="ui-panel">
+            <header className="ui-panel__header">
+                <span>{title}</span>
+                <span
+                    className="ui-chip"
+                    style={{ borderColor: "transparent", background: badgeColor || "var(--ui-chip-bg)" }}
+                >
+                    {resolvedRole}
+                </span>
+            </header>
 
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button onClick={() => onRepair?.("oxygen")}>Repair O₂ +10</button>
-                {/* If your backend key is still "power", keep it; if you renamed it, change to "energy" */}
-                <button onClick={() => onRepair?.(energy !== undefined ? "energy" : "power")}>
-                    Repair Energy +10
-                </button>
+            <div className="ui-panel__body" style={{ display: "grid", gap: 10 }}>
+                <div className="role-objective">
+                    <div className="role-objective__label">Daily Objective</div>
+                    <div className="role-objective__text">{resolvedObjective}</div>
+                </div>
+
+                {tips.length > 0 && (
+                    <ul className="ui-list">
+                        {tips.map((t, i) => (
+                            <li key={i}>{t}</li>
+                        ))}
+                    </ul>
+                )}
+
+                {onPingObjective && (
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button className="ui-btn ui-btn--primary ui-btn--small" onClick={onPingObjective}>
+                            Ping on Map
+                        </button>
+                    </div>
+                )}
             </div>
-        </div>
+        </section>
     );
+}
+
+// ---------- helpers ----------
+function safeMyPlayer() {
+    try { return myPlayer?.(); } catch { return null; }
+}
+function safeString(v) {
+    if (v == null) return "";
+    try { return String(v).trim(); } catch { return ""; }
+}
+// Return the first non-empty string from a list of candidates
+function firstNonEmpty(...vals) {
+    for (const v of vals) {
+        const s = safeString(v);
+        if (s) return s;
+    }
+    return "";
+}
+
+// ----- Exact-match objectives (must match your characters index) -----
+const ROLE_OBJECTIVES = {
+    Research: "Search for cures and run blood tests.",
+    Guard: "Defend the station by securing critical areas.",
+    Engineer: "Maintain station systems and fix spaceship modules.",
+    "Station Director": "Oversee blood tests and call meetings when needed.",
+    "Food Supplier": "Collect ingredients and prepare food capsules.",
+    Officer: "Analyze CCTV, question players, and request blood tests.",
+};
+
+function defaultObjectiveFor(role) {
+    const key = safeString(role);
+    return ROLE_OBJECTIVES[key] ?? "No objective set.";
 }
