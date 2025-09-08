@@ -1,21 +1,29 @@
 // src/components/Players3D.jsx
 import React from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
-import { ROLE_COMPONENTS, Engineer as DefaultRole } from "./characters3d/index.js"; // explicit path is safest on Vercel
-import { myPlayer, usePlayersList } from "playroomkit";
+import { ROLE_COMPONENTS, Engineer as DefaultRole } from "./characters3d/index.js";
 import { DEVICES } from "../data/gameObjects.js";
+import { requestAction } from "../network/playroom";
+
 export default function Players3D({ dead = [] }) {
     const players = usePlayersList(true);
-     // helper: nearest device around (x,z)
-         const nearestDevice = (x, z) => {
-               let best = null, bestD2 = Infinity;
-               for (const d of DEVICES) {
-                     const dx = d.x - x, dz = d.z - z, d2 = dx * dx + dz * dz;
-                     const r = (d.radius || 1.3);
-                     if (d2 < bestD2 && d2 <= r * r) { best = d; bestD2 = d2; }
-                   }
-               return best;
-             };
+
+    // nearest device within its radius
+    const nearestDevice = (x, z) => {
+        let best = null;
+        let bestD2 = Infinity;
+        for (const d of DEVICES) {
+            const dx = d.x - x;
+            const dz = d.z - z;
+            const d2 = dx * dx + dz * dz;
+            const r = (d.radius || 1.3);
+            if (d2 <= r * r && d2 < bestD2) {
+                best = d;
+                bestD2 = d2;
+            }
+        }
+        return best;
+    };
 
     return (
         <>
@@ -35,34 +43,34 @@ export default function Players3D({ dead = [] }) {
 
                 const Comp = ROLE_COMPONENTS[role] || DefaultRole;
                 const isLocal = myPlayer().id === p.id;
-                
-                          const handleUseCarry = () => {
-                                 if (!isLocal || !carry) return;
-                                 const dev = nearestDevice(x, z);
-                                if (dev) {
-                                       requestAction("use", `${dev.id}|${carry}`, 0);
-                                     } else {
-                                       requestAction("use", `eat|${carry}`, 0);
-                                    }
-                               };
-                
-                           const handleThrowCarry = () => {
-                                 if (!isLocal || !carry) return;
-                                 requestAction("throw", carry, yaw);
-                               };
+
+                const handleUseCarry = () => {
+                    if (!isLocal || !carry) return;
+                    const dev = nearestDevice(x, z);
+                    if (dev) {
+                        requestAction("use", `${dev.id}|${carry}`, 0);
+                    } else {
+                        requestAction("use", `eat|${carry}`, 0);
+                    }
+                };
+
+                const handleThrowCarry = () => {
+                    if (!isLocal || !carry) return;
+                    requestAction("throw", carry, yaw);
+                };
 
                 return (
                     <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
                         <Comp
-+             name={name}
-                                     showName
-                                     speed={speed}
-                                     airborne={airborne}
-                                     carry={carry}
-                                     isLocal={isLocal}
-                                     yaw={yaw}
-                                     onClickCarry={handleUseCarry}
-                                     onContextMenuCarry={handleThrowCarry}
+                            name={name}
+                            showName
+                            speed={speed}
+                            airborne={airborne}
+                            carry={carry}
+                            isLocal={isLocal}
+                            onClickCarry={handleUseCarry}
+                            onContextMenuCarry={handleThrowCarry}
+                        />
                     </group>
                 );
             })}
