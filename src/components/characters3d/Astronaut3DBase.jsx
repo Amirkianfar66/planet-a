@@ -218,7 +218,7 @@ export default function Astronaut3DBase({ suit, prop, name, role, showName, bob,
     <group position={[-0.6, 1.0, 0]}>
         {/* left hand carry mount */}
         <group position={[0, -0.12, 0.18]}>
-            <CarryProp type={/* new prop */ (props.carry || "")} />
+            <CarryProp type={carry || ""} />
         </group>
     </group>
 
