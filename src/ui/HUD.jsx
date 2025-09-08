@@ -54,16 +54,20 @@ export default function HUD({ game }) {
             </div>
 
             {/* BOTTOM-LEFT: Team chat (pinned) */}
-            <TeamChatPanel
-                onSend={(text) => game.requestAction?.("chat", { text })}
+            <div
                 style={{
                     position: "absolute",
                     left: 16,
                     bottom: 16,
                     width: 360,
-                    pointerEvents: "auto",
+                    pointerEvents: "auto", // ensure input is clickable
                 }}
-            />
-        </div>
+            >
+                <TeamChatPanel
+                    // TEMP: remove onSend so the panel locally echoes to Playroom
+                    // onSend={(text) => game.requestAction?.("chat", { text })}
+                    style={{ position: "static" }} // since the wrapper is already absolute
+                />
+            </div>
     );
 }

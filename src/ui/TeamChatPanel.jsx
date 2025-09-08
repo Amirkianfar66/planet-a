@@ -1,4 +1,3 @@
-// src/ui/TeamChatPanel.jsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
 
@@ -11,20 +10,24 @@ export default function TeamChatPanel({
     inputDisabled = false,
     style,
 }) {
-    // periodic refresh so Playroom reads update even if parent doesn't re-render
+    // force refresh so Playroom state changes are visible even if parent doesn't re-render
     const [, force] = useReducer((x) => x + 1, 0);
     useEffect(() => { const id = setInterval(force, 400); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
     const allPlayers = usePlayersList(true);
 
-    // TEAM NAME: props win; then Playroom
-    const liveTeam =
-        firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
+    // TEAM: prop wins; then Playroom; then "Team"
+    const liveTeam = firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
+    const teamKey = `chat:${liveTeam}`; // single source key
+
+    // --- LOCAL FALLBACK BUFFER (ensures you see your message instantly even if Playroom write fails) ---
+    const [localMsgs, setLocalMsgs] = useState([]);
 
     // ROSTER: props win; else build from Playroom
     const roster = useMemo(() => {
         if (Array.isArray(members) && members.length > 0) return members;
+
         const built = allPlayers.map((p) => ({
             id: p.id,
             name: firstNonEmpty(p?.profile?.name, p?.name, p?.getState?.("name"), shortId(p.id)),
@@ -33,25 +36,30 @@ export default function TeamChatPanel({
             isOnline: true,
             color: p?.profile?.color,
         }));
-        return built.filter((m) => !liveTeam || m.team === liveTeam);
+        // If I have a team, show only that team; else everyone
+        return liveTeam ? built.filter((m) => m.team === liveTeam) : built;
     }, [members, allPlayers, liveTeam]);
 
     const liveMyId = myId || me?.id || "me";
 
-    // MESSAGES: props win; else read from myPlayer() state
+    // MESSAGES (display): props → Playroom per-team → Playroom generic → local buffer
     const liveMessages = useMemo(() => {
         if (Array.isArray(messages)) return messages;
-        const perTeam = me?.getState?.(`chat:${liveTeam}`);
+
+        const perTeam = me?.getState?.(teamKey);
         if (Array.isArray(perTeam)) return perTeam;
+
         const generic = me?.getState?.("teamChat") || me?.getState?.("teamMessages");
         if (Array.isArray(generic)) return generic;
-        return [];
-    }, [messages, me, liveTeam]);
 
+        return localMsgs; // final fallback so something shows
+    }, [messages, me, teamKey, localMsgs]);
+
+    // Basic UI state
     const [text, setText] = useState("");
     const listRef = useRef(null);
 
-    // autoscroll when already near bottom
+    // autoscroll when near bottom
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
@@ -64,16 +72,22 @@ export default function TeamChatPanel({
         const t = text.trim();
         if (!t) return;
 
-        // 1) Optimistic local echo into Playroom state (so it shows immediately)
+        // Construct message once
         const now = Date.now();
         const msg = { id: `${now}-${Math.random().toString(36).slice(2, 7)}`, senderId: liveMyId, text: t, ts: now };
-        const key = `chat:${liveTeam}`;
-        const prev = me?.getState?.(key);
-        const next = Array.isArray(prev) ? [...prev, msg] : [msg];
-        me?.setState?.(key, next, true);
 
-        // 2) Still call your network action, if provided
-        onSend?.(t);
+        // 1) Local echo (guaranteed immediate UI)
+        setLocalMsgs((curr) => [...curr, msg]);
+
+        // 2) Write to Playroom (if API exists)
+        try {
+            const prev = me?.getState?.(teamKey);
+            const next = Array.isArray(prev) ? [...prev, msg] : [msg];
+            me?.setState?.(teamKey, next, true);
+        } catch { }
+
+        // 3) Upstream action (your networking)
+        try { onSend?.(t); } catch { }
 
         setText("");
     };
@@ -140,6 +154,7 @@ export default function TeamChatPanel({
                     const mine = m.senderId === liveMyId;
                     const sender = roster.find((x) => x.id === m.senderId);
                     const senderLabel = sender ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}` : "Unknown";
+
                     return (
                         <div
                             key={m.id}
