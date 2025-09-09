@@ -2,32 +2,21 @@
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
-import { hostAppendEvent } from "../network/playroom";
+import { useMeters, hostAppendEvent, useEvents } from "../network/playroom";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY } from "../data/constants.js";
-import { useGameState } from "../game/GameStateProvider";
 
 const FLOOR_Y = 0;
 const GRAV = 16;
 const THROW_SPEED = 8;
 
 export default function ItemsHostLogic() {
-    // central room state (no new listeners here)
-    const {
-        oxygen, power, cctv,
-        setOxygen, setPower, setCCTV,
-        events, setEvents,
-    } = useGameState();
-
-    // presence & host info
     const host = isHost();
-    const players = usePlayersList(); // presence-only (no per-player state listeners)
-
-    // shared items state (likely one useMultiplayerState under the hood)
-    const [items, setItems] = useItemsSync();
-
+    const players = usePlayersList(true);
+    const { items, setItems } = useItemsSync();
+    const { setOxygen, setPower, setCCTV } = useMeters();
+    const [, setEvents] = useEvents();
     const processed = useRef(new Map());
-    const idSetRef = useRef(null);
 
     // --- helpers: backpack on player state (array of {id,type,name?}) ---
     const getBackpack = (p) => {
@@ -40,7 +29,6 @@ export default function ItemsHostLogic() {
 
     // distance^2 helper
     const near2 = (ax, az, bx, bz, r) => ((ax - bx) ** 2 + (az - bz) ** 2) <= r * r;
-
     // Announce once
     useEffect(() => {
         if (host) console.log("[HOST] ItemsHostLogic active.");
@@ -56,7 +44,7 @@ export default function ItemsHostLogic() {
         if (!prevIds || prevIds.size !== currIds.size) {
             changed = true;
         } else {
-            for (const id of currIds) { if (!prevIds.has(id)) { changed = true; break; } }
+            for (const id of currIds) if (!prevIds.has(id)) { changed = true; break; }
         }
 
         if (changed) {
@@ -67,6 +55,7 @@ export default function ItemsHostLogic() {
         }
     }, [host, items]);
 
+    const idSetRef = useRef(null);
     // Simple physics for thrown items
     useEffect(() => {
         if (!host) return;
@@ -111,6 +100,7 @@ export default function ItemsHostLogic() {
                 const target = String(p.getState("reqTarget") || "");
                 const value = Number(p.getState("reqValue") || 0);
 
+                // log incoming
                 // eslint-disable-next-line no-console
                 console.log(`[HOST] req ${p.id.slice(0, 4)}: type=${type} target=${target} val=${value} id=${reqId}`);
 
@@ -130,7 +120,8 @@ export default function ItemsHostLogic() {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) { // ✅ range check
+                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {         // ✅ keep the range check
+                        // put into player's hand/backpack, remove floor physics
                         setItems(prev =>
                             prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)
                         );
@@ -174,7 +165,7 @@ export default function ItemsHostLogic() {
                     } else if (it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to throw ${it.type} but isn't holding it.`);
                     } else {
-                        const yaw = value; // radians
+                        const yaw = value;                 // radians
                         const vx = Math.sin(yaw) * THROW_SPEED;
                         const vz = Math.cos(yaw) * THROW_SPEED;
                         const vy = 4.5;
@@ -210,7 +201,7 @@ export default function ItemsHostLogic() {
                         } else if (it.type !== "food") {
                             hostAppendEvent(setEvents, `${name} tried to eat ${it.type} (not edible).`);
                         } else {
-                            setItems(prev => prev.filter(j => j.id !== it.id)); // consume
+                            setItems(prev => prev.filter(j => j.id !== it.id));     // consume
                             p.setState("carry", "", true);
                             setBackpack(p, bp.filter(b => b.id !== it.id));
                             hostAppendEvent(setEvents, `${name} ate some food.`);
@@ -239,7 +230,7 @@ export default function ItemsHostLogic() {
                                 if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
                                 if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
 
-                                setItems(prev => prev.filter(j => j.id !== it.id)); // consume
+                                setItems(prev => prev.filter(j => j.id !== it.id));   // consume
                                 p.setState("carry", "", true);
                                 setBackpack(p, bp.filter(b => b.id !== it.id));
                                 hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
@@ -247,6 +238,7 @@ export default function ItemsHostLogic() {
                         }
                     }
                 }
+
 
                 processed.current.set(p.id, reqId);
             }
