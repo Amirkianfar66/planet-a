@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { usePlayersList, isHost, myPlayer } from "playroomkit";
 
-import GameCanvas from "./GameCanvas.jsx";          // <-- if your file lives in src/components, change to "./components/GameCanvas.jsx"
+// src/App.jsx
+import GameCanvas from "./components/GameCanvas.jsx";
+          // <-- if your file lives in src/components, change to "./components/GameCanvas.jsx"
 import Lobby from "./components/Lobby.jsx";
 import HUD from "./ui/HUD.jsx";
 import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
