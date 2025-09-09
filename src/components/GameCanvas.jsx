@@ -1,6 +1,7 @@
 ﻿// src/components/GameCanvas.jsx
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
+import { isHost as prIsHost } from "playroomkit";
 import * as THREE from "three";
 
 import {
@@ -135,7 +136,7 @@ export default function GameCanvas({ dead = [] }) {
             </div>
 
             {/* Non-visual host logic */}
-            {isHost() && <ItemsHostLogic />}
+            {prIsHost() && <ItemsHostLogic />}
         </div>
     );
 }
