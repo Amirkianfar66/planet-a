@@ -1,6 +1,6 @@
 // src/ui/HUD.jsx
 import React from "react";
-import { StatusBarsPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
+import { MetersPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
 import "./ui.css";
 
 /* ------- Tiny UI helpers ------- */
@@ -89,7 +89,6 @@ export default function HUD({ game = {} }) {
             game.onUseItem(id);
             return;
         }
-        // Fallback: ask scene to handle a generic use
         game.requestAction?.("useItem", { id });
     };
 
@@ -98,7 +97,6 @@ export default function HUD({ game = {} }) {
             game.onDropItem(id);
             return;
         }
-        // Fallback to a generic drop action
         game.requestAction?.("dropItem", { id });
     };
 
@@ -128,7 +126,7 @@ export default function HUD({ game = {} }) {
                         minHeight: 0,
                     }}
                 >
-                    <StatusBarsPanel
+                    <MetersPanel
                         energy={Number(meters.energy ?? 100)}
                         oxygen={Number(meters.oxygen ?? 100)}
                     />
@@ -150,8 +148,6 @@ export default function HUD({ game = {} }) {
                         capacity={me.capacity ?? 8}
                         onUse={handleUse}
                         onDrop={handleDrop}
-                    /* Throw remains keyboard: R (and world click). If you later add a Throw
-                       button to BackpackPanel, pass an onThrow here and wire to scene. */
                     />
                 </div>
             </div>

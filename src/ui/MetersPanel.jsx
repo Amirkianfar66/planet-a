@@ -1,39 +1,27 @@
+// src/ui/MetersPanel.jsx
 import React from "react";
 
-/**
- * MetersPanel — Oxygen + Energy only
- * Props:
- *  - oxygen: number (0-100)
- *  - power?: number (0-100)  // used as Energy label
- *  - energy?: number         // optional alias; if provided, overrides power
- *  - onRepair?: (key: "oxygen" | "power" | "energy") => void
- */
-export function MetersPanel({ oxygen, power, energy, onRepair }) {
-    const energyVal = Number(energy ?? power ?? 0);
-    const oxygenVal = Number(oxygen ?? 0);
+function MetersPanel({ oxygen, energy, power, meters, title = "Life Support", onRepair }) {
+    const clamp100 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+
+    const oxyRec = Array.isArray(meters) ? meters.find((m) => m.id === "oxygen") : null;
+    const engRec = Array.isArray(meters)
+        ? (meters.find((m) => m.id === "energy") || meters.find((m) => m.id === "power"))
+        : null;
+
+    const oxygenVal = clamp100(oxyRec?.value ?? oxygen ?? 0);
+    const energyVal = clamp100(engRec?.value ?? energy ?? power ?? 0);
+
+    const oxygenLabel = oxyRec?.label ?? "Oxygen";
+    const energyLabel = engRec?.label ?? "Energy";
+
+    const energyKey = engRec?.id ?? (energy !== undefined ? "energy" : "power");
 
     const Bar = ({ label, value, color }) => (
         <div style={{ display: "grid", gap: 4 }}>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
-                {label} — {Math.max(0, Math.min(100, Math.round(value)))}%
-            </div>
-            <div
-                style={{
-                    width: 200,
-                    height: 10,
-                    background: "#2a3242",
-                    borderRadius: 6,
-                    overflow: "hidden",
-                }}
-            >
-                <div
-                    style={{
-                        width: `${Math.max(0, Math.min(100, value))}%`,
-                        height: "100%",
-                        background: color,
-                        transition: "width .25s ease",
-                    }}
-                />
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{label} — {Math.round(value)}%</div>
+            <div style={{ width: 200, height: 10, background: "#2a3242", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ width: `${value}%`, height: "100%", background: color, transition: "width .25s ease" }} />
             </div>
         </div>
     );
@@ -53,16 +41,18 @@ export function MetersPanel({ oxygen, power, energy, onRepair }) {
                 color: "white",
             }}
         >
-            <Bar label="Oxygen" value={oxygenVal} color="#fca5a5" />
-            <Bar label="Energy" value={energyVal} color="#a7f3d0" />
+            {title && <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 2 }}>{title}</div>}
+
+            <Bar label={oxygenLabel} value={oxygenVal} color={oxyRec?.color ?? "#fca5a5"} />
+            <Bar label={energyLabel} value={energyVal} color={engRec?.color ?? "#a7f3d0"} />
 
             <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                 <button onClick={() => onRepair?.("oxygen")}>Repair O₂ +10</button>
-                {/* If your backend key is still "power", keep it; if you renamed it, change to "energy" */}
-                <button onClick={() => onRepair?.(energy !== undefined ? "energy" : "power")}>
-                    Repair Energy +10
-                </button>
+                <button onClick={() => onRepair?.(energyKey)}>Repair Energy +10</button>
             </div>
         </div>
     );
 }
+
+export default MetersPanel;
+export { MetersPanel };
