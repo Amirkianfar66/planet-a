@@ -111,9 +111,12 @@ export default function GameCanvas({ dead = [] }) {
             <Canvas
                 shadows
                 camera={{ position: [0, 8, 10], fov: 50 }}
-                onPointerMove={(e) => { e.event.target.style.cursor = "crosshair"; }}
+                onPointerMove={(e) => {
+                    const el = e?.target || e?.currentTarget || e?.event?.target || null;
+                    if (el && el.style) el.style.cursor = "crosshair"; // debug cursor; optional
+                }}
                 onPointerMissed={(e) => {
-                    const el = e?.event?.target;
+                    const el = e?.target || e?.currentTarget || e?.event?.target || null;
                     if (el && el.style) el.style.cursor = "";
                 }}
             >
