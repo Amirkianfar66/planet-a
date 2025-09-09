@@ -12,16 +12,13 @@ export async function openLobby() {
         const roomCode = url.searchParams.get('r') || undefined;
 
         await insertCoin({
-            skipLobby: true,        // ← key: disable Playroom default lobby
-            roomCode,               // join a specific room if provided (unknown fields are ignored safely)
-            // You may also set a player/room cap if you want (depends on lib version):
+            skipLobby: true,
+            roomCode,
             // maxPlayers: 12,
             // maxPlayersPerRoom: 12,
         });
 
-        // Optional: if we created a room and there's no ?r= in the URL,
-        // try to write the room code back into the URL for easy sharing.
-        // (Avoid importing getRoomCode directly; not all versions export it.)
+        // Write room code back to URL for easy sharing (best-effort).
         if (isHost() && !roomCode) {
             const prk = (typeof window !== 'undefined' && window.playroomkit) || null;
             const getRoomCode = prk && typeof prk.getRoomCode === 'function' ? prk.getRoomCode : null;
@@ -31,9 +28,7 @@ export async function openLobby() {
                     url.searchParams.set('r', code);
                     window.history.replaceState({}, '', url.toString());
                 }
-            } catch {
-                // no-op: not all builds expose getRoomCode on window
-            }
+            } catch { /* noop */ }
         }
     } catch (e) {
         console.error('insertCoin failed:', e);
@@ -43,30 +38,61 @@ export async function openLobby() {
 
 /* -------------------------------------------------------
    Global multiplayer state hooks
-   (defaults supplied by hooks; no defaultStates object needed)
 ------------------------------------------------------- */
 
 // Start in "lobby" so your custom <Lobby /> renders until host launches Day 1
 export function usePhase() {
-    return useMultiplayerState('phase', 'lobby');
+    return useMultiplayerState('phase', 'lobby'); // [value, setValue]
 }
 
 export function useTimer() {
-    return useMultiplayerState('timer', 60);
+    return useMultiplayerState('timer', 60); // [value, setValue]
 }
 
+/** Consolidated: 3 → 1 listener for lengths */
+const LENGTHS_DEFAULTS = { dayLength: 60, meetingLength: 30, nightLength: 45 };
 export function useLengths() {
-    const [dayLength, setDayLen] = useMultiplayerState('dayLength', 60);
-    const [meetingLength, setMeetLen] = useMultiplayerState('meetingLength', 30);
-    const [nightLength, setNightLen] = useMultiplayerState('nightLength', 45);
-    return { dayLength, meetingLength, nightLength, setDayLen, setMeetLen, setNightLen };
+    const [lengths, setLengths] = useMultiplayerState('lengths', LENGTHS_DEFAULTS);
+
+    const num = (v, d) => Number.isFinite(Number(v)) ? Number(v) : d;
+    const dayLength = num(lengths?.dayLength, LENGTHS_DEFAULTS.dayLength);
+    const meetingLength = num(lengths?.meetingLength, LENGTHS_DEFAULTS.meetingLength);
+    const nightLength = num(lengths?.nightLength, LENGTHS_DEFAULTS.nightLength);
+
+    const upd = (key) => (val, broadcast) =>
+        setLengths(prev => {
+            const cur = (prev && typeof prev === 'object') ? prev : LENGTHS_DEFAULTS;
+            const nextVal = typeof val === 'function' ? val(num(cur[key], LENGTHS_DEFAULTS[key])) : val;
+            return { ...cur, [key]: nextVal };
+        }, broadcast);
+
+    return {
+        dayLength, meetingLength, nightLength,
+        setDayLen: upd('dayLength'),
+        setMeetLen: upd('meetingLength'),
+        setNightLen: upd('nightLength'),
+    };
 }
 
+/** Consolidated: 3 → 1 listener for meters */
+const METERS_DEFAULTS = { oxygen: 100, power: 100, cctv: 100 };
 export function useMeters() {
-    const [oxygen, setOxygen] = useMultiplayerState('oxygen', 100);
-    const [power, setPower] = useMultiplayerState('power', 100);
-    const [cctv, setCCTV] = useMultiplayerState('cctv', 100);
-    return { oxygen, power, cctv, setOxygen, setPower, setCCTV };
+    const [meters, setMeters] = useMultiplayerState('meters', METERS_DEFAULTS);
+
+    const num = (v, d) => Number.isFinite(Number(v)) ? Number(v) : d;
+    const oxygen = num(meters?.oxygen, METERS_DEFAULTS.oxygen);
+    const power = num(meters?.power, METERS_DEFAULTS.power);
+    const cctv = num(meters?.cctv, METERS_DEFAULTS.cctv);
+
+    const upd = (key) => (val, broadcast) =>
+        setMeters(prev => {
+            const cur = (prev && typeof prev === 'object') ? prev : METERS_DEFAULTS;
+            const base = num(cur[key], METERS_DEFAULTS[key]);
+            const nextVal = typeof val === 'function' ? val(base) : val;
+            return { ...cur, [key]: nextVal };
+        }, broadcast);
+
+    return { oxygen, power, cctv, setOxygen: upd('oxygen'), setPower: upd('power'), setCCTV: upd('cctv') };
 }
 
 export function useDead() { return useMultiplayerState('dead', []); }

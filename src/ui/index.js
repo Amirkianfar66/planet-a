@@ -1,5 +1,4 @@
 ﻿// src/ui/index.js
-
 // Base UI (named exports)
 export { TopBar } from "./TopBar.jsx";
 export { Centered } from "./Centered.jsx";
