@@ -103,9 +103,7 @@ export default function App() {
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
-      const myBackpack = Array.isArray(meP?.getState?.("backpack"))
-            ? meP.getState("backpack")
-        : [];
+      
     const labelFromType = (t) =>
         t === "food" ? "Food Ration"
             : t === "battery" ? "Battery Pack"
