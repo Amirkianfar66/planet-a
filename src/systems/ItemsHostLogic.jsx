@@ -104,16 +104,15 @@ export default function ItemsHostLogic() {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                    } else /* DEBUG: accept pickup from anywhere */ {
-
+                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {         // ✅ keep the range check
                         // put into player's hand/backpack, remove floor physics
-                        setItems((prev) =>
-                            prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j))
+                        setItems(prev =>
+                            prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)
                         );
                         p.setState("carry", it.id, true);
 
                         const bp = getBackpack(p);
-                        if (!bp.find((b) => b.id === it.id)) {
+                        if (!bp.find(b => b.id === it.id)) {
                             setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
                         }
 
@@ -131,14 +130,13 @@ export default function ItemsHostLogic() {
                     } else if (it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to drop ${it.type} but isn't holding it.`);
                     } else {
-                        setItems((prev) =>
-                            prev.map((j) =>
+                        setItems(prev =>
+                            prev.map(j =>
                                 j.id === it.id ? { ...j, holder: null, x: px, y: FLOOR_Y, z: pz, vx: 0, vy: 0, vz: 0 } : j
                             )
                         );
                         p.setState("carry", "", true);
-                        // remove from backpack
-                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                        setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         hostAppendEvent(setEvents, `${name} dropped ${it.type}.`);
                     }
                 }
@@ -151,21 +149,20 @@ export default function ItemsHostLogic() {
                     } else if (it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to throw ${it.type} but isn't holding it.`);
                     } else {
-                        const yaw = value; // radians, taken from player's yaw
+                        const yaw = value;                 // radians
                         const vx = Math.sin(yaw) * THROW_SPEED;
                         const vz = Math.cos(yaw) * THROW_SPEED;
                         const vy = 4.5;
 
-                        setItems((prev) =>
-                            prev.map((j) =>
+                        setItems(prev =>
+                            prev.map(j =>
                                 j.id === it.id
                                     ? { ...j, holder: null, x: px, y: py + 1.1, z: pz, vx, vy, vz }
                                     : j
                             )
                         );
                         p.setState("carry", "", true);
-                        // remove from backpack
-                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                        setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         hostAppendEvent(setEvents, `${name} threw ${it.type}.`);
                     }
                 }
@@ -174,14 +171,10 @@ export default function ItemsHostLogic() {
                 if (type === "use") {
                     // target is "eat|itemId" OR "deviceId|itemId"
                     const [kind, rest] = target.split("|");
-                    if (!kind || !rest) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
+                    if (!kind || !rest) { processed.current.set(p.id, reqId); continue; }
 
                     const bp = getBackpack(p);
 
-                    // ---- eat ----
                     if (kind === "eat") {
                         const itemId = rest;
                         const it = findItem(itemId);
@@ -192,19 +185,16 @@ export default function ItemsHostLogic() {
                         } else if (it.type !== "food") {
                             hostAppendEvent(setEvents, `${name} tried to eat ${it.type} (not edible).`);
                         } else {
-                            // consume item
-                            setItems((prev) => prev.filter((j) => j.id !== it.id));
+                            setItems(prev => prev.filter(j => j.id !== it.id));     // consume
                             p.setState("carry", "", true);
-                            setBackpack(p, bp.filter((b) => b.id !== it.id));
+                            setBackpack(p, bp.filter(b => b.id !== it.id));
                             hostAppendEvent(setEvents, `${name} ate some food.`);
                         }
-                    }
-                    // ---- device use ----
-                    else {
+                    } else {
                         const deviceId = kind;
                         const itemId = rest;
                         const it = findItem(itemId);
-                        const dev = DEVICES.find((d) => d.id === deviceId);
+                        const dev = DEVICES.find(d => d.id === deviceId);
 
                         if (!it) {
                             hostAppendEvent(setEvents, `${name} tried to use a missing item (${itemId}).`);
@@ -220,19 +210,19 @@ export default function ItemsHostLogic() {
                                 hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label} → no effect.`);
                             } else {
                                 const [meter, delta] = eff;
-                                if (meter === "oxygen") setOxygen((v) => clamp01(Number(v) + delta), true);
-                                if (meter === "power") setPower((v) => clamp01(Number(v) + delta), true);
-                                if (meter === "cctv") setCCTV((v) => clamp01(Number(v) + delta), true);
+                                if (meter === "oxygen") setOxygen(v => clamp01(Number(v) + delta), true);
+                                if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
+                                if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
 
-                                // consume
-                                setItems((prev) => prev.filter((j) => j.id !== it.id));
+                                setItems(prev => prev.filter(j => j.id !== it.id));   // consume
                                 p.setState("carry", "", true);
-                                setBackpack(p, bp.filter((b) => b.id !== it.id));
+                                setBackpack(p, bp.filter(b => b.id !== it.id));
                                 hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
                             }
                         }
                     }
                 }
+
 
                 processed.current.set(p.id, reqId);
             }
