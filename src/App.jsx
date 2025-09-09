@@ -33,6 +33,15 @@ import HUD from "./ui/HUD.jsx";
 
 // items state (source of truth for floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
+// src/App.jsx
+import { GameStateProvider } from "./game/GameStateProvider";
+export default function App() {
+    return (
+        <GameStateProvider>
+            {/* your routes / scene / lobby */}
+        </GameStateProvider>
+    );
+}
 
 export default function App() {
     const [ready, setReady] = useState(false);

@@ -46,10 +46,10 @@ function leaderIdForTeam(players, teamId) {
 }
 
 export default function Lobby() {
-    const players = usePlayersList(); // presence-only (includes self)
+    const players = usePlayersList();         // presence-only (includes self)
     const iAmHost = isHost?.() ?? false;
 
-    // read/write room state from provider (no extra listeners)
+    // Read/write room state from provider (single source of truth)
     const {
         phase, setPhase,
         setTimer,
@@ -59,7 +59,7 @@ export default function Lobby() {
 
     const [tab, setTab] = useState("party");
 
-    // auto-join team via ?team= param
+    // Auto-join team via ?team= param
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const invitedTeam = params.get("team");
@@ -203,7 +203,6 @@ export default function Lobby() {
                 alert("Teams not ready:\n• " + launchIssues.join("\n• "));
                 return;
             }
-            // Start Day 1 and let the game assign anything missing
             setRolesAssigned(false, true);
             setPhase("day", true);
             setTimer(dayLength, true);
@@ -225,7 +224,6 @@ export default function Lobby() {
                 ))}
             </div>
 
-            {/* PARTY TAB */}
             {tab === "party" && (
                 <div style={styles.partyGrid}>
                     {TEAMS.map((team) => {
@@ -275,7 +273,6 @@ export default function Lobby() {
                                             )}
                                         </div>
                                     ))}
-
                                     {Array.from({ length: Math.max(0, 3 - list.length) }).map((_, i) => (
                                         <div key={`empty-${i}`} style={styles.emptySlot}>Empty slot</div>
                                     ))}
@@ -301,7 +298,6 @@ export default function Lobby() {
                 </div>
             )}
 
-            {/* INVITE TAB */}
             {tab === "invite" && (
                 <div style={styles.inviteWrap}>
                     {showInviteTab ? (
@@ -328,7 +324,6 @@ export default function Lobby() {
                 </div>
             )}
 
-            {/* LAUNCH TAB */}
             {tab === "launch" && (
                 <div style={styles.launchWrap}>
                     <div className="lobby-debug" style={{ fontSize: 12, opacity: 0.8, marginBottom: 8 }}>
@@ -366,4 +361,38 @@ export default function Lobby() {
     );
 }
 
-const styles = { /* … keep your styles unchanged … */ };
+const styles = {
+    wrap: { maxWidth: 1100, margin: "24px auto", padding: 16, fontFamily: "ui-sans-serif, system-ui, Arial" },
+    title: { fontSize: 28, fontWeight: 700, marginBottom: 12 },
+    tabs: { display: "flex", gap: 8, marginBottom: 16 },
+    tab: { padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#f7f7f7", cursor: "pointer" },
+    tabActive: { background: "#111", color: "#fff", borderColor: "#111" },
+    partyGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 16 },
+    teamCard: { border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,0.06)" },
+    teamHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+    teamName: { fontSize: 20, fontWeight: 700, lineHeight: 1 },
+    teamSub: { fontSize: 12, opacity: 0.7 },
+    playerRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 8px", borderRadius: 10, border: "1px dashed #e5e7eb", marginBottom: 6 },
+    playerMain: { display: "flex", gap: 10, alignItems: "center" },
+    playerName: { fontWeight: 600 },
+    leaderStar: { marginLeft: 6 },
+    youBadge: { marginLeft: 8, fontSize: 11, background: "#eef2ff", padding: "2px 6px", borderRadius: 999 },
+    roleText: { fontSize: 13, opacity: 0.8 },
+    emptySlot: { padding: "6px 8px", borderRadius: 10, background: "#fafafa", border: "1px dashed #eee", color: "#9ca3af", marginBottom: 6, fontStyle: "italic" },
+    rolePicker: { marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
+    label: { fontSize: 13, opacity: 0.8 },
+    select: { padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" },
+    leaderNote: { fontSize: 12, opacity: 0.8 },
+    smallBtn: { padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#f7f7f7", cursor: "pointer" },
+    primaryBtn: { padding: "8px 12px", borderRadius: 10, border: "1px solid #111", background: "#111", color: "#fff", cursor: "pointer" },
+    secondaryBtn: { padding: "8px 12px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" },
+    disabledBtn: { opacity: 0.5, cursor: "not-allowed" },
+    inviteWrap: { marginTop: 12 },
+    inviteGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 12 },
+    inviteCard: { border: "1px solid #e5e7eb", borderRadius: 14, padding: 12, background: "#fff" },
+    inviteTitle: { fontWeight: 700, marginBottom: 6 },
+    inviteLinkPreview: { fontSize: 12, background: "#fafafa", border: "1px solid #eee", borderRadius: 8, padding: 8, marginBottom: 8, wordBreak: "break-all" },
+    inviteBtns: { display: "flex", gap: 8 },
+    launchWrap: { padding: 16 },
+    launchBtn: { padding: "12px 16px", borderRadius: 12, border: "1px solid #0a0a0a", background: "#0a0a0a", color: "#fff", fontWeight: 700, cursor: "pointer" },
+};
