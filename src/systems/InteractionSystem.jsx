@@ -17,8 +17,10 @@ export default function InteractionSystem() {
             const px = Number(me.getState("x") || 0);
             const pz = Number(me.getState("z") || 0);
 
-            //backpack is an ARRAY on player state; fall back to old "bag" JSON if present
-             const bag = safeReadBackpack(me);
+             // read array-based "backpack"; fall back to legacy "bag" JSON if present
+                 const bp = me.getState("backpack");
+             const bag = Array.isArray(bp) ? bp.map(b => b?.id).filter(Boolean)
+                                               : safeParseBag(me.getState("bag"));
 
             if (k === "p") {
                 // nearest free item within radius
