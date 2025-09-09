@@ -120,11 +120,14 @@ export default function ItemsHostLogic() {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {         // ✅ keep the range check
+                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {
                         // put into player's hand/backpack, remove floor physics
-                        setItems(prev =>
-                            prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)
-                        , true);
+                        setItems(
+                            prev => prev.map(j =>
+                                j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
+                            ),
+                            true
+                        );
                         p.setState("carry", it.id, true);
 
                         const bp = getBackpack(p);
@@ -134,10 +137,13 @@ export default function ItemsHostLogic() {
 
                         hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
                     } else {
-                         hostAppendEvent(setEvents, `${name} is too far to pick up ${it?.type || "item"} (player=(${px.toFixed(2)},${pz.toFixed(2)}), item=(${it?.x},${it?.z}))`);
-}
+                        hostAppendEvent(
+                            setEvents,
+                            `${name} is too far to pick up ${it?.type || "item"} (player=(${px.toFixed(2)},${pz.toFixed(2)}), item=(${it?.x},${it?.z}))`
+                        );
                     }
-                }
+                } // <-- only this one closes the "if (type === 'pickup')"
+
 
             // ---------- DROP ----------
             if (type === "drop") {
