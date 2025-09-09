@@ -1,6 +1,9 @@
 // src/ui/HUD.jsx
 import React from "react";
+import { myPlayer } from "playroomkit";
 import { MetersPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
+import { useGameState } from "../game/GameStateProvider";
+import { requestAction as prRequestAction } from "../network/playroom";
 import "./ui.css";
 
 /* ------- Tiny UI helpers ------- */
@@ -16,8 +19,7 @@ function Key({ children }) {
                 border: "1px solid #334155",
                 background: "rgba(15, 23, 42, 0.85)",
                 boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.06)",
-                fontFamily:
-                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontSize: 11,
                 lineHeight: "16px",
                 color: "#e2e8f0",
@@ -74,30 +76,37 @@ function KeyGuidePanel() {
 }
 
 /**
- * HUD – single source overlay
+ * HUD – overlay
  * - Left: Status (O2/Energy), Role
  * - Right: Backpack
  * - Chat: pinned bottom-left
  * - Top-center: Keyboard guide
  */
 export default function HUD({ game = {} }) {
-    const me = game?.me || {};
-    const meters = game?.meters || {};
+    const { oxygen = 100, power = 100 } = useGameState();
+
+    // Prefer data passed in via `game`; fall back to myPlayer() state
+    const meProp = game?.me || {};
+    const me = myPlayer();
+    const bpFromPlayer = me?.getState?.("backpack") || [];
+    const capFromPlayer = Number(me?.getState?.("capacity")) || 8;
+
+    const items = Array.isArray(meProp.backpack) ? meProp.backpack : bpFromPlayer;
+    const capacity = Number(meProp.capacity ?? capFromPlayer);
+
+    const requestAction =
+        typeof game.requestAction === "function"
+            ? game.requestAction
+            : (type, target, value) => prRequestAction(type, target, value);
 
     const handleUse = (id) => {
-        if (typeof game.onUseItem === "function") {
-            game.onUseItem(id);
-            return;
-        }
-        game.requestAction?.("useItem", { id });
+        if (typeof game.onUseItem === "function") return game.onUseItem(id);
+        requestAction("useItem", String(id));
     };
 
     const handleDrop = (id) => {
-        if (typeof game.onDropItem === "function") {
-            game.onDropItem(id);
-            return;
-        }
-        game.requestAction?.("dropItem", { id });
+        if (typeof game.onDropItem === "function") return game.onDropItem(id);
+        requestAction("dropItem", String(id));
     };
 
     return (
@@ -126,15 +135,9 @@ export default function HUD({ game = {} }) {
                         minHeight: 0,
                     }}
                 >
-                    <MetersPanel
-                        energy={Number(meters.energy ?? 100)}
-                        oxygen={Number(meters.oxygen ?? 100)}
-                    />
+                    <MetersPanel energy={Number(power)} oxygen={Number(oxygen)} />
                     <div style={{ minHeight: 0 }}>
-                        {/* Role reads live from Playroom; no role prop */}
-                        <RolePanel
-                            onPingObjective={() => game.requestAction?.("pingObjective")}
-                        />
+                        <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>
                 </div>
 
@@ -144,8 +147,8 @@ export default function HUD({ game = {} }) {
                 {/* RIGHT: Backpack */}
                 <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
                     <BackpackPanel
-                        items={me.backpack || []}
-                        capacity={me.capacity ?? 8}
+                        items={items}
+                        capacity={capacity}
                         onUse={handleUse}
                         onDrop={handleDrop}
                     />
@@ -163,7 +166,7 @@ export default function HUD({ game = {} }) {
                 }}
             >
                 <TeamChatPanel
-                    // onSend={(text) => game.requestAction?.("chat", { text })}
+                    // onSend={(text) => requestAction("chat", String(text))}
                     style={{ position: "static" }}
                 />
             </div>

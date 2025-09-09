@@ -15,7 +15,8 @@ export default function TeamChatPanel({
     useEffect(() => { const id = setInterval(force, 400); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
-    const allPlayers = usePlayersList(true);
+    // ✅ presence-only; avoids per-player state listeners
+    const allPlayers = usePlayersList();
 
     // TEAM name: prop wins; else my state; else "Team"
     const liveTeam =
@@ -50,7 +51,6 @@ export default function TeamChatPanel({
             const arr = p?.getState?.(teamKey);
             if (Array.isArray(arr)) {
                 for (const m of arr) {
-                    // normalize and tag the origin to help dedupe
                     collected.push({
                         id: String(m.id ?? `${m.senderId ?? p.id}-${m.ts ?? 0}`),
                         senderId: m.senderId ?? p.id,
@@ -61,7 +61,6 @@ export default function TeamChatPanel({
                 }
             }
         }
-        // dedupe by id, then sort by ts asc
         const map = new Map();
         for (const m of collected) if (!map.has(m.id)) map.set(m.id, m);
         return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
@@ -83,7 +82,6 @@ export default function TeamChatPanel({
                 : []),
             ...(localMsgs || []),
         ];
-        // dedupe and sort again in case of overlap
         const map = new Map();
         for (const m of combined) if (!map.has(m.id)) map.set(m.id, m);
         return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
@@ -186,7 +184,9 @@ export default function TeamChatPanel({
                 {liveMessages.map((m) => {
                     const mine = m.senderId === liveMyId;
                     const sender = roster.find((x) => x.id === m.senderId);
-                    const senderLabel = sender ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}` : "Unknown";
+                    const senderLabel = sender
+                        ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}`
+                        : "Unknown";
 
                     return (
                         <div

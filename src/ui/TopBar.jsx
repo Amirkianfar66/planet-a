@@ -1,9 +1,17 @@
 // src/ui/TopBar.jsx
 import React, { useEffect, useState, useRef } from "react";
-import { myPlayer } from "playroomkit";
+import { myPlayer, usePlayersList } from "playroomkit";
 import { useGameClock } from "../systems/dayNightClock";
+import { useGameState } from "../game/GameStateProvider"; // ← read centralized state here
 
-export function TopBar({ phase, timer, players, events = [] }) {
+export function TopBar() {
+    // Centralized multiplayer state (no extra state listeners here)
+    const { phase, timer, events, dead } = useGameState();
+
+    // Players list (presence-based; not the 'state' emitter)
+    const players = usePlayersList();
+    const aliveCount = players.filter(p => !dead.includes(p.id)).length;
+
     // Game-clock state (day/night cycle)
     const format = useGameClock(s => s.format);
     const phaseFn = useGameClock(s => s.phase);
@@ -23,7 +31,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
 
     const progress = Math.floor(pct() * 100);
 
-    // Meeting countdown (only when phase prop says "meeting")
+    // Meeting countdown (only when phase says "meeting")
     const isMeeting = phase === "meeting";
     const mt = Number(timer ?? 0);
     const mm = String(Math.floor(mt / 60)).padStart(2, "0");
@@ -41,7 +49,9 @@ export function TopBar({ phase, timer, players, events = [] }) {
         return () => document.removeEventListener("mousedown", onDoc);
     }, []);
 
-    const latest = events?.length ? String(events[events.length - 1]) : "No events yet";
+    const latest = Array.isArray(events) && events.length
+        ? String(events[events.length - 1])
+        : "No events yet";
 
     return (
         <div
@@ -159,9 +169,14 @@ export function TopBar({ phase, timer, players, events = [] }) {
                     >
                         <div style={{ opacity: 0.7, marginBottom: 6 }}>Events</div>
                         <div style={{ display: "grid", gap: 4 }}>
-                            {(Array.isArray(events) ? events : []).slice().reverse().map((e, i) => (
-                                <div key={i} style={{ fontSize: 12, lineHeight: 1.3 }}>• {String(e)}</div>
-                            ))}
+                            {(Array.isArray(events) ? events : [])
+                                .slice()
+                                .reverse()
+                                .map((e, i) => (
+                                    <div key={i} style={{ fontSize: 12, lineHeight: 1.3 }}>
+                                        • {String(e)}
+                                    </div>
+                                ))}
                         </div>
                     </div>
                 )}
@@ -180,12 +195,17 @@ export function TopBar({ phase, timer, players, events = [] }) {
                         fontSize: 12,
                     }}
                 >
-                    MEETING <span style={{ marginLeft: 6, fontVariantNumeric: "tabular-nums" }}>{mm}:{ss}</span>
+                    MEETING{" "}
+                    <span style={{ marginLeft: 6, fontVariantNumeric: "tabular-nums" }}>
+                        {mm}:{ss}
+                    </span>
                 </span>
             )}
 
             {/* Right cluster */}
-            <span style={{ marginLeft: "auto" }}>Alive: <b>{players}</b></span>
+            <span style={{ marginLeft: "auto" }}>
+                Alive: <b>{aliveCount}</b>
+            </span>
             <span style={{ marginLeft: 12, opacity: 0.7 }}>
                 you are: {myPlayer()?.getProfile?.().name || "Anon"}
             </span>

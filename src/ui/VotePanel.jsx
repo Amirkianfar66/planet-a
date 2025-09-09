@@ -1,15 +1,27 @@
+// src/ui/VotePanel.jsx
 import React, { useMemo } from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
+import { useGameState } from "../game/GameStateProvider";
 
-export function VotePanel({ dead }) {
-    const players = usePlayersList(true);
+export function VotePanel() {
+    const { dead = [], phase, timer } = useGameState();
+    const players = usePlayersList(); // presence-based; doesn't add 'state' listeners
+
+    // Only show during meeting
+    if (phase !== "meeting") return null;
+
     const alive = useMemo(
         () => players.filter((p) => !dead.includes(p.id)),
         [players, dead]
     );
+
     const me = myPlayer();
-    const myVote = String(me.getState("vote") || "");
-    const choose = (id) => me.setState("vote", id || "skip", true);
+    const myVote = String(me?.getState?.("vote") || "");
+    const choose = (id) => me?.setState?.("vote", id || "skip", true);
+
+    const mt = Number(timer ?? 0);
+    const mm = String(Math.floor(mt / 60)).padStart(2, "0");
+    const ss = String(mt % 60).padStart(2, "0");
 
     return (
         <div
@@ -21,14 +33,15 @@ export function VotePanel({ dead }) {
                 background: "rgba(0,0,0,0.5)",
                 color: "white",
                 fontFamily: "ui-sans-serif",
+                zIndex: 50,
             }}
         >
-            <div
-                style={{ background: "#141922", padding: 16, borderRadius: 10, width: 420 }}
-            >
+            <div style={{ background: "#141922", padding: 16, borderRadius: 10, width: 420 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                     <h3 style={{ margin: 0 }}>Meeting — Vote</h3>
-                    <small style={{ opacity: 0.7 }}>select a suspect</small>
+                    <small style={{ opacity: 0.7 }}>
+                        {mm}:{ss}
+                    </small>
                 </div>
 
                 <div style={{ display: "grid", gap: 8, maxHeight: 320, overflow: "auto" }}>
@@ -46,12 +59,14 @@ export function VotePanel({ dead }) {
                                     border: selected ? "2px solid #6ee7ff" : "1px solid #2a3242",
                                     background: selected ? "#0e2a33" : "#1a2230",
                                     color: "white",
+                                    cursor: "pointer",
                                 }}
                             >
                                 {name}
                             </button>
                         );
                     })}
+
                     <button
                         onClick={() => choose("skip")}
                         style={{
@@ -60,6 +75,7 @@ export function VotePanel({ dead }) {
                             border: "1px solid #2a3242",
                             background: myVote === "skip" ? "#2a1a1a" : "#1f1a1a",
                             color: "#ffb4b4",
+                            cursor: "pointer",
                         }}
                     >
                         Skip vote
