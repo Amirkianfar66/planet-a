@@ -1,172 +1,166 @@
 // src/game/effects.js
-import * as React from "react";
+import { useEffect, useRef } from "react";
+import { openLobby, hostAppendEvent } from "../network/playroom";
+import { isHost } from "playroomkit";
 
-/**
- * Mark app/lobby ready. (Assumes external init already done.)
- */
+const ROLES = ["Engineer", "Research", "StationDirector", "Officer", "Guard", "FoodSupplier"];
+const clamp01 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
+
+/* 1) Lobby → ready */
 export function useLobbyReady(setReady) {
-    React.useEffect(() => {
-        // Only set once
-        console.count("setReady@useLobbyReady");
-        setReady(true);
-        // no deps change expected
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    useEffect(() => { (async () => { await openLobby(); setReady(true); })(); }, [setReady]);
 }
 
-/**
- * Day ticker: announce day changes once.
- */
+/* 2) Day ticker (optional) */
 export function useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents }) {
-    const lastDayRef = React.useRef(null);
+    const prevDayRef = useRef(dayNumber);
+    useEffect(() => {
+        if (!ready || !isHost() || !inGame) return;
+        if (dayNumber !== prevDayRef.current) {
+            hostAppendEvent(setEvents, `DAY ${dayNumber} begins.`);
+            prevDayRef.current = dayNumber;
+            if (dayNumber > maxDays) hostAppendEvent(setEvents, `Reached final day (${maxDays}).`);
+        }
+    }, [ready, inGame, dayNumber, maxDays, setEvents]);
+}
 
-    React.useEffect(() => {
-        if (!ready || !inGame) return;
-        if (dayNumber == null) return;
+/* 3) Assign thematic crew roles (once, during Day) */
+export function useAssignCrewRoles({
+    ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents,
+}) {
+    useEffect(() => {
+        if (!ready || !isHost() || rolesAssigned || phaseLabel !== "day") return;
 
-        if (lastDayRef.current !== dayNumber) {
-            lastDayRef.current = dayNumber;
+        const alive = players.filter((p) => !dead.includes(p.id));
+        if (alive.length < 1) return;
 
-            if (setEvents) {
-                console.count("setEvents@useDayTicker");
-                setEvents(prev => [...prev, `Day ${dayNumber} begins`]);
+        let idx = 0, changed = false;
+        for (const p of alive) {
+            const current = p.getState?.("role");
+            if (!current) {
+                const role = ROLES[idx % ROLES.length];
+                p.setState?.("role", role, true);
+                idx++; changed = true;
             }
         }
-    }, [ready, inGame, dayNumber, setEvents]);
-
-    // You can add maxDays logic here if you end the game on the last day.
+        setRolesAssigned(true, true);
+        if (changed) hostAppendEvent(setEvents, `Crew roles filled for unassigned players.`);
+    }, [ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents]);
 }
 
-/**
- * Assign roles exactly once per round/session.
- */
-export function useAssignCrewRoles({
-    ready, phaseLabel, rolesAssigned, players, dead,
-    setRolesAssigned, setEvents,
-}) {
-    React.useEffect(() => {
-        if (!ready) return;
-        if (rolesAssigned) return;
-        // Optional: gate on a stable phase (avoid during meeting)
-        if (phaseLabel === "meeting") return;
-
-        console.count("setRolesAssigned@useAssignCrewRoles");
-        setRolesAssigned(true);
-
-        if (setEvents) {
-            console.count("setEvents@useAssignCrewRoles");
-            setEvents(prev => [...prev, "Crew roles assigned"]);
-        }
-    }, [ready, rolesAssigned, phaseLabel, setRolesAssigned, setEvents, players, dead]);
-}
-
-/**
- * Process in-world actions / meters — idempotent writes only.
- */
+/* 4) Process player actions (REPAIR only for now) */
 export function useProcessActions({
-    ready, inGame, players, dead,
-    setOxygen, setPower, setCCTV,
-    setEvents,
+    ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents,
 }) {
-    React.useEffect(() => {
-        if (!ready || !inGame) return;
+    const processedRef = useRef(new Map());
 
-        // 👇 Example: if you actually compute next values, only write when changed.
-        // Replace these with your own deltas; here we do nothing unless you add logic.
-        // const nextO2 = ...
-        // setOxygen(o => {
-        //   if (o === nextO2) return o;
-        //   console.count("setOxygen@useProcessActions");
-        //   return nextO2;
-        // });
+    useEffect(() => {
+        if (!ready || !isHost() || !inGame) return;
 
-        // const nextP = ...
-        // setPower(p => {
-        //   if (p === nextP) return p;
-        //   console.count("setPower@useProcessActions");
-        //   return nextP;
-        // });
+        const applyDelta = (key, delta) => {
+            if (key === "oxygen") setOxygen((v) => clamp01(v + delta), true);
+            if (key === "power") setPower((v) => clamp01(v + delta), true);
+            if (key === "cctv") setCCTV((v) => clamp01(v + delta), true);
+        };
 
-        // If you mutate CCTV, also guard:
-        // setCCTV(v => {
-        //   if (v === next) return v;
-        //   console.count("setCCTV@useProcessActions");
-        //   return next;
-        // });
+        const id = setInterval(() => {
+            for (const p of players) {
+                if (dead.includes(p.id)) continue;
 
+                const reqId = Number(p.getState("reqId") || 0);
+                const last = processedRef.current.get(p.id) || 0;
+                if (reqId <= last) continue;
+
+                const type = String(p.getState("reqType") || "");
+                const target = String(p.getState("reqTarget") || "");
+                const value = Number(p.getState("reqValue") || 0);
+
+                const ok = type === "repair" && isMeter(target) && value > 0;
+                const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
+
+                if (ok) {
+                    applyDelta(target, value);
+                    hostAppendEvent(setEvents, `${name} repaired ${target.toUpperCase()} +${value}.`);
+                }
+                processedRef.current.set(p.id, reqId);
+            }
+        }, 150);
+
+        return () => clearInterval(id);
     }, [ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents]);
 }
 
-/**
- * Resolve votes at meeting end once.
- */
+/* 5) Resolve voting when meeting timer hits 0
+   (meeting start/stop is handled in timePhaseEffects.js) */
 export function useMeetingVoteResolution({
-    ready, matchPhase, timer, players, dead,
-    setDead, setEvents,
+    ready, matchPhase, timer, players, dead, setDead, setEvents,
 }) {
-    const resolvedRef = React.useRef(false);
+    useEffect(() => {
+        if (!ready || !isHost()) return;
+        if (matchPhase !== "meeting") return;
+        if (Number(timer) > 0) return;
 
-    React.useEffect(() => {
-        if (!ready) return;
-        if (matchPhase !== "meeting") {
-            resolvedRef.current = false;
-            return;
+        const aliveIds = new Set(players.filter((p) => !dead.includes(p.id)).map((p) => p.id));
+        const counts = new Map();
+        for (const p of players) {
+            if (!aliveIds.has(p.id)) continue;
+            const v = String(p.getState("vote") || "");
+            if (!v || v === "skip") continue;
+            counts.set(v, (counts.get(v) || 0) + 1);
         }
-        if (timer > 0) return;
-        if (resolvedRef.current) return;
 
-        resolvedRef.current = true;
+        let target = "", top = 0;
+        for (const [id, c] of counts.entries()) {
+            if (c > top) { top = c; target = id; }
+            else if (c === top) { target = ""; }
+        }
 
-        // Example only: you likely compute who to eject here.
-        // setDead(prev => {
-        //   const next = [...prev, kickedId];
-        //   if (next.length === prev.length) return prev;
-        //   console.count("setDead@useMeetingVoteResolution");
-        //   return next;
-        // });
-
-        if (setEvents) {
-            console.count("setEvents@useMeetingVoteResolution");
-            setEvents(prev => [...prev, "Vote resolved"]);
+        if (target && aliveIds.has(target)) {
+            const ejected = players.find((p) => p.id === target);
+            const name = ejected ? (ejected.getProfile().name || "Player " + ejected.id.slice(0, 4)) : "Unknown";
+            const role = ejected ? String(ejected.getState("role") || "Crew") : "Crew";
+            setDead(Array.from(new Set([...dead, target])), true);
+            hostAppendEvent(setEvents, `Ejected ${name} (${role}).`);
+        } else {
+            hostAppendEvent(setEvents, "Vote ended: no ejection.");
         }
     }, [ready, matchPhase, timer, players, dead, setDead, setEvents]);
 }
-
-/**
- * Initialize meters and apply daily decay — only when values actually change.
- */
+/** 6) Initialize meters to 100% on Day 1, then halve Energy at the start of each new day (host-only) */
 export function useMetersInitAndDailyDecay({
-    ready, inGame, dayNumber,
-    power, oxygen,
-    setPower, setOxygen,
+    ready,
+    inGame,
+    dayNumber,
+    power,
+    oxygen,
+    setPower,
+    setOxygen,
     setEvents,
 }) {
-    const lastAppliedDayRef = React.useRef(null);
+    const lastProcessedDayRef = useRef(0);
 
-    React.useEffect(() => {
-        if (!ready || !inGame) return;
-        if (dayNumber == null) return;
+    useEffect(() => {
+        if (!ready || !inGame || !isHost()) return;
 
-        // Apply decay at most once per "tick" (here: per dayNumber change)
-        if (lastAppliedDayRef.current === dayNumber) return;
-        lastAppliedDayRef.current = dayNumber;
+        // avoid multiple runs for the same day
+        if (dayNumber === lastProcessedDayRef.current) return;
 
-        // Example decay; replace with your own values
-        const nextPower = Math.max(0, Math.min(100, Number(power ?? 0) - 0.5));
-        const nextO2 = Math.max(0, Math.min(100, Number(oxygen ?? 0) - 0.25));
-
-        if (nextPower !== power) {
-            console.count("setPower@useMetersInitAndDailyDecay");
-            setPower(nextPower);
+        if (dayNumber === 1) {
+            // boot-up defaults
+            if (oxygen !== 100) setOxygen(100, true);
+            if (power !== 100) setPower(100, true);
+            hostAppendEvent(setEvents, "Systems online — Oxygen 100%, Energy 100%");
+        } else if (dayNumber > 1) {
+            // halve energy once at the start of each new day
+            const base = typeof power === "number" ? power : 100;
+            const next = Math.max(0, Math.round(base * 0.5));
+            if (next !== base) {
+                setPower(next, true);
+                hostAppendEvent(setEvents, `Day ${dayNumber}: Energy reduced by 50% → ${next}%`);
+            }
         }
-        if (nextO2 !== oxygen) {
-            console.count("setOxygen@useMetersInitAndDailyDecay");
-            setOxygen(nextO2);
-        }
 
-        if (setEvents) {
-            console.count("setEvents@useMetersInitAndDailyDecay");
-            setEvents(prev => [...prev, `Daily decay applied (Day ${dayNumber})`]);
-        }
+        lastProcessedDayRef.current = dayNumber;
     }, [ready, inGame, dayNumber, power, oxygen, setPower, setOxygen, setEvents]);
 }

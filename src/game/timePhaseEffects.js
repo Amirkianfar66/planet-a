@@ -1,91 +1,96 @@
 // src/game/timePhaseEffects.js
-import * as React from "react";
+import { useEffect, useRef } from "react";
+import { isHost } from "playroomkit";
+import { hostAppendEvent } from "../network/playroom";
+import { useGameClock } from "../systems/dayNightClock";
 
 /**
- * Keep app phase in sync with the clock, without ping-pong.
+ * Host-only: mirror the clock's day/night label into the networked `phase`,
+ * but never override lobby/meeting/end. Edge-triggered (no spamming).
  */
-export function useSyncPhaseToClock({ ready, matchPhase, setPhase, clockPhase }) {
-    React.useEffect(() => {
-        if (!ready) return;
-        if (!clockPhase) return;
-        if (matchPhase === "end") return;
+export function useSyncPhaseToClock({ ready, matchPhase, setPhase }) {
+    const clockPhase = useGameClock((s) => s.phase); // () => 'day' | 'night'
+    const lastSentRef = useRef(null);
 
-        // Don't override the special meeting phase from clock ticks
-        if (matchPhase !== "meeting" && matchPhase !== clockPhase) {
-            // DEBUG
-            console.count("setPhase@useSyncPhaseToClock");
-            setPhase(clockPhase, true);
-        }
-    }, [ready, matchPhase, clockPhase, setPhase]);
+    useEffect(() => {
+        if (!ready || !isHost()) return;
+        if (matchPhase === "lobby" || matchPhase === "meeting" || matchPhase === "end") return;
+
+        const label = clockPhase(); // 'day' | 'night'
+        if (matchPhase === label || lastSentRef.current === label) return;
+
+        lastSentRef.current = label;
+        setPhase(label, true);
+    }, [ready, matchPhase, setPhase, clockPhase]);
 }
 
 /**
- * When entering a meeting, make sure the timer is initialized once.
+ * Host-only: start a meeting when the clock crosses 18:00.
+ * If your dayNightClock store doesn't expose nowGameSec(), this will no-op safely.
  */
 export function useMeetingFromClock({
-    ready, matchPhase,
-    setPhase, // kept in signature in case you use it internally
+    ready,
+    matchPhase, setPhase,
     timer, setTimer,
     meetingLength,
     setEvents,
 }) {
-    // initialize meeting timer exactly once per meeting
-    const metInitRef = React.useRef(0);
+    useEffect(() => {
+        if (!ready || !isHost()) return;
+        if (matchPhase === "lobby" || matchPhase === "end" || matchPhase === "meeting") return;
 
-    React.useEffect(() => {
-        if (!ready) return;
-        if (matchPhase !== "meeting") {
-            metInitRef.current = 0;
-            return;
-        }
+        // Optional API: support if your store provides a nowGameSec() getter
+        const store = typeof useGameClock.getState === "function" ? useGameClock.getState() : null;
+        const getSec = store && typeof store.nowGameSec === "function" ? store.nowGameSec : null;
+        if (!getSec) return; // no-op if not available
 
-        const intended = Number(meetingLength ?? 0);
-        if (!Number.isFinite(intended) || intended <= 0) return;
+        const sixPM = 18 * 3600;
+        const crossed = (from, to, target) => {
+            if (to === from) return false;
+            return (to > from) ? (target > from && target <= to)
+                : (target > from || target <= to); // wrap at midnight
+        };
 
-        if (metInitRef.current === 0 || Number(timer) !== intended) {
-            console.count("setTimer@useMeetingFromClock");
-            setTimer(intended, true);
-            metInitRef.current = Date.now();
+        let raf;
+        let prev = getSec();
 
-            // optional: announce once
-            if (setEvents) {
-                console.count("setEvents@useMeetingFromClock");
-                setEvents(prev => [...prev, "Meeting started"]);
+        const tick = () => {
+            const cur = getSec();
+            if (crossed(prev, cur, sixPM)) {
+                setPhase("meeting", true);
+                setTimer(meetingLength, true);
+                hostAppendEvent(setEvents, "Meeting started.");
             }
-        }
-    }, [ready, matchPhase, meetingLength, timer, setTimer, setEvents, setPhase]);
+            prev = cur;
+            raf = requestAnimationFrame(tick);
+        };
+
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [ready, matchPhase, setPhase, setTimer, meetingLength, setEvents]);
 }
 
 /**
- * Resolve meeting end when the countdown hits 0, once.
+ * Host-only: during meeting, tick the timer; when it hits 0,
+ * exit meeting back to the clock-provided label.
  */
-export function useMeetingCountdown({
-    ready, matchPhase,
-    timer, setTimer,
-    setPhase, setEvents,
-}) {
-    const finishedRef = React.useRef(false);
+export function useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents }) {
+    const clockPhase = useGameClock((s) => s.phase); // () => 'day' | 'night'
 
-    React.useEffect(() => {
-        if (!ready) return;
-        if (matchPhase !== "meeting") {
-            finishedRef.current = false;
-            return;
-        }
+    // 1s countdown while in meeting
+    useEffect(() => {
+        if (!ready || !isHost() || matchPhase !== "meeting") return;
+        const id = setInterval(() => setTimer((t) => Math.max(0, Number(t) - 1), true), 1000);
+        return () => clearInterval(id);
+    }, [ready, matchPhase, setTimer]);
 
-        if (timer <= 0 && !finishedRef.current) {
-            finishedRef.current = true;
+    // When timer finishes, return to clock label
+    useEffect(() => {
+        if (!ready || !isHost() || matchPhase !== "meeting") return;
+        if (Number(timer) > 0) return;
 
-            // DEBUG
-            console.count("setPhase@useMeetingCountdown");
-            setPhase("day", true);
-
-            if (setEvents) {
-                console.count("setEvents@useMeetingCountdown");
-                setEvents(prev => [...prev, "Meeting ended"]);
-            }
-        }
-    }, [ready, matchPhase, timer, setPhase, setEvents]);
-
-    // (Optional) if you drive the countdown locally, throttle it — but many games tick server-side.
+        const label = clockPhase(); // 'day' | 'night'
+        setPhase(label, true);
+        hostAppendEvent(setEvents, "Meeting ended.");
+    }, [ready, matchPhase, timer, setPhase, setEvents, clockPhase]);
 }
