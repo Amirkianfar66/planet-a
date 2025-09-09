@@ -1,151 +1,141 @@
-﻿// src/App.jsx
-import React, { useState, useEffect } from "react";
-import GameCanvas from "./components/GameCanvas.jsx";
+﻿// src/components/GameCanvas.jsx
+import React, { useMemo } from "react";
+import { Canvas } from "@react-three/fiber";
+import * as THREE from "three";
+
 import {
-    usePhase, useTimer, useLengths,
-    useDead, useEvents, useMeters, useRolesAssigned,
-    hostAppendEvent, requestAction,
-} from "./network/playroom";
-import { isHost, myPlayer, usePlayersList } from "playroomkit";
+    OUTSIDE_AREA, STATION_AREA, ROOMS,
+    FLOOR, WALL_HEIGHT, walls
+} from "../map/deckA";
 
-import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
-import { useGameClock } from "./systems/dayNightClock";
-import Lobby from "./components/Lobby.jsx";
+import Players3D from "./Players3D.jsx";
+import LocalController from "../systems/LocalController.jsx";
+import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
+import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
+import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
+import InteractionSystem from "../systems/InteractionSystem.jsx";
 
-// effects
-import {
-    useLobbyReady,
-    useDayTicker,
-    useAssignCrewRoles,
-    useProcessActions,
-    useMeetingVoteResolution,
-    useMetersInitAndDailyDecay
-} from "./game/effects";
-import {
-    useSyncPhaseToClock,
-    useMeetingFromClock,
-    useMeetingCountdown,
-} from "./game/timePhaseEffects";
+/* ---------- Canvas-text floor label ----------- */
+function TextLabel({
+    text,
+    position = [0, 0.01, 0],
+    width = 6,
+    color = "#cfe7ff",
+    outline = "#0d1117",
+}) {
+    const { texture, aspect } = useMemo(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1024; canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "bold 120px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 18;
+        ctx.strokeStyle = outline;
+        ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
+        ctx.fillStyle = color;
+        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        tex.anisotropy = 4;
+        return { texture: tex, aspect: canvas.width / canvas.height };
+    }, [text, color, outline]);
 
-// extracted UI (HUD is the only overlay now)
-import { TopBar, VotePanel, Centered } from "./ui";
-import HUD from "./ui/HUD.jsx";
-
-export default function App() {
-    const [ready, setReady] = useState(false);
-    const players = usePlayersList(true);
-
-    const [phase, setPhase] = usePhase();
-    const matchPhase = phase || "lobby";
-    const isInLobby = matchPhase === "lobby";
-
-    const [timer, setTimer] = useTimer();
-    const { meetingLength } = useLengths();
-
-    const [dead, setDead] = useDead();
-    const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
-    const [events, setEvents] = useEvents();
-    const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
-
-    const clockPhaseFn = useGameClock((s) => s.phase);
-    const dayNumber = useGameClock((s) => s.dayNumber);
-    const maxDays = useGameClock((s) => s.maxDays);
-
-    const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
-    const inGame = matchPhase !== "lobby" && matchPhase !== "end";
-
-    // effects
-    useLobbyReady(setReady);
-    useSyncPhaseToClock({ ready, matchPhase, setPhase });
-    useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
-    useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents });
-    useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
-    useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
-    useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-    useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
-    useMetersInitAndDailyDecay({
-        ready,
-        inGame,
-        dayNumber,
-        power,
-        oxygen,
-        setPower,
-        setOxygen,
-        setEvents,
-    });
-
-    // ✅ ALWAYS call hooks before any early returns
-    useEffect(() => {
-        if (!ready) return;
-        const me = myPlayer();
-        if (!me) return;
-
-        // Ensure display name
-        if (!me.getState?.("name")) {
-            const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
-            me.setState?.("name", fallback, true);
-        }
-        // Ensure team
-        const currentTeam = me.getState?.("team") || me.getState?.("teamName");
-        if (!currentTeam) {
-            me.setState?.("team", "Team Alpha", true);
-        }
-    }, [ready]);
-
-    function launchGame() {
-        if (!isHost()) return;
-        setPhase("day", true);
-        hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }
-
-    const meP = myPlayer();
-    const myId = meP?.id;
-    const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
-
-    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
-    if (isInLobby) return <Lobby onLaunch={launchGame} />;
-
-    // Passed into HUD only (UI overlay). InteractionSystem + ItemsHostLogic live inside GameCanvas.
-    const game = {
-        meters: {
-            energy: Number(power ?? 0),
-            oxygen: Number(oxygen ?? 0),
-        },
-        me: {
-            id: myId || "me",
-            backpack: [],
-            capacity: 8,
-            // Role & team read LIVE in RolePanel/TeamChatPanel
-        },
-        requestAction,
-    };
+    const h = width / (aspect || 4);
+    const noRay = useMemo(() => ({ raycast: () => null }), []);
 
     return (
-        <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
-            <TopBar phase={phaseLabel} timer={timer} players={aliveCount} events={events} />
+        <mesh {...noRay} position={position} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[width, h]} />
+            <meshBasicMaterial map={texture} transparent depthWrite={false} />
+        </mesh>
+    );
+}
 
-            <div style={{ position: "relative" }}>
-                {/* 3D scene (includes ItemsHostLogic + InteractionSystem inside GameCanvas) */}
-                <GameCanvas dead={dead} />
+/* ---------------- Floor, zones, walls ---------------- */
+function FloorAndWalls() {
+    const noRay = useMemo(() => ({ raycast: () => null }), []);
 
-                {/* Host-only debug panel (DOM). Keep it small or position it away from center
-            so it doesn't sit on top of clickable 3D items. */}
-                {isHost() && (
-                    <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "auto", zIndex: 10 }}>
-                        <TimeDebugPanel />
-                    </div>
-                )}
+    return (
+        <group>
+            {/* Base floor */}
+            <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <planeGeometry args={[FLOOR.w, FLOOR.d]} />
+                <meshStandardMaterial color="#141a22" />
+            </mesh>
 
-                {/* HUD: status, role, backpack + chat pinned bottom-left.
-            Wrapper blocks nothing; HUD enables pointer events internally where needed. */}
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                    <HUD game={game} />
-                </div>
+            {/* Zones */}
+            <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
+                <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
+            </mesh>
+            <mesh {...noRay} position={[STATION_AREA.x, 0.003, STATION_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[STATION_AREA.w, STATION_AREA.d]} />
+                <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
+            </mesh>
+
+            {/* Grid */}
+            <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
+                <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
+                <meshBasicMaterial wireframe transparent opacity={0.12} />
+            </mesh>
+
+            {/* Walls */}
+            {walls.map((w, i) => (
+                <mesh {...noRay} key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
+                    <boxGeometry args={[w.w, WALL_HEIGHT, w.d]} />
+                    <meshStandardMaterial color="#3b4a61" />
+                </mesh>
+            ))}
+
+            {/* Labels */}
+            <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
+            {ROOMS.map((r) => (
+                <TextLabel
+                    key={r.key}
+                    text={r.name}
+                    position={[r.x, 0.01, r.z]}
+                    width={Math.min(r.w * 0.9, 8)}
+                    color="#d6eaff"
+                />
+            ))}
+        </group>
+    );
+}
+
+/* ---------------- Root canvas + overlays ---------------- */
+export default function GameCanvas({ dead = [] }) {
+    return (
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            <Canvas
+                shadows
+                dpr={[1, 2]}
+                camera={{ position: [0, 8, 10], fov: 50 }}
+                gl={{ powerPreference: "high-performance" }}
+            >
+                {/* Scene background (optional) */}
+                <color attach="background" args={["#0b1220"]} />
+
+                <ambientLight intensity={0.7} />
+                <directionalLight position={[5, 10, 3]} intensity={1} />
+
+                <FloorAndWalls />
+                <ItemsAndDevices />
+                <Players3D dead={dead} />
+                <LocalController />
+                <ThirdPersonCamera />
+            </Canvas>
+
+            {/* DOM overlays should NOT block canvas clicks */}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                <InteractionSystem />
+                {/* If InteractionSystem contains interactive inputs/buttons,
+                    give those specific elements pointerEvents: 'auto'. */}
             </div>
 
-            {matchPhase === "meeting" && !dead.includes(myId) && (
-                <VotePanel dead={dead} />
-            )}
+            {/* Non-visual host logic */}
+            <ItemsHostLogic />
         </div>
     );
 }
