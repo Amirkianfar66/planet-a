@@ -1,4 +1,4 @@
-// src/App.jsx  — TEMP DEBUG (no dayNightClock)
+// src/App.jsx
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import GameCanvas from "./components/GameCanvas.jsx";
 import {
@@ -9,22 +9,22 @@ import {
 import { isHost, myPlayer, usePlayersList } from "playroomkit";
 
 import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
-// ⛔ removed: import { useGameClock } from "./systems/dayNightClock";
+import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby.jsx";
 
 // effects
 import {
     useLobbyReady,
-    // useDayTicker,                // ⛔ disable (depends on clock/dayNumber)
+    useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
     useMeetingVoteResolution,
-    // useMetersInitAndDailyDecay,  // ⛔ disable (depends on dayNumber)
+    useMetersInitAndDailyDecay
 } from "./game/effects";
 import {
-    // useSyncPhaseToClock,         // ⛔ disable (depends on clockPhase)
-    // useMeetingFromClock,         // ⛔ disable (clock-initialized meeting timer)
-    // useMeetingCountdown,         // ⛔ disable (ties to clock-driven meeting)
+    useSyncPhaseToClock,
+    useMeetingFromClock,
+    useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
 // UI
@@ -35,8 +35,6 @@ import HUD from "./ui/HUD.jsx";
 import useItemsSync from "./systems/useItemsSync.js";
 
 export default function App() {
-    console.count("App render (no clock)");
-
     const [ready, setReady] = useState(false);
     const players = usePlayersList(true);
 
@@ -44,25 +42,89 @@ export default function App() {
     const matchPhase = phase || "lobby";
     const isInLobby = matchPhase === "lobby";
 
-    const [timer] = useTimer();              // we still read timer, but we won't drive it from clock
-    const { meetingLength } = useLengths();  // unused now, fine to keep
+    const [timer, setTimer] = useTimer();
+    const { meetingLength } = useLengths();
 
     const [dead, setDead] = useDead();
     const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    // ⛔ removed useGameClock; just use the multiplayer phase directly for label
-    const phaseLabel = matchPhase; // "day" | "meeting" | "lobby" | "end"
+    // ✅ One subscription, returns values (not functions)
+    const { phase: clockPhase, dayNumber, maxDays } = useGameClock((s) => ({
+        phase: s.phase,
+        dayNumber: s.dayNumber,
+        maxDays: s.maxDays,
+    }));
+
+    const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhase;
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // --- minimal effects only ---
-    useLobbyReady(setReady);
+    // ⛑️ Idempotent wrappers to stop ping-pong loops
+    const setPhaseSafe = useCallback(
+        (next, broadcast = true) => {
+            if (phase !== next) setPhase(next, broadcast);
+        },
+        [phase, setPhase]
+    );
 
-    // Keep safe/benign effects that don't depend on the clock
+    const setTimerSafe = useCallback(
+        (next, broadcast = true) => {
+            if (timer !== next) setTimer(next, broadcast);
+        },
+        [timer, setTimer]
+    );
+
+    const setOxygenSafe = useCallback(
+        (next) => {
+            if (oxygen !== next) setOxygen(next);
+        },
+        [oxygen, setOxygen]
+    );
+
+    const setPowerSafe = useCallback(
+        (next) => {
+            if (power !== next) setPower(next);
+        },
+        [power, setPower]
+    );
+
+    const setCCTVSafe = useCallback(
+        (next) => {
+            if (cctv !== next) setCCTV(next);
+        },
+        [cctv, setCCTV]
+    );
+
+    // gameplay effects (use safe setters)
+    useLobbyReady(setReady);
+    useSyncPhaseToClock({ ready, matchPhase, setPhase: setPhaseSafe, clockPhase });
+    useMeetingFromClock({
+        ready, matchPhase,
+        setPhase: setPhaseSafe,
+        timer, setTimer: setTimerSafe,
+        meetingLength, setEvents
+    });
+    useMeetingCountdown({
+        ready, matchPhase,
+        timer, setTimer: setTimerSafe,
+        setPhase: setPhaseSafe,
+        setEvents
+    });
+    useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
-    useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
+    useProcessActions({ ready, inGame, players, dead, setOxygen: setOxygenSafe, setPower: setPowerSafe, setCCTV: setCCTVSafe, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
+    useMetersInitAndDailyDecay({
+        ready,
+        inGame,
+        dayNumber,
+        power,
+        oxygen,
+        setPower: setPowerSafe,
+        setOxygen: setOxygenSafe,
+        setEvents,
+    });
 
     // ensure local player has a name/team once ready
     useEffect(() => {
@@ -82,9 +144,9 @@ export default function App() {
 
     const launchGame = useCallback(() => {
         if (!isHost()) return;
-        setPhase("day", true);
+        setPhaseSafe("day", true);
         hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }, [setPhase, setEvents]);
+    }, [setPhaseSafe, setEvents]);
 
     // items → backpack for HUD
     const { items } = useItemsSync();
@@ -132,6 +194,7 @@ export default function App() {
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
+    // memoized HUD payload
     const game = useMemo(() => ({
         meters: {
             energy: Number(power ?? 0),
@@ -147,6 +210,7 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") requestAction("use", `eat|${id}`);
+            // other types are used at devices via world interaction
         },
         requestAction,
     }), [power, oxygen, myId, myBackpack, typeById]);
@@ -164,7 +228,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* HUD overlay */}
+                {/* HUD overlay – internal elements enable pointer events as needed */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
