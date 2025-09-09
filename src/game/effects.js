@@ -9,7 +9,15 @@ const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
 
 /* 1) Lobby → ready */
 export function useLobbyReady(setReady) {
-    useEffect(() => { (async () => { await openLobby(); setReady(true); })(); }, [setReady]);
+    const onceRef = useRef(false);
+    useEffect(() => {
+        if (onceRef.current) return;   // ← prevent dev double-mount duplicate
+        onceRef.current = true;
+        (async () => {
+            await openLobby();
+            setReady(true);
+        })();
+    }, [setReady]);
 }
 
 /* 2) Day ticker (optional) */
