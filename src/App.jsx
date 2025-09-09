@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import GameCanvas from "./components/GameCanvas.jsx";
 import {
     usePhase, useTimer, useLengths,
@@ -9,25 +9,21 @@ import {
 import { isHost, myPlayer, usePlayersList } from "playroomkit";
 
 import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
-import { useGameClock } from "./systems/dayNightClock";
+// ⛔ removed: useGameClock
 import Lobby from "./components/Lobby.jsx";
 
-// effects
+// effects that don't depend on a separate clock
 import {
     useLobbyReady,
-    useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
     useMeetingVoteResolution,
-    useMetersInitAndDailyDecay
+    // If you had decay tied to dayNumber/clock, keep it disabled or refactor to timer-based
+    // useMetersInitAndDailyDecay
 } from "./game/effects";
-import {
-    useSyncPhaseToClock,
-    useMeetingFromClock,
-    useMeetingCountdown,
-} from "./game/timePhaseEffects";
 
-// UI
+// (No timePhaseEffects — we’re driving phase/timer directly here)
+
 import { TopBar, VotePanel, Centered } from "./ui";
 import HUD from "./ui/HUD.jsx";
 
@@ -35,6 +31,7 @@ import HUD from "./ui/HUD.jsx";
 import useItemsSync from "./systems/useItemsSync.js";
 
 export default function App() {
+    console.count("App render (Option A)");
     const [ready, setReady] = useState(false);
     const players = usePlayersList(true);
 
@@ -43,41 +40,90 @@ export default function App() {
     const isInLobby = matchPhase === "lobby";
 
     const [timer, setTimer] = useTimer();
-    const { meetingLength } = useLengths();
+    const { meetingLength } = useLengths(); // seconds for meeting, fallback used below
 
     const [dead, setDead] = useDead();
     const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    const clockPhaseFn = useGameClock((s) => s.phase);
-    const dayNumber = useGameClock((s) => s.dayNumber);
-    const maxDays = useGameClock((s) => s.maxDays);
-
-    const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
+    // Phase label is simply the network phase now
+    const phaseLabel = matchPhase;
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // gameplay effects
+    // ─────────────────────────────────────────────────────────────────────────────
+    // HOST-ONLY PHASE/TIMER LOOP (single source of truth)
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    // Refs to always read the latest values inside setInterval without recreating it
+    const phaseRef = useRef(matchPhase);
+    const timerRef = useRef(timer);
+    useEffect(() => { phaseRef.current = matchPhase; }, [matchPhase]);
+    useEffect(() => { timerRef.current = timer; }, [timer]);
+
+    // Idempotent setters (write only if changed)
+    const setPhaseIfDiff = useCallback((next) => {
+        if (phaseRef.current !== next) setPhase(next, true);
+    }, [setPhase]);
+    const setTimerIfDiff = useCallback((next) => {
+        const curr = Number(timerRef.current ?? 0);
+        if (curr !== next) setTimer(next, true);
+    }, [setTimer]);
+
+    // Start a simple host loop that decrements the timer every 1s and toggles phases
+    useEffect(() => {
+        if (!ready) return;
+        if (!isHost()) return;
+
+        const DAY_SEC = 60; // ⏱️ adjust to your needs
+        const MEETING_SEC = Number(meetingLength ?? 30);
+
+        const id = setInterval(() => {
+            const nowPhase = phaseRef.current;
+            const nowTimer = Number(timerRef.current ?? 0);
+
+            if (nowPhase === "lobby" || nowPhase === "end") return;
+
+            if (nowPhase === "meeting") {
+                if (nowTimer > 0) {
+                    setTimerIfDiff(nowTimer - 1);
+                } else {
+                    // Meeting ended → return to day
+                    setPhaseIfDiff("day");
+                    setTimerIfDiff(DAY_SEC);
+                    // Optional: announce transition
+                    // hostAppendEvent(setEvents, "Meeting ended → Day");
+                }
+                return;
+            }
+
+            // DAY (or any non-meeting, non-lobby/end phase)
+            if (nowTimer > 0) {
+                setTimerIfDiff(nowTimer - 1);
+            } else {
+                // Day ended → start meeting
+                setPhaseIfDiff("meeting");
+                setTimerIfDiff(MEETING_SEC);
+                // Optional: announce transition
+                // hostAppendEvent(setEvents, "Day ended → Meeting");
+            }
+        }, 1000);
+
+        return () => clearInterval(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ready, meetingLength]);
+    // (We don’t put phase/timer in deps; refs keep them fresh.)
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Gameplay effects that don’t depend on a separate clock
+    // ─────────────────────────────────────────────────────────────────────────────
     useLobbyReady(setReady);
-    useSyncPhaseToClock({ ready, matchPhase, setPhase });
-    useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
-    useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents });
-    useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
-    useMetersInitAndDailyDecay({
-        ready,
-        inGame,
-        dayNumber,
-        power,
-        oxygen,
-        setPower,
-        setOxygen,
-        setEvents,
-    });
+    // If you had meters decay tied to dayNumber, either disable or refactor to run on phase/timer.
 
-    // ensure local player has a name/team once ready
+    // Ensure local player has a name/team once ready
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
@@ -88,22 +134,23 @@ export default function App() {
             me.setState?.("name", fallback, true);
         }
         const currentTeam = me.getState?.("team") || me.getState?.("teamName");
-        if (!currentTeam) {
-            me.setState?.("team", "Team Alpha", true);
-        }
+        if (!currentTeam) me.setState?.("team", "Team Alpha", true);
     }, [ready]);
 
-    function launchGame() {
+    const launchGame = useCallback(() => {
         if (!isHost()) return;
+        // Start the game at Day with an initial timer so the host loop can tick
+        const DAY_SEC = 60; // keep in sync with the loop above
         setPhase("day", true);
+        setTimer(DAY_SEC, true);
         hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }
+    }, [setPhase, setTimer, setEvents]);
 
     // items → backpack for HUD
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
-      
+
     const labelFromType = (t) =>
         t === "food" ? "Food Ration"
             : t === "battery" ? "Battery Pack"
@@ -137,13 +184,16 @@ export default function App() {
         return m;
     }, [myBackpack]);
 
-    const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
+    const aliveCount = useMemo(
+        () => players.filter((p) => !dead.includes(p.id)).length,
+        [players, dead]
+    );
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
-    // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
-    const game = {
+    // HUD payload
+    const game = useMemo(() => ({
         meters: {
             energy: Number(power ?? 0),
             oxygen: Number(oxygen ?? 0),
@@ -153,22 +203,15 @@ export default function App() {
             backpack: myBackpack,
             capacity: 8,
         },
-        // Drop a specific item (by id)
         onDropItem: (id) => requestAction("drop", id),
-        // Use a specific item (by id)
         onUseItem: (id) => {
             const t = typeById[id];
             if (!t) return;
-            if (t === "food") {
-                // eat anywhere
-                requestAction("use", `eat|${id}`);
-            } else {
-                // other types must be used at a device; do it via world interaction
-                // (optional: show a toast/hint here)
-            }
+            if (t === "food") requestAction("use", `eat|${id}`);
+            // other types used at devices via world interaction
         },
         requestAction,
-    };
+    }), [power, oxygen, myId, myBackpack, typeById]);
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
