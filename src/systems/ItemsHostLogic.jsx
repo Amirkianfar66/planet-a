@@ -97,7 +97,9 @@ export default function ItemsHostLogic() {
 
         const tick = setInterval(() => {
                          const seen = new Set();
-                         const everyone = [...(playersRef.current || []), self].filter(Boolean).filter(p => {
+                         const everyone = [...(playersRef.current || []), selfNow]
+                        .filter(Boolean)
+                        .filter(p => {
                                 if (seen.has(p.id)) return false;
                                 seen.add(p.id);
                                 return true;
