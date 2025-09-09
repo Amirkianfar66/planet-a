@@ -34,7 +34,12 @@ export default function ItemsHostLogic() {
     useEffect(() => {
         if (host) console.log("[HOST] ItemsHostLogic active.");
     }, [host]);
-
+    // ✅ ADD THIS DEBUG EFFECT HERE
+    useEffect(() => {
+        if (!host) return;
+        // eslint-disable-next-line no-console
+        console.log("[HOST] items:", items.map(i => i.id));
+    }, [host, items]);
     // Simple physics for thrown items
     useEffect(() => {
         if (!host) return;
@@ -99,7 +104,8 @@ export default function ItemsHostLogic() {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                    } else if (near2(px, pz, it.x, it.z, Number(PICKUP_RADIUS) || 1.25)) {
+                    } else /* DEBUG: accept pickup from anywhere */ {
+
                         // put into player's hand/backpack, remove floor physics
                         setItems((prev) =>
                             prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j))
