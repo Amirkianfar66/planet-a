@@ -111,13 +111,16 @@ function ItemMesh({ type = "crate" }) {
 }
 
 function ItemEntity({ it }) {
-    const groupRef = useRef(null);
+    const groupRef = React.useRef(null);
     const label = it.name || prettyName(it.type);
     const actionable = canPickUp(it);
 
     return (
         <group ref={groupRef} position={[it.x, (it.y || 0) + 0.25, it.z]}>
+            {/* ✅ 3D geometry stays in Canvas */}
             <ItemMesh type={it.type} />
+
+            {/* ✅ The DOM button is PORTALED outside Canvas */}
             <HtmlLite worldObject={groupRef}>
                 <button
                     className="item-btn"
@@ -137,6 +140,7 @@ function ItemEntity({ it }) {
         </group>
     );
 }
+
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
