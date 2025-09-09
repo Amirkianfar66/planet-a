@@ -1,9 +1,12 @@
-import React, { useRef } from "react";
+// src/world/ItemsAndDevices.jsx
+import React, { useMemo, useCallback, useState } from "react";
+import * as THREE from "three";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { myPlayer } from "playroomkit";
 import { PICKUP_RADIUS } from "../data/constants.js";
-import HtmlLite from "./HtmlLite.jsx";
+
+/* ---------------- helpers ---------------- */
 
 function prettyName(type) {
     switch (String(type)) {
@@ -25,7 +28,7 @@ function canPickUp(it) {
 }
 
 function sendAction(type, target, value = 0) {
-    // Use your existing network helper if present, else write to state
+    // Prefer your network helper if present
     try {
         const { requestAction } = require("../network/playroom");
         if (typeof requestAction === "function") {
@@ -35,6 +38,7 @@ function sendAction(type, target, value = 0) {
             return;
         }
     } catch { }
+    // Fallback: write to my player state
     const me = myPlayer();
     const nextId = Number(me.getState("reqId") || 0) + 1;
     me.setState("reqId", nextId, true);
@@ -44,6 +48,59 @@ function sendAction(type, target, value = 0) {
     // eslint-disable-next-line no-console
     console.log(`[CLIENT:FALLBACK] action=${type} target=${target} value=${value}`);
 }
+
+/* ---------- 3D text label via CanvasTexture ---------- */
+function TextBillboard({ text, color = "#cfe7ff", outline = "#0d1117", width = 1.8, position = [0, 0.9, 0] }) {
+    const { texture, aspect } = useMemo(() => {
+        const cnv = document.createElement("canvas");
+        cnv.width = 512; cnv.height = 160;
+        const ctx = cnv.getContext("2d");
+        ctx.clearRect(0, 0, cnv.width, cnv.height);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // pill bg
+        ctx.fillStyle = "rgba(20,26,34,0.82)";
+        const w = cnv.width - 12, h = 120, x = 6, y = cnv.height / 2 - h / 2, r = 28;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
+
+        // outline + fill text
+        ctx.font = "700 56px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
+        ctx.lineWidth = 12;
+        ctx.strokeStyle = outline;
+        ctx.strokeText(text, cnv.width / 2, cnv.height / 2 + 4);
+        ctx.fillStyle = color;
+        ctx.fillText(text, cnv.width / 2, cnv.height / 2 + 4);
+
+        const tex = new THREE.CanvasTexture(cnv);
+        tex.minFilter = THREE.LinearFilter;
+        tex.anisotropy = 2;
+        return { texture: tex, aspect: cnv.width / cnv.height };
+    }, [text, color, outline]);
+
+    const h = width / (aspect || 4);
+    return (
+        <group position={position}>
+            {/* billboard: copy camera quaternion via onBeforeRender */}
+            <mesh
+                onBeforeRender={(renderer, scene, camera, geometry, material, group) => {
+                    // face camera
+                    group.quaternion.copy(camera.quaternion);
+                }}
+            >
+                <planeGeometry args={[width, h]} />
+                <meshBasicMaterial map={texture} transparent depthWrite={false} />
+            </mesh>
+        </group>
+    );
+}
+
+/* ---------------- 3D meshes ---------------- */
 
 function ItemMesh({ type = "crate" }) {
     switch (type) {
@@ -70,36 +127,63 @@ function ItemMesh({ type = "crate" }) {
     }
 }
 
-function ItemEntity({ it }) {
-    const groupRef = useRef(null);
-    const label = it.name || prettyName(it.type);
-    const actionable = canPickUp(it);
-
+function DeviceMesh() {
     return (
-        <group ref={groupRef} position={[it.x, (it.y || 0) + 0.25, it.z]}>
-            {/* 3D geometry (safe in Canvas) */}
-            <ItemMesh type={it.type} />
-
-            {/* DOM button (ported OUT of Canvas) */}
-            <HtmlLite worldObject={groupRef}>
-                <button
-                    className="item-btn"
-                    disabled={!actionable}
-                    title={actionable ? `Pick up ${label}` : `Move closer to pick up`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        if (!actionable) return;
-                        e.currentTarget.classList.add("item-btn--pulse");
-                        sendAction("pickup", it.id, 0);
-                        setTimeout(() => e.currentTarget?.classList.remove("item-btn--pulse"), 180);
-                    }}
-                >
-                    {actionable ? `Pick up ${label}` : `${label} (too far)`}
-                </button>
-            </HtmlLite>
+        <group>
+            <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
+            <mesh position={[0, 0.3, 0.33]}><planeGeometry args={[0.8, 0.35]} /><meshBasicMaterial color="#8fb3ff" /></mesh>
         </group>
     );
 }
+
+/* ---------------- Item entity (3D-only interactions) ---------------- */
+
+function ItemEntity({ it }) {
+    const [hover, setHover] = useState(false);
+    const label = it.name || prettyName(it.type);
+    const actionable = canPickUp(it);
+
+    const onEnter = useCallback(() => {
+        setHover(true);
+        document.body.style.cursor = "pointer";
+    }, []);
+    const onLeave = useCallback(() => {
+        setHover(false);
+        document.body.style.cursor = "";
+    }, []);
+    const onClick = useCallback((e) => {
+        e.stopPropagation();
+        // eslint-disable-next-line no-console
+        console.log(`[CLIENT] clicking item "${label}" (${it.id}) actionable=${actionable}`);
+        if (actionable) sendAction("pickup", it.id, 0);
+    }, [it.id, label, actionable]);
+
+    return (
+        <group
+            position={[it.x, (it.y || 0) + 0.25, it.z]}
+            onPointerEnter={onEnter}
+            onPointerLeave={onLeave}
+            onClick={onClick}
+        >
+            <ItemMesh type={it.type} />
+            <TextBillboard
+                text={actionable ? `Pick up ${label}` : `${label} (too far)`}
+                color={actionable ? "#b6f3c7" : "#cfe7ff"}
+                width={2.1}
+                position={[0, 0.9, 0]}
+            />
+            {/* subtle hover glow */}
+            {hover && (
+                <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[0.18, 0.32, 24]} />
+                    <meshBasicMaterial color={actionable ? "#86efac" : "#93c5fd"} transparent opacity={0.6} />
+                </mesh>
+            )}
+        </group>
+    );
+}
+
+/* ---------------- main ---------------- */
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
@@ -109,13 +193,12 @@ export default function ItemsAndDevices() {
             {/* Devices */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
-                    <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
-                    <mesh position={[0, 0.3, 0.33]}><planeGeometry args={[0.8, 0.35]} /><meshBasicMaterial color="#8fb3ff" /></mesh>
+                    <DeviceMesh />
                 </group>
             ))}
 
-            {/* Items on floor only */}
-            {items.filter(it => !it.holder).map((it) => (
+            {/* Items on the floor only */}
+            {items.filter((it) => !it.holder).map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}
         </group>
