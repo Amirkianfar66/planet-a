@@ -12,7 +12,6 @@ import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
 import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby.jsx";
 
-// effects
 import {
     useLobbyReady,
     useDayTicker,
@@ -21,17 +20,15 @@ import {
     useMeetingVoteResolution,
     useMetersInitAndDailyDecay
 } from "./game/effects";
+
 import {
     useSyncPhaseToClock,
     useMeetingFromClock,
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// UI
 import { TopBar, VotePanel, Centered } from "./ui";
 import HUD from "./ui/HUD.jsx";
-
-// items state (source of truth for floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
 
 export default function App() {
@@ -50,7 +47,7 @@ export default function App() {
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    // ✅ ONE subscription; returns values (do NOT call like a function)
+    // ✅ one subscription; values (no "()")
     const { phase: clockPhase, dayNumber, maxDays } = useGameClock((s) => ({
         phase: s.phase,
         dayNumber: s.dayNumber,
@@ -60,60 +57,23 @@ export default function App() {
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhase;
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // ⛑️ Idempotent setters to prevent ping-pong loops
-    const setPhaseSafe = useCallback(
-        (next, broadcast = true) => { if (phase !== next) setPhase(next, broadcast); },
-        [phase, setPhase]
-    );
-    const setTimerSafe = useCallback(
-        (next, broadcast = true) => { if (timer !== next) setTimer(next, broadcast); },
-        [timer, setTimer]
-    );
-    const setOxygenSafe = useCallback(
-        (next) => { if (oxygen !== next) setOxygen(next); },
-        [oxygen, setOxygen]
-    );
-    const setPowerSafe = useCallback(
-        (next) => { if (power !== next) setPower(next); },
-        [power, setPower]
-    );
-    const setCCTVSafe = useCallback(
-        (next) => { if (cctv !== next) setCCTV(next); },
-        [cctv, setCCTV]
-    );
-
-    // gameplay effects — pass safe setters
+    // gameplay effects (hooks are now idempotent)
     useLobbyReady(setReady);
-    useSyncPhaseToClock({ ready, matchPhase, setPhase: setPhaseSafe, clockPhase });
-    useMeetingFromClock({
-        ready, matchPhase,
-        setPhase: setPhaseSafe,
-        timer, setTimer: setTimerSafe,
-        meetingLength, setEvents
-    });
-    useMeetingCountdown({
-        ready, matchPhase,
-        timer, setTimer: setTimerSafe,
-        setPhase: setPhaseSafe,
-        setEvents
-    });
+    useSyncPhaseToClock({ ready, matchPhase, setPhase, clockPhase });
+    useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
+    useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents });
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
-    useProcessActions({ ready, inGame, players, dead, setOxygen: setOxygenSafe, setPower: setPowerSafe, setCCTV: setCCTVSafe, setEvents });
+    useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
-    useMetersInitAndDailyDecay({
-        ready, inGame, dayNumber,
-        power, oxygen,
-        setPower: setPowerSafe,
-        setOxygen: setOxygenSafe,
-        setEvents,
-    });
+    useMetersInitAndDailyDecay({ ready, inGame, dayNumber, power, oxygen, setPower, setOxygen, setEvents });
 
     // ensure local player has a name/team once ready
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
         if (!me) return;
+
         if (!me.getState?.("name")) {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
@@ -124,9 +84,9 @@ export default function App() {
 
     const launchGame = useCallback(() => {
         if (!isHost()) return;
-        setPhaseSafe("day", true);
+        setPhase("day", true);
         hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }, [setPhaseSafe, setEvents]);
+    }, [setPhase, setEvents]);
 
     // items → backpack for HUD
     const { items } = useItemsSync();
@@ -189,7 +149,6 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") requestAction("use", `eat|${id}`);
-            // other types require device interaction in-world
         },
         requestAction,
     }), [power, oxygen, myId, myBackpack, typeById]);
@@ -207,7 +166,7 @@ export default function App() {
                     </div>
                 )}
 
-                {/* HUD overlay – internal elements enable pointer events as needed */}
+                {/* HUD overlay */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
