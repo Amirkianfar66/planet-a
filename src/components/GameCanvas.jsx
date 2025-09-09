@@ -110,16 +110,13 @@ export default function GameCanvas({ dead = [] }) {
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
             <Canvas
                 shadows
+                dpr={[1, 2]}
                 camera={{ position: [0, 8, 10], fov: 50 }}
-                onPointerMove={(e) => {
-                    const el = e?.target || e?.currentTarget || e?.event?.target || null;
-                    if (el && el.style) el.style.cursor = "crosshair"; // debug cursor; optional
-                }}
-                onPointerMissed={(e) => {
-                    const el = e?.target || e?.currentTarget || e?.event?.target || null;
-                    if (el && el.style) el.style.cursor = "";
-                }}
+                gl={{ powerPreference: "high-performance" }}
             >
+                {/* Scene background (optional) */}
+                <color attach="background" args={["#0b1220"]} />
+
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 10, 3]} intensity={1} />
 
@@ -134,7 +131,7 @@ export default function GameCanvas({ dead = [] }) {
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                 <InteractionSystem />
                 {/* If InteractionSystem contains interactive inputs/buttons,
-            give those specific elements pointerEvents: 'auto'. */}
+                    give those specific elements pointerEvents: 'auto'. */}
             </div>
 
             {/* Non-visual host logic */}

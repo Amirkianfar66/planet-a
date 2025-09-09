@@ -1,94 +1,81 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { myPlayer, usePlayersList } from "playroomkit";
+import React, { useEffect } from "react";
+import { myPlayer } from "playroomkit";
+import useItemsSync from "./useItemsSync.js";
+import { DEVICES } from "../data/gameObjects.js";
+import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
 import { requestAction } from "../network/playroom";
-import useItemsSync from "./useItemsSync";
-import { DEVICES, dist2 } from "../data/gameObjects";
-
-const PICK_RADIUS = 1.25;
-const USE_RADIUS = 1.3;
 
 export default function InteractionSystem() {
-  const { items } = useItemsSync();
-  const uiRef = useRef(null);
-  const [hint, setHint] = useState("");
+    const { items } = useItemsSync();
 
-  const me = myPlayer();
-  const players = usePlayersList(true); // (handy if you want)
+    useEffect(() => {
+        const onKey = (e) => {
+            const k = e.key.toLowerCase();
+            if (k !== "p" && k !== "o" && k !== "i") return;
 
-  // helper: nearest item on floor
-  const nearestItem = () => {
-    const px = Number(me.getState("x")||0), pz=Number(me.getState("z")||0);
-    let best=null, bestD=Infinity;
-    for (const it of items) {
-      if (it.holder) continue;
-      const d2 = (it.x-px)*(it.x-px)+(it.z-pz)*(it.z-pz);
-      if (d2 < bestD) { best=it; bestD=d2; }
+            const me = myPlayer();
+            const px = Number(me.getState("x") || 0);
+            const pz = Number(me.getState("z") || 0);
+
+            // backpack is an array saved in player state as JSON
+            const bag = safeParseBag(me.getState("bag"));
+
+            if (k === "p") {
+                // nearest free item within radius
+                let best = null, bestD2 = Infinity;
+                for (const it of items) {
+                    if (it.holder) continue;
+                    const dx = px - it.x, dz = pz - it.z;
+                    const d2 = dx * dx + dz * dz;
+                    if (d2 < bestD2 && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
+                        best = it; bestD2 = d2;
+                    }
+                }
+                if (best) requestAction("pickup", best.id, 0);
+            }
+
+            if (k === "o") {
+                if (bag.length === 0) return;
+                const lastId = bag[bag.length - 1];
+                requestAction("drop", lastId, 0);
+            }
+
+            if (k === "i") {
+                if (bag.length === 0) return;
+                const lastId = bag[bag.length - 1];
+
+                // if we still have the item record, we can check its type
+                const it = items.find(x => x.id === lastId);
+                // nearest device
+                let nearDev = null, bestD2 = Infinity;
+                for (const d of DEVICES) {
+                    const dx = px - d.x, dz = pz - d.z;
+                    const d2 = dx * dx + dz * dz;
+                    const R = (d.radius || DEVICE_RADIUS);
+                    if (d2 < bestD2 && d2 <= R * R) { nearDev = d; bestD2 = d2; }
+                }
+
+                if (nearDev) {
+                    requestAction("use", `${nearDev.id}|${lastId}`, 0);
+                } else if (it && it.type === "food") {
+                    // eat anywhere
+                    requestAction("use", `eat|${lastId}`, 0);
+                }
+            }
+        };
+
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [items]);
+
+    return null;
+}
+
+function safeParseBag(bagState) {
+    try {
+        const a = JSON.parse(bagState || "[]");
+        return Array.isArray(a) ? a : [];
+    } catch {
+        return [];
     }
-    return (best && bestD <= PICK_RADIUS*PICK_RADIUS) ? best : null;
-  };
-
-  const nearestDevice = () => {
-    const px = Number(me.getState("x")||0), pz=Number(me.getState("z")||0);
-    let best=null, bestD=Infinity;
-    for (const d of DEVICES) {
-      const d2 = (d.x-px)*(d.x-px)+(d.z-pz)*(d.z-pz);
-      if (d2 < bestD) { best=d; bestD=d2; }
-    }
-    return (best && bestD <= (best.radius||USE_RADIUS)**2) ? best : null;
-  };
-
-  // update small contextual hint
-  useEffect(() => {
-    const id = setInterval(() => {
-      const carry = String(me.getState("carry")||"");
-      if (carry) {
-        const dev = nearestDevice();
-        setHint(dev ? `E: Use at ${dev.label}  ·  R: Throw  ·  G: Drop` : `E: Eat (if food)  ·  R: Throw  ·  G: Drop`);
-      } else {
-        const it = nearestItem();
-        setHint(it ? `E: Pick up ${it.type}` : "");
-      }
-    }, 150);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    function onDown(e) {
-      const key = e.key.toLowerCase();
-      const carry = String(me.getState("carry")||"");
-      const yaw = Number(me.getState("yaw")||0);
-
-      if (key === "e") {
-        if (!carry) {
-          const it = nearestItem();
-          if (it) requestAction("pickup", it.id, 0);
-        } else {
-          const dev = nearestDevice();
-          if (dev) {
-            requestAction("use", `${dev.id}|${carry}`, 0);
-          } else {
-            // try eat
-            requestAction("use", `eat|${carry}`, 0);
-          }
-        }
-      }
-      if (key === "r" && carry) {
-        requestAction("throw", carry, yaw);
-      }
-      if (key === "g" && carry) {
-        requestAction("drop", carry, 0);
-      }
-    }
-    window.addEventListener("keydown", onDown);
-    return () => window.removeEventListener("keydown", onDown);
-  }, []);
-
-  // very small HUD text (optional)
-  return hint ? (
-    <div style={{
-      position:"absolute", left:12, top:12, padding:"6px 10px",
-      background:"rgba(14,17,22,0.8)", color:"#cfe3ff",
-      border:"1px solid #2a3242", borderRadius:8, fontFamily:"ui-sans-serif", fontSize:12
-    }}>{hint}</div>
-  ) : null;
 }

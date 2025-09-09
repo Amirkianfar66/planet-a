@@ -1,12 +1,13 @@
 // src/world/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
-import { useFrame, useThree } from "@react-three/fiber";
-import useItemsSync from "../systems/useItemsSync.js";
-import { DEVICES } from "../data/gameObjects.js";
+import { useThree, useFrame } from "@react-three/fiber";
+import useItemsSync from "../systems/useItemsSync.js";      // explicit .js for Vercel
+import { DEVICES } from "../data/gameObjects.js";           // explicit .js
 import { myPlayer } from "playroomkit";
-import { PICKUP_RADIUS } from "../data/constants.js";
-import { requestAction } from "../network/playroom";
+import { PICKUP_RADIUS } from "../data/constants.js";       // keep in sync with host
+
+/* ------------ helpers ------------ */
 
 function prettyName(type) {
     switch (String(type)) {
@@ -18,7 +19,7 @@ function prettyName(type) {
     }
 }
 
-/** Billboard that always faces the camera */
+/** Always face camera */
 function Billboard({ children, position = [0, 0, 0] }) {
     const ref = useRef();
     const { camera } = useThree();
@@ -28,8 +29,14 @@ function Billboard({ children, position = [0, 0, 0] }) {
     return <group ref={ref} position={position}>{children}</group>;
 }
 
-/** Small 3D text label using a CanvasTexture on a plane */
-function TextSprite({ text = "", width = 0.9, bg = "rgba(20,26,34,0.9)", fg = "#ffffff", accent = "#9cc8ff" }) {
+/** Text on a plane via CanvasTexture */
+function TextSprite({
+    text = "",
+    width = 0.95,
+    bg = "rgba(20,26,34,0.92)",
+    fg = "#ffffff",
+    accent = "#9cc8ff"
+}) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 512; canvas.height = 192;
@@ -46,7 +53,7 @@ function TextSprite({ text = "", width = 0.9, bg = "rgba(20,26,34,0.9)", fg = "#
         ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
         ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
-        // tiny accent dot
+        // accent dot
         ctx.fillStyle = accent;
         ctx.beginPath(); ctx.arc(x + 20, y + 20, 8, 0, Math.PI * 2); ctx.fill();
 
@@ -108,16 +115,14 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
+/* ------------ item entity (no DOM, no buttons) ------------ */
 function ItemEntity({ it }) {
-    const groupRef = useRef(null);
     const actionable = canPickUp(it);
     const label = it.name || prettyName(it.type);
 
     return (
         <group
-            ref={groupRef}
             position={[it.x, (it.y || 0) + 0.25, it.z]}
-            // Hover cursor feedback
             onPointerOver={(e) => {
                 e.stopPropagation();
                 document.body.style.cursor = actionable ? "pointer" : "not-allowed";
@@ -126,47 +131,49 @@ function ItemEntity({ it }) {
                 e.stopPropagation();
                 document.body.style.cursor = "";
             }}
-            // Click to pick up
-            onPointerDown={(e) => {
-                e.stopPropagation();
-                if (!actionable) return;
-                // eslint-disable-next-line no-console
-                console.log(`[CLIENT] pickup ${it.id}`);
-                // Send to host
-                requestAction("pickup", it.id, 0);
-            }}
         >
-            {/* the item geometry */}
+            {/* actual item */}
             <ItemMesh type={it.type} />
 
-            {/* subtle hover ring */}
+            {/* small ring to show focus */}
             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.35, 0.42, 24]} />
-                <meshBasicMaterial color={actionable ? "#86efac" : "#64748b"} transparent opacity={actionable ? 0.8 : 0.4} />
+                <meshBasicMaterial
+                    color={actionable ? "#86efac" : "#64748b"}
+                    transparent
+                    opacity={actionable ? 0.85 : 0.4}
+                />
             </mesh>
 
-            {/* floating 3D label */}
+            {/* floating hint */}
             <Billboard position={[0, 0.85, 0]}>
-                <TextSprite text={actionable ? `Pick up ${label}` : `${label} (too far)`} />
+                <TextSprite text={actionable ? `Press P to pick up ${label}` : label} />
             </Billboard>
         </group>
     );
 }
 
+/* ------------ export: devices + floor items ------------ */
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
     return (
         <group>
-            {/* Devices (pure 3D, non-interactive for now) */}
+            {/* Devices (non-interactive here; use handled via keyboard + host) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
-                    <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
-                    <mesh position={[0, 0.3, 0.33]}><planeGeometry args={[0.8, 0.35]} /><meshBasicMaterial color="#8fb3ff" /></mesh>
+                    <mesh>
+                        <boxGeometry args={[1.1, 1.0, 0.6]} />
+                        <meshStandardMaterial color="#2c3444" />
+                    </mesh>
+                    <mesh position={[0, 0.3, 0.33]}>
+                        <planeGeometry args={[0.8, 0.35]} />
+                        <meshBasicMaterial color="#8fb3ff" />
+                    </mesh>
                 </group>
             ))}
 
-            {/* Items on floor only */}
+            {/* Items only when not held */}
             {items.filter(it => !it.holder).map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}

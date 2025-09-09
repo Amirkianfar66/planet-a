@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from "react";
-import GameCanvas from "./components/GameCanvas";
+import GameCanvas from "./components/GameCanvas.jsx";
 import {
     usePhase, useTimer, useLengths,
     useDead, useEvents, useMeters, useRolesAssigned,
@@ -8,9 +8,9 @@ import {
 } from "./network/playroom";
 import { isHost, myPlayer, usePlayersList } from "playroomkit";
 
-import TimeDebugPanel from "./ui/TimeDebugPanel";
+import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
 import { useGameClock } from "./systems/dayNightClock";
-import Lobby from "./components/Lobby";
+import Lobby from "./components/Lobby.jsx";
 
 // effects
 import {
@@ -29,7 +29,7 @@ import {
 
 // extracted UI (HUD is the only overlay now)
 import { TopBar, VotePanel, Centered } from "./ui";
-import HUD from "./ui/HUD";
+import HUD from "./ui/HUD.jsx";
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -63,7 +63,6 @@ export default function App() {
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
-    // Initialize meters to 100 on Day 1; halve Energy each new day
     useMetersInitAndDailyDecay({
         ready,
         inGame,
@@ -99,7 +98,6 @@ export default function App() {
         hostAppendEvent(setEvents, "Mission launch — Day 1");
     }
 
-    // You can read myId safely (not a hook)
     const meP = myPlayer();
     const myId = meP?.id;
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
@@ -107,6 +105,7 @@ export default function App() {
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
+    // Passed into HUD only (UI overlay). InteractionSystem + ItemsHostLogic live inside GameCanvas.
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -126,12 +125,19 @@ export default function App() {
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} events={events} />
 
             <div style={{ position: "relative" }}>
+                {/* 3D scene (includes ItemsHostLogic + InteractionSystem inside GameCanvas) */}
                 <GameCanvas dead={dead} />
-                {isHost() && <TimeDebugPanel />}
 
-               
+                {/* Host-only debug panel (DOM). Keep it small or position it away from center
+            so it doesn't sit on top of clickable 3D items. */}
+                {isHost() && (
+                    <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "auto", zIndex: 10 }}>
+                        <TimeDebugPanel />
+                    </div>
+                )}
 
-                {/* HUD: status, role, backpack + chat pinned bottom-left */}
+                {/* HUD: status, role, backpack + chat pinned bottom-left.
+            Wrapper blocks nothing; HUD enables pointer events internally where needed. */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
