@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { usePlayersList, isHost, myPlayer } from "playroomkit";
 
-import GameCanvas from "./GameCanvas.jsx";              // <- adjust if your path differs
+import GameCanvas from "./GameCanvas.jsx";          // <-- if your file lives in src/components, change to "./components/GameCanvas.jsx"
 import Lobby from "./components/Lobby.jsx";
 import HUD from "./ui/HUD.jsx";
 import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
@@ -43,7 +43,7 @@ function InnerApp() {
     const {
         phase, setPhase,
         timer, setTimer,
-        dayLength, meetingLength, /* nightLength */,
+        dayLength, meetingLength, // nightLength not used
         oxygen, power, cctv, setOxygen, setPower, setCCTV,
         dead, setDead,
         events, setEvents,
@@ -85,7 +85,7 @@ function InnerApp() {
         if (!currentTeam) me.setState?.("team", "Team Alpha", true);
     }, [ready]);
 
-    // Host-only: launch helper (kept for Lobby handoff or debug)
+    // Host-only: launch helper (for Lobby handoff or debug)
     function launchGame() {
         if (!isHost()) return;
         setPhase("day", true);
