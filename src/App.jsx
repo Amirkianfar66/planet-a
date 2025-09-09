@@ -50,7 +50,7 @@ export default function App() {
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    // ✅ One subscription, returns values (not functions)
+    // ✅ ONE subscription; returns values (do NOT call like a function)
     const { phase: clockPhase, dayNumber, maxDays } = useGameClock((s) => ({
         phase: s.phase,
         dayNumber: s.dayNumber,
@@ -60,43 +60,29 @@ export default function App() {
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhase;
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // ⛑️ Idempotent wrappers to stop ping-pong loops
+    // ⛑️ Idempotent setters to prevent ping-pong loops
     const setPhaseSafe = useCallback(
-        (next, broadcast = true) => {
-            if (phase !== next) setPhase(next, broadcast);
-        },
+        (next, broadcast = true) => { if (phase !== next) setPhase(next, broadcast); },
         [phase, setPhase]
     );
-
     const setTimerSafe = useCallback(
-        (next, broadcast = true) => {
-            if (timer !== next) setTimer(next, broadcast);
-        },
+        (next, broadcast = true) => { if (timer !== next) setTimer(next, broadcast); },
         [timer, setTimer]
     );
-
     const setOxygenSafe = useCallback(
-        (next) => {
-            if (oxygen !== next) setOxygen(next);
-        },
+        (next) => { if (oxygen !== next) setOxygen(next); },
         [oxygen, setOxygen]
     );
-
     const setPowerSafe = useCallback(
-        (next) => {
-            if (power !== next) setPower(next);
-        },
+        (next) => { if (power !== next) setPower(next); },
         [power, setPower]
     );
-
     const setCCTVSafe = useCallback(
-        (next) => {
-            if (cctv !== next) setCCTV(next);
-        },
+        (next) => { if (cctv !== next) setCCTV(next); },
         [cctv, setCCTV]
     );
 
-    // gameplay effects (use safe setters)
+    // gameplay effects — pass safe setters
     useLobbyReady(setReady);
     useSyncPhaseToClock({ ready, matchPhase, setPhase: setPhaseSafe, clockPhase });
     useMeetingFromClock({
@@ -116,11 +102,8 @@ export default function App() {
     useProcessActions({ ready, inGame, players, dead, setOxygen: setOxygenSafe, setPower: setPowerSafe, setCCTV: setCCTVSafe, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
     useMetersInitAndDailyDecay({
-        ready,
-        inGame,
-        dayNumber,
-        power,
-        oxygen,
+        ready, inGame, dayNumber,
+        power, oxygen,
         setPower: setPowerSafe,
         setOxygen: setOxygenSafe,
         setEvents,
@@ -131,15 +114,12 @@ export default function App() {
         if (!ready) return;
         const me = myPlayer();
         if (!me) return;
-
         if (!me.getState?.("name")) {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
         }
         const currentTeam = me.getState?.("team") || me.getState?.("teamName");
-        if (!currentTeam) {
-            me.setState?.("team", "Team Alpha", true);
-        }
+        if (!currentTeam) me.setState?.("team", "Team Alpha", true);
     }, [ready]);
 
     const launchGame = useCallback(() => {
@@ -194,7 +174,6 @@ export default function App() {
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
-    // memoized HUD payload
     const game = useMemo(() => ({
         meters: {
             energy: Number(power ?? 0),
@@ -210,7 +189,7 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") requestAction("use", `eat|${id}`);
-            // other types are used at devices via world interaction
+            // other types require device interaction in-world
         },
         requestAction,
     }), [power, oxygen, myId, myBackpack, typeById]);
