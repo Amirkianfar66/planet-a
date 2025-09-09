@@ -1,12 +1,12 @@
 // src/world/ItemsAndDevices.jsx
-import React, { useMemo, useCallback, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
+import { useFrame, useThree } from "@react-three/fiber";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { myPlayer } from "playroomkit";
 import { PICKUP_RADIUS } from "../data/constants.js";
-
-/* ---------------- helpers ---------------- */
+import { requestAction } from "../network/playroom";
 
 function prettyName(type) {
     switch (String(type)) {
@@ -18,50 +18,27 @@ function prettyName(type) {
     }
 }
 
-function canPickUp(it) {
-    if (!it || it.holder) return false;
-    const me = myPlayer();
-    const px = Number(me.getState("x") || 0);
-    const pz = Number(me.getState("z") || 0);
-    const dx = px - it.x, dz = pz - it.z;
-    return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
+/** Billboard that always faces the camera */
+function Billboard({ children, position = [0, 0, 0] }) {
+    const ref = useRef();
+    const { camera } = useThree();
+    useFrame(() => {
+        if (ref.current) ref.current.quaternion.copy(camera.quaternion);
+    });
+    return <group ref={ref} position={position}>{children}</group>;
 }
 
-function sendAction(type, target, value = 0) {
-    // Prefer your network helper if present
-    try {
-        const { requestAction } = require("../network/playroom");
-        if (typeof requestAction === "function") {
-            // eslint-disable-next-line no-console
-            console.log(`[CLIENT] action=${type} target=${target} value=${value}`);
-            requestAction(type, target, value);
-            return;
-        }
-    } catch { }
-    // Fallback: write to my player state
-    const me = myPlayer();
-    const nextId = Number(me.getState("reqId") || 0) + 1;
-    me.setState("reqId", nextId, true);
-    me.setState("reqType", String(type), true);
-    me.setState("reqTarget", String(target), true);
-    me.setState("reqValue", Number(value) || 0, true);
-    // eslint-disable-next-line no-console
-    console.log(`[CLIENT:FALLBACK] action=${type} target=${target} value=${value}`);
-}
+/** Small 3D text label using a CanvasTexture on a plane */
+function TextSprite({ text = "", width = 0.9, bg = "rgba(20,26,34,0.9)", fg = "#ffffff", accent = "#9cc8ff" }) {
+    const texture = useMemo(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 512; canvas.height = 192;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-/* ---------- 3D text label via CanvasTexture ---------- */
-function TextBillboard({ text, color = "#cfe7ff", outline = "#0d1117", width = 1.8, position = [0, 0.9, 0] }) {
-    const { texture, aspect } = useMemo(() => {
-        const cnv = document.createElement("canvas");
-        cnv.width = 512; cnv.height = 160;
-        const ctx = cnv.getContext("2d");
-        ctx.clearRect(0, 0, cnv.width, cnv.height);
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        // pill bg
-        ctx.fillStyle = "rgba(20,26,34,0.82)";
-        const w = cnv.width - 12, h = 120, x = 6, y = cnv.height / 2 - h / 2, r = 28;
+        // rounded rect
+        const x = 6, y = 50, w = canvas.width - 12, h = 92, r = 20;
+        ctx.fillStyle = bg;
         ctx.beginPath();
         ctx.moveTo(x + r, y);
         ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -69,38 +46,33 @@ function TextBillboard({ text, color = "#cfe7ff", outline = "#0d1117", width = 1
         ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
         ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
-        // outline + fill text
-        ctx.font = "700 56px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
-        ctx.lineWidth = 12;
-        ctx.strokeStyle = outline;
-        ctx.strokeText(text, cnv.width / 2, cnv.height / 2 + 4);
-        ctx.fillStyle = color;
-        ctx.fillText(text, cnv.width / 2, cnv.height / 2 + 4);
+        // tiny accent dot
+        ctx.fillStyle = accent;
+        ctx.beginPath(); ctx.arc(x + 20, y + 20, 8, 0, Math.PI * 2); ctx.fill();
 
-        const tex = new THREE.CanvasTexture(cnv);
+        // text
+        ctx.fillStyle = fg;
+        ctx.font = "600 48px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, canvas.width / 2, y + h / 2);
+
+        const tex = new THREE.CanvasTexture(canvas);
         tex.minFilter = THREE.LinearFilter;
-        tex.anisotropy = 2;
-        return { texture: tex, aspect: cnv.width / cnv.height };
-    }, [text, color, outline]);
+        tex.anisotropy = 4;
+        return tex;
+    }, [text, bg, fg, accent]);
 
-    const h = width / (aspect || 4);
+    const aspect = 512 / 192;
+    const height = width / aspect;
+
     return (
-        <group position={position}>
-            {/* billboard: copy camera quaternion via onBeforeRender */}
-            <mesh
-                onBeforeRender={(renderer, scene, camera, geometry, material, group) => {
-                    // face camera
-                    group.quaternion.copy(camera.quaternion);
-                }}
-            >
-                <planeGeometry args={[width, h]} />
-                <meshBasicMaterial map={texture} transparent depthWrite={false} />
-            </mesh>
-        </group>
+        <mesh>
+            <planeGeometry args={[width, height]} />
+            <meshBasicMaterial map={texture} transparent depthWrite={false} />
+        </mesh>
     );
 }
-
-/* ---------------- 3D meshes ---------------- */
 
 function ItemMesh({ type = "crate" }) {
     switch (type) {
@@ -127,78 +99,75 @@ function ItemMesh({ type = "crate" }) {
     }
 }
 
-function DeviceMesh() {
-    return (
-        <group>
-            <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
-            <mesh position={[0, 0.3, 0.33]}><planeGeometry args={[0.8, 0.35]} /><meshBasicMaterial color="#8fb3ff" /></mesh>
-        </group>
-    );
+function canPickUp(it) {
+    if (!it || it.holder) return false;
+    const me = myPlayer();
+    const px = Number(me.getState("x") || 0);
+    const pz = Number(me.getState("z") || 0);
+    const dx = px - it.x, dz = pz - it.z;
+    return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-/* ---------------- Item entity (3D-only interactions) ---------------- */
-
 function ItemEntity({ it }) {
-    const [hover, setHover] = useState(false);
-    const label = it.name || prettyName(it.type);
+    const groupRef = useRef(null);
     const actionable = canPickUp(it);
-
-    const onEnter = useCallback(() => {
-        setHover(true);
-        document.body.style.cursor = "pointer";
-    }, []);
-    const onLeave = useCallback(() => {
-        setHover(false);
-        document.body.style.cursor = "";
-    }, []);
-    const onClick = useCallback((e) => {
-        e.stopPropagation();
-        // eslint-disable-next-line no-console
-        console.log(`[CLIENT] clicking item "${label}" (${it.id}) actionable=${actionable}`);
-        if (actionable) sendAction("pickup", it.id, 0);
-    }, [it.id, label, actionable]);
+    const label = it.name || prettyName(it.type);
 
     return (
         <group
+            ref={groupRef}
             position={[it.x, (it.y || 0) + 0.25, it.z]}
-            onPointerEnter={onEnter}
-            onPointerLeave={onLeave}
-            onClick={onClick}
+            // Hover cursor feedback
+            onPointerOver={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = actionable ? "pointer" : "not-allowed";
+            }}
+            onPointerOut={(e) => {
+                e.stopPropagation();
+                document.body.style.cursor = "";
+            }}
+            // Click to pick up
+            onPointerDown={(e) => {
+                e.stopPropagation();
+                if (!actionable) return;
+                // eslint-disable-next-line no-console
+                console.log(`[CLIENT] pickup ${it.id}`);
+                // Send to host
+                requestAction("pickup", it.id, 0);
+            }}
         >
+            {/* the item geometry */}
             <ItemMesh type={it.type} />
-            <TextBillboard
-                text={actionable ? `Pick up ${label}` : `${label} (too far)`}
-                color={actionable ? "#b6f3c7" : "#cfe7ff"}
-                width={2.1}
-                position={[0, 0.9, 0]}
-            />
-            {/* subtle hover glow */}
-            {hover && (
-                <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <ringGeometry args={[0.18, 0.32, 24]} />
-                    <meshBasicMaterial color={actionable ? "#86efac" : "#93c5fd"} transparent opacity={0.6} />
-                </mesh>
-            )}
+
+            {/* subtle hover ring */}
+            <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.35, 0.42, 24]} />
+                <meshBasicMaterial color={actionable ? "#86efac" : "#64748b"} transparent opacity={actionable ? 0.8 : 0.4} />
+            </mesh>
+
+            {/* floating 3D label */}
+            <Billboard position={[0, 0.85, 0]}>
+                <TextSprite text={actionable ? `Pick up ${label}` : `${label} (too far)`} />
+            </Billboard>
         </group>
     );
 }
-
-/* ---------------- main ---------------- */
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
     return (
         <group>
-            {/* Devices */}
+            {/* Devices (pure 3D, non-interactive for now) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
-                    <DeviceMesh />
+                    <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
+                    <mesh position={[0, 0.3, 0.33]}><planeGeometry args={[0.8, 0.35]} /><meshBasicMaterial color="#8fb3ff" /></mesh>
                 </group>
             ))}
 
-            {/* Items on the floor only */}
-            {items.filter((it) => !it.holder).map((it) => (
+            {/* Items on floor only */}
+            {items.filter(it => !it.holder).map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}
         </group>
