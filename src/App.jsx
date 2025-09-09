@@ -50,14 +50,14 @@ export default function App() {
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    const { phase: clockPhaseFn, dayNumber, maxDays } = useGameClock((s) => ({
+    // 🔧 Combine selectors into one subscription and use the value directly (no "()")
+    const { phase: clockPhase, dayNumber, maxDays } = useGameClock((s) => ({
         phase: s.phase,
         dayNumber: s.dayNumber,
         maxDays: s.maxDays,
     }));
 
-
-    const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
+    const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhase;
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
     // gameplay effects
@@ -106,7 +106,7 @@ export default function App() {
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
-      
+
     const labelFromType = (t) =>
         t === "food" ? "Food Ration"
             : t === "battery" ? "Battery Pack"
@@ -140,7 +140,10 @@ export default function App() {
         return m;
     }, [myBackpack]);
 
-    const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
+    const aliveCount = useMemo(
+        () => players.filter((p) => !dead.includes(p.id)).length,
+        [players, dead]
+    );
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
@@ -163,11 +166,9 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") {
-                // eat anywhere
                 requestAction("use", `eat|${id}`);
             } else {
                 // other types must be used at a device; do it via world interaction
-                // (optional: show a toast/hint here)
             }
         },
         requestAction,
