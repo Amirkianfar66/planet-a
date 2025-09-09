@@ -139,106 +139,112 @@ export default function ItemsHostLogic() {
                     }
                 }
 
-                // ---------- DROP ----------
-                if (type === "drop") {
-                    const it = findItem(target);
-                    if (!it) {
-                        hostAppendEvent(setEvents, `${name} tried to drop a missing item (${target}).`);
-                    } else if (it.holder !== p.id) {
-                        hostAppendEvent(setEvents, `${name} tried to drop ${it.type} but isn't holding it.`);
-                    } else {
-                        setItems(prev =>
+            // ---------- DROP ----------
+            if (type === "drop") {
+                const it = findItem(target);
+                if (!it) {
+                    hostAppendEvent(setEvents, `${name} tried to drop a missing item (${target}).`);
+                } else if (it.holder !== p.id) {
+                    hostAppendEvent(setEvents, `${name} tried to drop ${it.type} but isn't holding it.`);
+                } else {
+                    setItems(
+                        prev =>
                             prev.map(j =>
-                                j.id === it.id ? { ...j, holder: null, x: px, y: FLOOR_Y, z: pz, vx: 0, vy: 0, vz: 0 } : j
-                            )
-                        ), true);
-                        p.setState("carry", "", true);
-                        setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
-                        hostAppendEvent(setEvents, `${name} dropped ${it.type}.`);
-                    }
+                                j.id === it.id
+                                    ? { ...j, holder: null, x: px, y: FLOOR_Y, z: pz, vx: 0, vy: 0, vz: 0 }
+                                    : j
+                            ),
+                        true
+                    );
+                    p.setState("carry", "", true);
+                    setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+                    hostAppendEvent(setEvents, `${name} dropped ${it.type}.`);
                 }
+            }
 
-                // ---------- THROW ----------
-                if (type === "throw") {
-                    const it = findItem(target);
-                    if (!it) {
-                        hostAppendEvent(setEvents, `${name} tried to throw a missing item (${target}).`);
-                    } else if (it.holder !== p.id) {
-                        hostAppendEvent(setEvents, `${name} tried to throw ${it.type} but isn't holding it.`);
-                    } else {
-                        const yaw = value;                 // radians
-                        const vx = Math.sin(yaw) * THROW_SPEED;
-                        const vz = Math.cos(yaw) * THROW_SPEED;
-                        const vy = 4.5;
+            // ---------- THROW ----------
+            if (type === "throw") {
+                const it = findItem(target);
+                if (!it) {
+                    hostAppendEvent(setEvents, `${name} tried to throw a missing item (${target}).`);
+                } else if (it.holder !== p.id) {
+                    hostAppendEvent(setEvents, `${name} tried to throw ${it.type} but isn't holding it.`);
+                } else {
+                    const yaw = value; // radians
+                    const vx = Math.sin(yaw) * THROW_SPEED;
+                    const vz = Math.cos(yaw) * THROW_SPEED;
+                    const vy = 4.5;
 
-                        setItems(prev =>
+                    setItems(
+                        prev =>
                             prev.map(j =>
                                 j.id === it.id
                                     ? { ...j, holder: null, x: px, y: py + 1.1, z: pz, vx, vy, vz }
                                     : j
-                            )
-                        , true);
-                        p.setState("carry", "", true);
-                        setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
-                        hostAppendEvent(setEvents, `${name} threw ${it.type}.`);
-                    }
+                            ),
+                        true
+                    );
+                    p.setState("carry", "", true);
+                    setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+                    hostAppendEvent(setEvents, `${name} threw ${it.type}.`);
                 }
+            }
 
-                // ---------- USE ----------
-                if (type === "use") {
-                    // target is "eat|itemId" OR "deviceId|itemId"
-                    const [kind, rest] = target.split("|");
-                    if (!kind || !rest) { processed.current.set(p.id, reqId); continue; }
+            // ---------- USE ----------
+            if (type === "use") {
+                // target is "eat|itemId" OR "deviceId|itemId"
+                const [kind, rest] = target.split("|");
+                if (!kind || !rest) { processed.current.set(p.id, reqId); continue; }
 
-                    const bp = getBackpack(p);
+                const bp = getBackpack(p);
 
-                    if (kind === "eat") {
-                        const itemId = rest;
-                        const it = findItem(itemId);
-                        if (!it) {
-                            hostAppendEvent(setEvents, `${name} tried to eat a missing item (${itemId}).`);
-                        } else if (it.holder !== p.id) {
-                            hostAppendEvent(setEvents, `${name} tried to eat ${it.type} but isn't holding it.`);
-                        } else if (it.type !== "food") {
-                            hostAppendEvent(setEvents, `${name} tried to eat ${it.type} (not edible).`);
+                if (kind === "eat") {
+                    const itemId = rest;
+                    const it = findItem(itemId);
+                    if (!it) {
+                        hostAppendEvent(setEvents, `${name} tried to eat a missing item (${itemId}).`);
+                    } else if (it.holder !== p.id) {
+                        hostAppendEvent(setEvents, `${name} tried to eat ${it.type} but isn't holding it.`);
+                    } else if (it.type !== "food") {
+                        hostAppendEvent(setEvents, `${name} tried to eat ${it.type} (not edible).`);
+                    } else {
+                        setItems(prev => prev.filter(j => j.id !== it.id), true); // consume, reliable
+                        p.setState("carry", "", true);
+                        setBackpack(p, bp.filter(b => b.id !== it.id));
+                        hostAppendEvent(setEvents, `${name} ate some food.`);
+                    }
+                } else {
+                    const deviceId = kind;
+                    const itemId = rest;
+                    const it = findItem(itemId);
+                    const dev = DEVICES.find(d => d.id === deviceId);
+
+                    if (!it) {
+                        hostAppendEvent(setEvents, `${name} tried to use a missing item (${itemId}).`);
+                    } else if (it.holder !== p.id) {
+                        hostAppendEvent(setEvents, `${name} tried to use ${it.type} but isn't holding it.`);
+                    } else if (!dev) {
+                        hostAppendEvent(setEvents, `${name} tried to use ${it.type} at unknown device (${deviceId}).`);
+                    } else if (!near2(px, pz, dev.x, dev.z, Number(dev.radius) || Number(DEVICE_RADIUS) || 1.3)) {
+                        hostAppendEvent(setEvents, `${name} is too far from ${dev.label} to use ${it.type}.`);
+                    } else {
+                        const eff = USE_EFFECTS[it.type]?.[dev.type];
+                        if (!eff) {
+                            hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label} → no effect.`);
                         } else {
-                            setItems(prev => prev.filter(j => j.id !== it.id));     // consume
+                            const [meter, delta] = eff;
+                            if (meter === "oxygen") setOxygen(v => clamp01(Number(v) + delta), true);
+                            if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
+                            if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
+
+                            setItems(prev => prev.filter(j => j.id !== it.id), true); // consume, reliable
                             p.setState("carry", "", true);
                             setBackpack(p, bp.filter(b => b.id !== it.id));
-                            hostAppendEvent(setEvents, `${name} ate some food.`);
-                        }
-                    } else {
-                        const deviceId = kind;
-                        const itemId = rest;
-                        const it = findItem(itemId);
-                        const dev = DEVICES.find(d => d.id === deviceId);
-
-                        if (!it) {
-                            hostAppendEvent(setEvents, `${name} tried to use a missing item (${itemId}).`);
-                        } else if (it.holder !== p.id) {
-                            hostAppendEvent(setEvents, `${name} tried to use ${it.type} but isn't holding it.`);
-                        } else if (!dev) {
-                            hostAppendEvent(setEvents, `${name} tried to use ${it.type} at unknown device (${deviceId}).`);
-                        } else if (!near2(px, pz, dev.x, dev.z, Number(dev.radius) || Number(DEVICE_RADIUS) || 1.3)) {
-                            hostAppendEvent(setEvents, `${name} is too far from ${dev.label} to use ${it.type}.`);
-                        } else {
-                            const eff = USE_EFFECTS[it.type]?.[dev.type];
-                            if (!eff) {
-                                hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label} → no effect.`);
-                            } else {
-                                const [meter, delta] = eff;
-                                if (meter === "oxygen") setOxygen(v => clamp01(Number(v) + delta), true);
-                                if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
-                                if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
-
-                                setItems(prev => prev.filter(j => j.id !== it.id));   // consume
-                                p.setState("carry", "", true);
-                                setBackpack(p, bp.filter(b => b.id !== it.id));
-                                hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
-                            }
+                            hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
                         }
                     }
                 }
+            }
 
 
                 processed.current.set(p.id, reqId);
