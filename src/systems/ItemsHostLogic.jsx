@@ -124,7 +124,7 @@ export default function ItemsHostLogic() {
                         // put into player's hand/backpack, remove floor physics
                         setItems(prev =>
                             prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)
-                        );
+                        ), true);
                         p.setState("carry", it.id, true);
 
                         const bp = getBackpack(p);
@@ -134,7 +134,8 @@ export default function ItemsHostLogic() {
 
                         hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
                     } else {
-                        hostAppendEvent(setEvents, `${name} is too far to pick up ${it?.type || "item"}.`);
+                         hostAppendEvent(setEvents, `${name} is too far to pick up ${it?.type || "item"} (player=(${px.toFixed(2)},${pz.toFixed(2)}), item=(${it?.x},${it?.z}))`);
+}
                     }
                 }
 
@@ -150,7 +151,7 @@ export default function ItemsHostLogic() {
                             prev.map(j =>
                                 j.id === it.id ? { ...j, holder: null, x: px, y: FLOOR_Y, z: pz, vx: 0, vy: 0, vz: 0 } : j
                             )
-                        );
+                        ), true);
                         p.setState("carry", "", true);
                         setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         hostAppendEvent(setEvents, `${name} dropped ${it.type}.`);
@@ -176,7 +177,7 @@ export default function ItemsHostLogic() {
                                     ? { ...j, holder: null, x: px, y: py + 1.1, z: pz, vx, vy, vz }
                                     : j
                             )
-                        );
+                        ), true);
                         p.setState("carry", "", true);
                         setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         hostAppendEvent(setEvents, `${name} threw ${it.type}.`);

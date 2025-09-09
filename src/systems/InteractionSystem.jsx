@@ -17,8 +17,8 @@ export default function InteractionSystem() {
             const px = Number(me.getState("x") || 0);
             const pz = Number(me.getState("z") || 0);
 
-            // backpack is an array saved in player state as JSON
-            const bag = safeParseBag(me.getState("bag"));
+            //backpack is an ARRAY on player state; fall back to old "bag" JSON if present
+             const bag = safeReadBackpack(me);
 
             if (k === "p") {
                 // nearest free item within radius
@@ -71,11 +71,14 @@ export default function InteractionSystem() {
     return null;
 }
 
-function safeParseBag(bagState) {
-    try {
-        const a = JSON.parse(bagState || "[]");
-        return Array.isArray(a) ? a : [];
-    } catch {
-        return [];
-    }
+function safeReadBackpack(p) {
+  const bp = p?.getState?.("backpack");
+  if (Array.isArray(bp)) return bp.map(b => b?.id).filter(Boolean);
+  // legacy fallback: "bag" stored as JSON string of ids
+  try {
+    const legacy = JSON.parse(p?.getState?.("bag") || "[]");
+    return Array.isArray(legacy) ? legacy : [];
+  } catch {
+    return [];
+  }
 }

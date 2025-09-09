@@ -180,9 +180,9 @@ export function useRolesAssigned() {
 -------------------------------------------- */
 export function setMyPos(x, y, z) {
     const p = myPlayer();
-    p.setState("x", x, false);
-    p.setState("y", y, false);
-    p.setState("z", z, false);
+    p.setState("x", x, true);
+    p.setState("y", y, true);
+    p.setState("z", z, true);
 }
 
 export function getMyPos() {
