@@ -197,18 +197,27 @@ export function getMyPos() {
 /* -------------------------------------------
    Client → host action request
 -------------------------------------------- */
-export function requestAction(type, target, value) {
+const _lastReq = { t: 0, type: "", target: "" };
+
+export function requestAction(type, target = "", value = 0) {
+    const now = (performance?.now?.() ?? Date.now());
+    const tgt = String(target);
+    if (now - _lastReq.t < 150 && _lastReq.type === type && _lastReq.target === tgt) {
+        return; // ignore burst duplicate
+    }
+    _lastReq.t = now; _lastReq.type = type; _lastReq.target = tgt;
+
     const p = myPlayer();
     const nextId = (Number(p.getState("reqId") || 0) + 1) | 0;
+
     p.setState("reqType", String(type), true);
-    p.setState("reqTarget", String(target), true);
+    p.setState("reqTarget", tgt, true);
     p.setState("reqValue", Number(value) | 0, true);
     p.setState("reqId", nextId, true);
-    // trace on client
-      // eslint-disable-next-line no-console
-          console.log(`[REQ] ${type}`, { target, value, nextId });
-}
 
+    // clearer log
+    console.log(`[REQ] ${type} target=${tgt} id=${nextId}`);
+}
 /* -------------------------------------------
    Host-only: append an event to the shared feed (keeps last 25)
 -------------------------------------------- */
