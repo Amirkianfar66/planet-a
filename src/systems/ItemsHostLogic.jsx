@@ -29,17 +29,33 @@ export default function ItemsHostLogic() {
 
     // distance^2 helper
     const near2 = (ax, az, bx, bz, r) => ((ax - bx) ** 2 + (az - bz) ** 2) <= r * r;
-
-    // Announce
+    // Announce once
     useEffect(() => {
         if (host) console.log("[HOST] ItemsHostLogic active.");
     }, [host]);
-    // ✅ ADD THIS DEBUG EFFECT HERE
+
+    // Log only when item IDs change (not every reference change)
     useEffect(() => {
         if (!host) return;
-        // eslint-disable-next-line no-console
-        console.log("[HOST] items:", items.map(i => i.id));
+        const prevIds = idSetRef.current;
+        const currIds = new Set(items.map(i => i.id));
+
+        let changed = false;
+        if (!prevIds || prevIds.size !== currIds.size) {
+            changed = true;
+        } else {
+            for (const id of currIds) if (!prevIds.has(id)) { changed = true; break; }
+        }
+
+        if (changed) {
+            console.groupCollapsed(`[HOST] items changed (${items.length})`);
+            console.table(items.map(i => ({ id: i.id, type: i.type, holder: i.holder })));
+            console.groupEnd();
+            idSetRef.current = currIds;
+        }
     }, [host, items]);
+
+    const idSetRef = useRef(null);
     // Simple physics for thrown items
     useEffect(() => {
         if (!host) return;
