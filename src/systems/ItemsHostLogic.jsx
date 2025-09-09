@@ -18,6 +18,10 @@ export default function ItemsHostLogic() {
     const { setOxygen, setPower, setCCTV } = useMeters();
     const [, setEvents] = useEvents();
     const processed = useRef(new Map());
+    const playersRef = useRef(players);
+    const itemsRef = useRef(items);
+    useEffect(() => { playersRef.current = players; }, [players]);
+    useEffect(() => { itemsRef.current = items; }, [items]);
 
     // --- helpers: backpack on player state (array of {id,type,name?}) ---
     const getBackpack = (p) => {
@@ -92,8 +96,8 @@ export default function ItemsHostLogic() {
         if (!host) return;
 
         const tick = setInterval(() => {
-                        const seen = new Set();
-                        const everyone = [...(players || []), self].filter(Boolean).filter(p => {
+                         const seen = new Set();
+                         const everyone = [...(playersRef.current || []), self].filter(Boolean).filter(p => {
                                 if (seen.has(p.id)) return false;
                                 seen.add(p.id);
                                 return true;
@@ -116,7 +120,7 @@ export default function ItemsHostLogic() {
                 const py = Number(p.getState("y") || 0);
                 const pz = Number(p.getState("z") || 0);
 
-                const findItem = (id) => items.find((i) => i.id === id);
+                const findItem = (id) => (itemsRef.current || []).find((i) => i.id === id);
 
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
@@ -265,7 +269,7 @@ export default function ItemsHostLogic() {
         }, 120);
 
         return () => clearInterval(tick);
-    }, [host, players, items, setItems, setEvents, setOxygen, setPower, setCCTV]);
+    }, [host, setItems, setEvents, setOxygen, setPower, setCCTV]);
 
     return null;
 }
