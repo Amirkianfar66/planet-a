@@ -1,5 +1,5 @@
 // src/world/ItemsAndDevices.jsx
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
@@ -9,19 +9,6 @@ import { requestAction as _requestAction } from "../network/playroom";
 
 const PICKUP_RADIUS = 2.0; // keep in sync with ItemsHostLogic
 
-// set cursor on the WebGL canvas, not on body
-function useCanvasCursor() {
-    const { gl } = useThree();
-    const prev = useRef("");
-    useEffect(() => {
-        const el = gl.domElement;
-        prev.current = el.style.cursor || "";
-        return () => { el.style.cursor = prev.current; }; // restore on unmount
-    }, [gl]);
-    return (value = "") => { gl.domElement.style.cursor = value; };
-}
-
-// robust sender with fallback
 function sendAction(type, target, value = 0) {
     try {
         if (typeof _requestAction === "function") {
@@ -47,8 +34,18 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-/* ---------- Billboard label (clickable) ---------- */
-function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
+function prettyName(type) {
+    switch (String(type)) {
+        case "o2can": return "O₂ Canister";
+        case "battery": return "Battery";
+        case "fuel": return "Fuel Rod";
+        case "food": return "Food";
+        default: return (type || "Item").toString();
+    }
+}
+
+/** Billboard label */
+function ItemLabel({ text = "Item", offsetY = 0.9 }) {
     const { camera } = useThree();
     const ref = useRef();
 
@@ -60,7 +57,6 @@ function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // pill bg
         const w = canvas.width, h = canvas.height, r = 32;
         ctx.fillStyle = "rgba(14,17,22,0.92)";
         ctx.beginPath();
@@ -69,7 +65,6 @@ function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
         ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
         ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0); ctx.fill();
 
-        // text
         ctx.font = "600 64px ui-sans-serif, system-ui";
         ctx.fillStyle = "#cfe3ff";
         ctx.textAlign = "center";
@@ -85,7 +80,7 @@ function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
 
     return (
         <group ref={ref} position={[0, offsetY, 0]}>
-            <mesh {...handlers}>
+            <mesh>
                 <planeGeometry args={[width, height]} />
                 <meshBasicMaterial map={tex} transparent depthWrite={false} />
             </mesh>
@@ -93,51 +88,69 @@ function ItemLabel({ text = "Item", offsetY = 0.9, handlers }) {
     );
 }
 
-function prettyName(type) {
-    switch (String(type)) {
-        case "o2can": return "O₂ Canister";
-        case "battery": return "Battery";
-        case "fuel": return "Fuel Rod";
-        case "food": return "Food";
-        default: return (type || "Item").toString();
-    }
+/** Per-frame raycaster to force cursor updates reliably */
+function CursorRaycaster({ targetsRef, itemsRef }) {
+    const { gl, camera, size } = useThree();
+    const ray = useRef(new THREE.Raycaster());
+    const ndc = useRef(new THREE.Vector2());
+
+    useFrame(() => {
+        const el = gl.domElement;
+        // read current pointer from R3F (clientX/clientY are in event; use last pointer from renderer state)
+        const rect = el.getBoundingClientRect();
+        // use browser pointer position
+        const x = (window.event?.clientX ?? 0) - rect.left;
+        const y = (window.event?.clientY ?? 0) - rect.top;
+        if (x <= 0 || y <= 0 || x >= rect.width || y >= rect.height) {
+            el.style.cursor = "";
+            return;
+        }
+        ndc.current.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+        ray.current.setFromCamera(ndc.current, camera);
+
+        // Intersect item groups
+        const objs = targetsRef.current;
+        if (!objs.length) { el.style.cursor = ""; return; }
+
+        const hits = ray.current.intersectObjects(objs, true);
+        if (!hits.length) { el.style.cursor = ""; return; }
+
+        // Find the top-most hit that belongs to an actionable item
+        let actionable = false;
+        for (const h of hits) {
+            let g = h.object;
+            while (g && !g.userData?.itemId) g = g.parent;
+            if (g?.userData?.itemId) {
+                const id = g.userData.itemId;
+                const it = itemsRef.current.find(o => o.id === id);
+                if (canPickUp(it)) { actionable = true; break; }
+            }
+        }
+        el.style.cursor = actionable ? "grab" : "not-allowed";
+    });
+
+    return null;
 }
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-    const setCanvasCursor = useCanvasCursor();
+    const itemGroups = useRef([]);            // refs to raycastable item groups
+    const itemsRef = useRef(items);
+    itemsRef.current = items;
+    itemGroups.current = [];                  // reset each render
 
-    const handlersFor = (it) => {
-        const actionable = () => canPickUp(it);
-        const updateCursor = () => setCanvasCursor(actionable() ? "grab" : "not-allowed");
-        const clearCursor = () => setCanvasCursor("");
-
-        const pick = (e) => {
-            e?.stopPropagation?.();
-            if (actionable()) {
-                setCanvasCursor("grabbing");
-                sendAction("pickup", it.id, 0);
-                // ensure reset even if the mesh gets removed immediately
-                requestAnimationFrame(() => setCanvasCursor(""));
-            } else {
-                // flash not-allowed briefly
-                setCanvasCursor("not-allowed");
-                setTimeout(() => setCanvasCursor(""), 150);
-            }
-        };
-
-        return {
-            onPointerMove: (e) => { e.stopPropagation(); updateCursor(); },
-            onPointerOver: (e) => { e.stopPropagation(); updateCursor(); },
-            onPointerOut: (e) => { e.stopPropagation(); clearCursor(); },
-            onPointerDown: (e) => { e.stopPropagation(); pick(e); },
-            onClick: (e) => { e.stopPropagation(); pick(e); },
-        };
+    const handlePick = (it) => {
+        if (canPickUp(it)) {
+            const { gl } = useThree.getState();
+            gl.domElement.style.cursor = "grabbing";
+            sendAction("pickup", it.id, 0);
+            requestAnimationFrame(() => { gl.domElement.style.cursor = ""; });
+        }
     };
 
     return (
         <group>
-            {/* Devices (visual only here) */}
+            {/* Devices (visual) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -156,69 +169,79 @@ export default function ItemsAndDevices() {
                 if (it.holder) return null;
                 const pos = [it.x, it.y + 0.25, it.z];
                 const label = it.name || prettyName(it.type);
-                const handlers = handlersFor(it);
+
+                // capture ref for raycaster
+                const refCb = (el) => { if (el) { el.userData.itemId = it.id; itemGroups.current.push(el); } };
+
+                const common = {
+                    onPointerDown: (e) => { e.stopPropagation(); handlePick(it); },
+                    onClick: (e) => { e.stopPropagation(); handlePick(it); },
+                };
 
                 switch (it.type) {
                     case "food":
                         return (
-                            <group key={it.id} position={pos} {...handlers}>
-                                <mesh {...handlers}>
+                            <group ref={refCb} key={it.id} position={pos} {...common}>
+                                <mesh {...common}>
                                     <boxGeometry args={[0.35, 0.25, 0.35]} />
                                     <meshStandardMaterial color="#ff9f43" />
                                 </mesh>
-                                <ItemLabel text={label} handlers={handlers} />
+                                <ItemLabel text={label} />
                             </group>
                         );
                     case "battery":
                         return (
-                            <group key={it.id} position={pos} {...handlers}>
-                                <mesh {...handlers}>
+                            <group ref={refCb} key={it.id} position={pos} {...common}>
+                                <mesh {...common}>
                                     <cylinderGeometry args={[0.15, 0.15, 0.35, 12]} />
                                     <meshStandardMaterial color="#2dd4bf" />
                                 </mesh>
-                                <mesh position={[0, 0.2, 0]} {...handlers}>
+                                <mesh position={[0, 0.2, 0]} {...common}>
                                     <cylinderGeometry args={[0.06, 0.06, 0.1, 12]} />
                                     <meshStandardMaterial color="#0f172a" />
                                 </mesh>
-                                <ItemLabel text={label} handlers={handlers} />
+                                <ItemLabel text={label} />
                             </group>
                         );
                     case "o2can":
                         return (
-                            <group key={it.id} position={pos} {...handlers}>
-                                <mesh {...handlers}>
+                            <group ref={refCb} key={it.id} position={pos} {...common}>
+                                <mesh {...common}>
                                     <cylinderGeometry args={[0.2, 0.2, 0.5, 14]} />
                                     <meshStandardMaterial color="#9bd1ff" />
                                 </mesh>
-                                <mesh position={[0, 0.28, 0]} {...handlers}>
+                                <mesh position={[0, 0.28, 0]} {...common}>
                                     <boxGeometry args={[0.08, 0.12, 0.08]} />
                                     <meshStandardMaterial color="#1e293b" />
                                 </mesh>
-                                <ItemLabel text={label} handlers={handlers} />
+                                <ItemLabel text={label} />
                             </group>
                         );
                     case "fuel":
                         return (
-                            <group key={it.id} position={pos} {...handlers}>
-                                <mesh {...handlers}>
+                            <group ref={refCb} key={it.id} position={pos} {...common}>
+                                <mesh {...common}>
                                     <boxGeometry args={[0.12, 0.6, 0.12]} />
                                     <meshStandardMaterial color="#a78bfa" />
                                 </mesh>
-                                <ItemLabel text={label} handlers={handlers} />
+                                <ItemLabel text={label} />
                             </group>
                         );
                     default:
                         return (
-                            <group key={it.id} position={pos} {...handlers}>
-                                <mesh {...handlers}>
+                            <group ref={refCb} key={it.id} position={pos} {...common}>
+                                <mesh {...common}>
                                     <boxGeometry args={[0.3, 0.3, 0.3]} />
                                     <meshStandardMaterial color="#9ca3af" />
                                 </mesh>
-                                <ItemLabel text={label} handlers={handlers} />
+                                <ItemLabel text={label} />
                             </group>
                         );
                 }
             })}
+
+            {/* Force cursor updates every frame based on ray hits + distance */}
+            <CursorRaycaster targetsRef={itemGroups} itemsRef={itemsRef} />
         </group>
     );
 }
