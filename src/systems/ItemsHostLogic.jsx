@@ -124,7 +124,7 @@ export default function ItemsHostLogic() {
                         // put into player's hand/backpack, remove floor physics
                         setItems(prev =>
                             prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)
-                        ), true);
+                        , true);
                         p.setState("carry", it.id, true);
 
                         const bp = getBackpack(p);
@@ -177,7 +177,7 @@ export default function ItemsHostLogic() {
                                     ? { ...j, holder: null, x: px, y: py + 1.1, z: pz, vx, vy, vz }
                                     : j
                             )
-                        ), true);
+                        , true);
                         p.setState("carry", "", true);
                         setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         hostAppendEvent(setEvents, `${name} threw ${it.type}.`);
