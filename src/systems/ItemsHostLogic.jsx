@@ -1,6 +1,6 @@
 // src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
-import { isHost, usePlayersList } from "playroomkit";
+import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { useMeters, hostAppendEvent, useEvents } from "../network/playroom";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js";
@@ -13,6 +13,7 @@ const THROW_SPEED = 8;
 export default function ItemsHostLogic() {
     const host = isHost();
     const players = usePlayersList(true);
+    const self = myPlayer();
     const { items, setItems } = useItemsSync();
     const { setOxygen, setPower, setCCTV } = useMeters();
     const [, setEvents] = useEvents();
@@ -91,7 +92,13 @@ export default function ItemsHostLogic() {
         if (!host) return;
 
         const tick = setInterval(() => {
-            for (const p of players) {
+                        const seen = new Set();
+                        const everyone = [...(players || []), self].filter(Boolean).filter(p => {
+                                if (seen.has(p.id)) return false;
+                                seen.add(p.id);
+                                return true;
+                            });
+                        for (const p of everyone) {
                 const reqId = Number(p.getState("reqId") || 0);
                 const last = processed.current.get(p.id) || 0;
                 if (reqId <= last) continue;
