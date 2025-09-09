@@ -1,13 +1,9 @@
-// src/world/ItemsAndDevices.jsx
-import React, { useEffect, useRef } from "react";
-import * as THREE from "three";
-import ReactDOM from "react-dom";
-import { useThree, useFrame } from "@react-three/fiber";
-import { myPlayer } from "playroomkit";
+import React, { useRef } from "react";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
+import { myPlayer } from "playroomkit";
 import { PICKUP_RADIUS } from "../data/constants.js";
-import { requestAction as _requestAction } from "../network/playroom";
+import HtmlLite from "./HtmlLite.jsx";
 
 function prettyName(type) {
     switch (String(type)) {
@@ -24,65 +20,29 @@ function canPickUp(it) {
     const me = myPlayer();
     const px = Number(me.getState("x") || 0);
     const pz = Number(me.getState("z") || 0);
-    const dx = px - it.x;
-    const dz = pz - it.z;
+    const dx = px - it.x, dz = pz - it.z;
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
 function sendAction(type, target, value = 0) {
-    // Client-side log so you can see the click reach here
-    // eslint-disable-next-line no-console
-    console.log(`[CLIENT] action=${type} target=${target} value=${value}`);
+    // Use your existing network helper if present, else write to state
     try {
-        if (typeof _requestAction === "function") {
-            _requestAction(type, target, value);
+        const { requestAction } = require("../network/playroom");
+        if (typeof requestAction === "function") {
+            // eslint-disable-next-line no-console
+            console.log(`[CLIENT] action=${type} target=${target} value=${value}`);
+            requestAction(type, target, value);
             return;
         }
     } catch { }
-    // Fallback: write directly to my player state
     const me = myPlayer();
     const nextId = Number(me.getState("reqId") || 0) + 1;
     me.setState("reqId", nextId, true);
     me.setState("reqType", String(type), true);
     me.setState("reqTarget", String(target), true);
     me.setState("reqValue", Number(value) || 0, true);
-}
-
-/** Tiny DOM overlay without drei: positions a container over a 3D object */
-function HtmlLite({ worldObject, children }) {
-    const { camera } = useThree();
-    const elRef = useRef(null);
-
-    useEffect(() => {
-        const el = document.createElement("div");
-        el.style.position = "fixed";
-        el.style.left = "0px";
-        el.style.top = "0px";
-        el.style.transform = "translate(-9999px,-9999px)";
-        el.style.pointerEvents = "auto";
-        el.style.zIndex = "50";
-        document.body.appendChild(el);
-        elRef.current = el;
-        return () => { el.remove(); };
-    }, []);
-
-    useFrame(() => {
-        const el = elRef.current;
-        if (!el || !worldObject?.current) return;
-        const v = new THREE.Vector3();
-        worldObject.current.getWorldPosition(v);
-        v.project(camera);
-        // hide if behind camera
-        if (v.z > 1) {
-            el.style.transform = "translate(-9999px,-9999px)";
-            return;
-        }
-        const x = (v.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-        el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -110%)`;
-    });
-
-    return elRef.current ? ReactDOM.createPortal(children, elRef.current) : null;
+    // eslint-disable-next-line no-console
+    console.log(`[CLIENT:FALLBACK] action=${type} target=${target} value=${value}`);
 }
 
 function ItemMesh({ type = "crate" }) {
@@ -111,16 +71,16 @@ function ItemMesh({ type = "crate" }) {
 }
 
 function ItemEntity({ it }) {
-    const groupRef = React.useRef(null);
+    const groupRef = useRef(null);
     const label = it.name || prettyName(it.type);
     const actionable = canPickUp(it);
 
     return (
         <group ref={groupRef} position={[it.x, (it.y || 0) + 0.25, it.z]}>
-            {/* ✅ 3D geometry stays in Canvas */}
+            {/* 3D geometry (safe in Canvas) */}
             <ItemMesh type={it.type} />
 
-            {/* ✅ The DOM button is PORTALED outside Canvas */}
+            {/* DOM button (ported OUT of Canvas) */}
             <HtmlLite worldObject={groupRef}>
                 <button
                     className="item-btn"
@@ -141,12 +101,12 @@ function ItemEntity({ it }) {
     );
 }
 
-
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
     return (
         <group>
+            {/* Devices */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh><boxGeometry args={[1.1, 1.0, 0.6]} /><meshStandardMaterial color="#2c3444" /></mesh>
@@ -154,6 +114,7 @@ export default function ItemsAndDevices() {
                 </group>
             ))}
 
+            {/* Items on floor only */}
             {items.filter(it => !it.holder).map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}
