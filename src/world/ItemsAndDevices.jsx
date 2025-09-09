@@ -5,8 +5,10 @@ import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { requestAction as _requestAction } from "../network/playroom";
+import { PICKUP_RADIUS } from "../data/constants.js";
 
-const PICKUP_RADIUS = 2.0; // keep in sync with ItemsHostLogic
+
+
 
 function prettyName(type) {
     switch (String(type)) {

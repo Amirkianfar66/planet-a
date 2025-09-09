@@ -4,11 +4,12 @@ import { isHost, usePlayersList } from "playroomkit";
 import useItemsSync from "./useItemsSync.js"; // explicit .js for Vercel
 import { useMeters, hostAppendEvent, useEvents } from "../network/playroom";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js"; // explicit .js
+import { PICKUP_RADIUS } from "../data/constants.js";
+
 
 const THROW_SPEED = 8;
 const GRAV = 16;
 const FLOOR_Y = 0;
-const PICKUP_RADIUS = 2.0; // more forgiving for testing
 
 export default function ItemsHostLogic() {
     const host = isHost();
