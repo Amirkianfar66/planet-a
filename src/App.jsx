@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import GameCanvas from "./components/GameCanvas.jsx";
 import {
     usePhase, useTimer, useLengths,
@@ -27,9 +27,12 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// extracted UI (HUD is the only overlay now)
+// UI
 import { TopBar, VotePanel, Centered } from "./ui";
 import HUD from "./ui/HUD.jsx";
+
+// items state (source of truth for floor + held items)
+import useItemsSync from "./systems/useItemsSync.js";
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -54,7 +57,7 @@ export default function App() {
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // effects
+    // gameplay effects
     useLobbyReady(setReady);
     useSyncPhaseToClock({ ready, matchPhase, setPhase });
     useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
@@ -74,18 +77,16 @@ export default function App() {
         setEvents,
     });
 
-    // ✅ ALWAYS call hooks before any early returns
+    // ensure local player has a name/team once ready
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
         if (!me) return;
 
-        // Ensure display name
         if (!me.getState?.("name")) {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
         }
-        // Ensure team
         const currentTeam = me.getState?.("team") || me.getState?.("teamName");
         if (!currentTeam) {
             me.setState?.("team", "Team Alpha", true);
@@ -98,14 +99,50 @@ export default function App() {
         hostAppendEvent(setEvents, "Mission launch — Day 1");
     }
 
+    // items → backpack for HUD
+    const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
+
+    const labelFromType = (t) =>
+        t === "food" ? "Food Ration"
+            : t === "battery" ? "Battery Pack"
+                : t === "o2can" ? "O₂ Canister"
+                    : t === "fuel" ? "Fuel Rod"
+                        : (t || "Item");
+
+    const iconForType = (t) =>
+        t === "food" ? "🍎"
+            : t === "battery" ? "🔋"
+                : t === "o2can" ? "🫧"
+                    : t === "fuel" ? "🟣"
+                        : "📦";
+
+    const myBackpack = useMemo(() => {
+        if (!myId) return [];
+        return items
+            .filter((it) => it.holder === myId)
+            .map((it) => ({
+                id: it.id,
+                name: labelFromType(it.type),
+                qty: 1,
+                icon: iconForType(it.type),
+                type: it.type,
+            }));
+    }, [items, myId]);
+
+    const typeById = useMemo(() => {
+        const m = {};
+        for (const it of myBackpack) m[it.id] = it.type;
+        return m;
+    }, [myBackpack]);
+
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
-    // Passed into HUD only (UI overlay). InteractionSystem + ItemsHostLogic live inside GameCanvas.
+    // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -113,9 +150,22 @@ export default function App() {
         },
         me: {
             id: myId || "me",
-            backpack: [],
+            backpack: myBackpack,
             capacity: 8,
-            // Role & team read LIVE in RolePanel/TeamChatPanel
+        },
+        // Drop a specific item (by id)
+        onDropItem: (id) => requestAction("drop", id),
+        // Use a specific item (by id)
+        onUseItem: (id) => {
+            const t = typeById[id];
+            if (!t) return;
+            if (t === "food") {
+                // eat anywhere
+                requestAction("use", `eat|${id}`);
+            } else {
+                // other types must be used at a device; do it via world interaction
+                // (optional: show a toast/hint here)
+            }
         },
         requestAction,
     };
@@ -125,19 +175,15 @@ export default function App() {
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} events={events} />
 
             <div style={{ position: "relative" }}>
-                {/* 3D scene (includes ItemsHostLogic + InteractionSystem inside GameCanvas) */}
                 <GameCanvas dead={dead} />
 
-                {/* Host-only debug panel (DOM). Keep it small or position it away from center
-            so it doesn't sit on top of clickable 3D items. */}
                 {isHost() && (
                     <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "auto", zIndex: 10 }}>
                         <TimeDebugPanel />
                     </div>
                 )}
 
-                {/* HUD: status, role, backpack + chat pinned bottom-left.
-            Wrapper blocks nothing; HUD enables pointer events internally where needed. */}
+                {/* HUD overlay – internal elements enable pointer events as needed */}
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>

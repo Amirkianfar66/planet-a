@@ -2,8 +2,7 @@
 import React from "react";
 import { StatusBarsPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
 import "./ui.css";
-import { myPlayer } from "playroomkit";
-import { requestAction } from "../network/playroom";
+
 /* ------- Tiny UI helpers ------- */
 function Key({ children }) {
     return (
@@ -17,7 +16,8 @@ function Key({ children }) {
                 border: "1px solid #334155",
                 background: "rgba(15, 23, 42, 0.85)",
                 boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.06)",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                fontFamily:
+                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
                 fontSize: 11,
                 lineHeight: "16px",
                 color: "#e2e8f0",
@@ -48,15 +48,27 @@ function KeyGuidePanel() {
                 pointerEvents: "none",
                 boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
                 backdropFilter: "blur(2px)",
-                maxWidth: 520,
+                maxWidth: 560,
                 textAlign: "center",
             }}
         >
             <div style={{ opacity: 0.85, marginBottom: 4 }}>Controls</div>
-            <div><Key>W</Key><Key>A</Key><Key>S</Key><Key>D</Key> Move &nbsp;·&nbsp; <Key>Q</Key>/<Key>E</Key> Rotate &nbsp;·&nbsp; Right-mouse drag: Look</div>
-            <div><Key>Space</Key> Jump</div>
-            <div><Key>E</Key> Interact — Pick Up / Use (at device) / Eat (food)</div>
-            <div><Key>R</Key> Throw held &nbsp;·&nbsp; <Key>G</Key> Drop held</div>
+            <div>
+                <Key>W</Key>
+                <Key>A</Key>
+                <Key>S</Key>
+                <Key>D</Key>{" "}
+                Move &nbsp;·&nbsp; <Key>Q</Key>/<Key>E</Key> Rotate &nbsp;·&nbsp; Right-mouse drag: Look
+            </div>
+            <div>
+                <Key>Space</Key> Jump
+            </div>
+            <div>
+                <Key>P</Key> Interact — Pick Up / Use (at device) / Eat (food)
+            </div>
+            <div>
+                <Key>I</Key> Use selected from Backpack &nbsp;·&nbsp; <Key>O</Key> Drop held &nbsp;·&nbsp; <Key>R</Key> Throw held
+            </div>
         </div>
     );
 }
@@ -71,6 +83,24 @@ function KeyGuidePanel() {
 export default function HUD({ game = {} }) {
     const me = game?.me || {};
     const meters = game?.meters || {};
+
+    const handleUse = (id) => {
+        if (typeof game.onUseItem === "function") {
+            game.onUseItem(id);
+            return;
+        }
+        // Fallback: ask scene to handle a generic use
+        game.requestAction?.("useItem", { id });
+    };
+
+    const handleDrop = (id) => {
+        if (typeof game.onDropItem === "function") {
+            game.onDropItem(id);
+            return;
+        }
+        // Fallback to a generic drop action
+        game.requestAction?.("dropItem", { id });
+    };
 
     return (
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
@@ -90,14 +120,23 @@ export default function HUD({ game = {} }) {
                 }}
             >
                 {/* LEFT: Status + Role */}
-                <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
+                <div
+                    style={{
+                        display: "grid",
+                        gap: 16,
+                        gridTemplateRows: "auto 1fr",
+                        minHeight: 0,
+                    }}
+                >
                     <StatusBarsPanel
                         energy={Number(meters.energy ?? 100)}
                         oxygen={Number(meters.oxygen ?? 100)}
                     />
                     <div style={{ minHeight: 0 }}>
                         {/* Role reads live from Playroom; no role prop */}
-                        <RolePanel onPingObjective={() => game.requestAction?.("pingObjective")} />
+                        <RolePanel
+                            onPingObjective={() => game.requestAction?.("pingObjective")}
+                        />
                     </div>
                 </div>
 
@@ -109,15 +148,10 @@ export default function HUD({ game = {} }) {
                     <BackpackPanel
                         items={me.backpack || []}
                         capacity={me.capacity ?? 8}
-                        onUse={(id) => game.requestAction?.("useItem", { id })}
-                        onDrop={(id) => game.requestAction?.("dropItem", { id })}
-                        onThrow={(id) => {
-                            const yaw = Number(myPlayer().getState("yaw") || 0);
-                            // If your host expects the same contract as world throw:
-                            requestAction("throw", id, yaw);
-                            // If you implemented a different host handler:
-                            // game.requestAction?.("throwItem", { id, yaw });
-                        }}
+                        onUse={handleUse}
+                        onDrop={handleDrop}
+                    /* Throw remains keyboard: R (and world click). If you later add a Throw
+                       button to BackpackPanel, pass an onThrow here and wire to scene. */
                     />
                 </div>
             </div>
