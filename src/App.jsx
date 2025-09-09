@@ -1,25 +1,24 @@
 // src/App.jsx
 import React, { useState, useEffect, useMemo } from "react";
-import GameCanvas from "./components/GameCanvas.jsx";
-import {
-    usePhase, useTimer, useLengths,
-    useDead, useEvents, useMeters, useRolesAssigned,
-    hostAppendEvent, requestAction,
-} from "./network/playroom";
-import { isHost, myPlayer, usePlayersList } from "playroomkit";
+import { usePlayersList, isHost, myPlayer } from "playroomkit";
 
-import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
-import { useGameClock } from "./systems/dayNightClock";
+import GameCanvas from "./GameCanvas.jsx";              // <- adjust if your path differs
 import Lobby from "./components/Lobby.jsx";
+import HUD from "./ui/HUD.jsx";
+import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
+import { TopBar, VotePanel, Centered } from "./ui";
 
-// effects
+import { GameStateProvider, useGameState } from "./game/GameStateProvider";
+import { useGameClock } from "./systems/dayNightClock";
+
+// Effects
 import {
     useLobbyReady,
     useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
     useMeetingVoteResolution,
-    useMetersInitAndDailyDecay
+    useMetersInitAndDailyDecay,
 } from "./game/effects";
 import {
     useSyncPhaseToClock,
@@ -27,38 +26,34 @@ import {
     useMeetingCountdown,
 } from "./game/timePhaseEffects";
 
-// UI
-import { TopBar, VotePanel, Centered } from "./ui";
-import HUD from "./ui/HUD.jsx";
-
-// items state (source of truth for floor + held items)
+// Items state (floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
-// src/App.jsx
-import { GameStateProvider } from "./game/GameStateProvider";
-export default function App() {
-    return (
-        <GameStateProvider>
-            {/* your routes / scene / lobby */}
-        </GameStateProvider>
-    );
-}
 
-export default function App() {
+// Helpers (non-hook) from playroom layer
+import { hostAppendEvent, requestAction } from "./network/playroom";
+
+function InnerApp() {
     const [ready, setReady] = useState(false);
-    const players = usePlayersList(true);
+    useLobbyReady(setReady);               // join room, then mark ready
 
-    const [phase, setPhase] = usePhase();
+    // presence-only list (includes self). No per-player state listeners.
+    const players = usePlayersList();
+
+    // Single source of truth via provider
+    const {
+        phase, setPhase,
+        timer, setTimer,
+        dayLength, meetingLength, /* nightLength */,
+        oxygen, power, cctv, setOxygen, setPower, setCCTV,
+        dead, setDead,
+        events, setEvents,
+        rolesAssigned, setRolesAssigned,
+    } = useGameState();
+
     const matchPhase = phase || "lobby";
     const isInLobby = matchPhase === "lobby";
 
-    const [timer, setTimer] = useTimer();
-    const { meetingLength } = useLengths();
-
-    const [dead, setDead] = useDead();
-    const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
-    const [events, setEvents] = useEvents();
-    const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
-
+    // Clock-driven values
     const clockPhaseFn = useGameClock((s) => s.phase);
     const dayNumber = useGameClock((s) => s.dayNumber);
     const maxDays = useGameClock((s) => s.maxDays);
@@ -66,8 +61,7 @@ export default function App() {
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
 
-    // gameplay effects
-    useLobbyReady(setReady);
+    // Gameplay effects (host/client logic)
     useSyncPhaseToClock({ ready, matchPhase, setPhase });
     useMeetingFromClock({ ready, matchPhase, setPhase, timer, setTimer, meetingLength, setEvents });
     useMeetingCountdown({ ready, matchPhase, timer, setTimer, setPhase, setEvents });
@@ -75,18 +69,9 @@ export default function App() {
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
     useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
-    useMetersInitAndDailyDecay({
-        ready,
-        inGame,
-        dayNumber,
-        power,
-        oxygen,
-        setPower,
-        setOxygen,
-        setEvents,
-    });
+    useMetersInitAndDailyDecay({ ready, inGame, dayNumber, power, oxygen, setPower, setOxygen, setEvents });
 
-    // ensure local player has a name/team once ready
+    // Ensure my name/team once ready
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
@@ -97,35 +82,34 @@ export default function App() {
             me.setState?.("name", fallback, true);
         }
         const currentTeam = me.getState?.("team") || me.getState?.("teamName");
-        if (!currentTeam) {
-            me.setState?.("team", "Team Alpha", true);
-        }
+        if (!currentTeam) me.setState?.("team", "Team Alpha", true);
     }, [ready]);
 
+    // Host-only: launch helper (kept for Lobby handoff or debug)
     function launchGame() {
         if (!isHost()) return;
         setPhase("day", true);
         hostAppendEvent(setEvents, "Mission launch — Day 1");
     }
 
-    // items → backpack for HUD
+    // Items → backpack for HUD
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
 
     const labelFromType = (t) =>
-        t === "food" ? "Food Ration"
-            : t === "battery" ? "Battery Pack"
-                : t === "o2can" ? "O₂ Canister"
-                    : t === "fuel" ? "Fuel Rod"
-                        : (t || "Item");
+        t === "food" ? "Food Ration" :
+            t === "battery" ? "Battery Pack" :
+                t === "o2can" ? "O₂ Canister" :
+                    t === "fuel" ? "Fuel Rod" :
+                        (t || "Item");
 
     const iconForType = (t) =>
-        t === "food" ? "🍎"
-            : t === "battery" ? "🔋"
-                : t === "o2can" ? "🫧"
-                    : t === "fuel" ? "🟣"
-                        : "📦";
+        t === "food" ? "🍎" :
+            t === "battery" ? "🔋" :
+                t === "o2can" ? "🫧" :
+                    t === "fuel" ? "🟣" :
+                        "📦";
 
     const myBackpack = useMemo(() => {
         if (!myId) return [];
@@ -151,7 +135,7 @@ export default function App() {
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby onLaunch={launchGame} />;
 
-    // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
+    // HUD-only data/functions
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -162,19 +146,12 @@ export default function App() {
             backpack: myBackpack,
             capacity: 8,
         },
-        // Drop a specific item (by id)
         onDropItem: (id) => requestAction("drop", id),
-        // Use a specific item (by id)
         onUseItem: (id) => {
             const t = typeById[id];
             if (!t) return;
-            if (t === "food") {
-                // eat anywhere
-                requestAction("use", `eat|${id}`);
-            } else {
-                // other types must be used at a device; do it via world interaction
-                // (optional: show a toast/hint here)
-            }
+            if (t === "food") requestAction("use", `eat|${id}`);
+            // else: must be used at a device via world interaction
         },
         requestAction,
     };
@@ -198,9 +175,15 @@ export default function App() {
                 </div>
             </div>
 
-            {matchPhase === "meeting" && !dead.includes(myId) && (
-                <VotePanel dead={dead} />
-            )}
+            {matchPhase === "meeting" && !dead.includes(myId) && <VotePanel dead={dead} />}
         </div>
+    );
+}
+
+export default function App() {
+    return (
+        <GameStateProvider>
+            <InnerApp />
+        </GameStateProvider>
     );
 }
