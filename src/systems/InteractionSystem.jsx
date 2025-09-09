@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
-import { requestAction } from "../network/playroom.js"; // note .js for Vercel
+import { requestAction } from "../network/playroom.js"; // note .js
 
 export default function InteractionSystem() {
     const { items } = useItemsSync();
@@ -23,11 +23,10 @@ export default function InteractionSystem() {
             const carryId = me.getState("carry") || null;
             const list = itemsRef.current || [];
 
-            // quick debug so we SEE the press
+            // quick client trace
             console.debug("[Input]", k, { px, pz, carryId, items: list.length });
 
             if (k === "p") {
-                // nearest FREE item in radius
                 let pick = null, best = Infinity;
                 for (const it of list) {
                     if (it.holder) continue;
@@ -46,17 +45,14 @@ export default function InteractionSystem() {
             if (k === "i") {
                 if (!carryId) return;
 
-                // nearest device in radius
                 let dev = null, best = Infinity;
                 for (const d of DEVICES) {
                     const dx = px - d.x, dz = pz - d.z, d2 = dx * dx + dz * dz;
                     const r = +d.radius || DEVICE_RADIUS;
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
-
                 if (dev) requestAction("use", `${dev.id}|${carryId}`, 0);
                 else {
-                    // fallback: allow eating anywhere
                     const it = list.find(x => x.id === carryId);
                     if (it && it.type === "food") requestAction("use", `eat|${carryId}`, 0);
                 }
@@ -65,7 +61,7 @@ export default function InteractionSystem() {
 
         window.addEventListener("keydown", onKey, { passive: true });
         return () => window.removeEventListener("keydown", onKey);
-    }, []); // IMPORTANT: empty deps
+    }, []); // ← IMPORTANT: empty deps
 
     return null;
 }

@@ -135,7 +135,7 @@ export default function GameCanvas({ dead = [] }) {
             </div>
 
             {/* Non-visual host logic */}
-            <ItemsHostLogic />
+            {isHost() && <ItemsHostLogic />}
         </div>
     );
 }

@@ -204,6 +204,9 @@ export function requestAction(type, target, value) {
     p.setState("reqTarget", String(target), true);
     p.setState("reqValue", Number(value) | 0, true);
     p.setState("reqId", nextId, true);
+    // trace on client
+      // eslint-disable-next-line no-console
+          console.log(`[REQ] ${type}`, { target, value, nextId });
 }
 
 /* -------------------------------------------
