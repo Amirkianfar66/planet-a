@@ -50,12 +50,9 @@ export default function App() {
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
-    const { phase: clockPhaseFn, dayNumber, maxDays } = useGameClock((s) => ({
-  phase: s.phase,
-  dayNumber: s.dayNumber,
-  maxDays: s.maxDays,
-}));
-
+    const clockPhaseFn = useGameClock((s) => s.phase);
+    const dayNumber = useGameClock((s) => s.dayNumber);
+    const maxDays = useGameClock((s) => s.maxDays);
 
     const phaseLabel = matchPhase === "meeting" ? "meeting" : clockPhaseFn();
     const inGame = matchPhase !== "lobby" && matchPhase !== "end";
