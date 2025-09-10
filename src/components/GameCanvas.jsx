@@ -1,7 +1,7 @@
 ﻿// src/components/GameCanvas.jsx
 import React from "react";
 import { Canvas } from "@react-three/fiber";
-import SimplePickupDemo from "../world/SimplePickupDemo.jsx";
+
 
 export default function GameCanvas() {
     return (
@@ -23,8 +23,7 @@ export default function GameCanvas() {
                     <meshStandardMaterial color="#141a22" />
                 </mesh>
 
-                {/* One-item networked pickup demo */}
-                <SimplePickupDemo />
+               
             </Canvas>
         </div>
     );
