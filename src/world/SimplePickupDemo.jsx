@@ -1,26 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+// src/world/SimplePickupDemo.jsx
+import React, { useEffect, useMemo, useRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { myPlayer, isHost, usePlayersList } from "playroomkit";
 
-/** ----------------------------------------------------------
- *  SimplePickupDemo
- *  - Renders ONE item at ITEM_POS.
- *  - Pick up by pressing "P" or clicking the item.
- *  - No networking, no external stores — purely local state.
- *  - If you want distance gating, flip USE_DISTANCE_CHECK to true.
- * --------------------------------------------------------- */
+/**
+ * Networked Simple Pickup (1 object, host authoritative)
+ * - Renders ONE item at [2, 0, 0].
+ * - Any player presses "P" or clicks → sends a request.
+ * - HOST processes the request once, sets a shared flag on itself.
+ * - ALL clients read that flag from the host player → item disappears for everyone.
+ */
 
-const ITEM_POS = [2, 0, 0];         // x, y, z
-const USE_DISTANCE_CHECK = false;    // set true to require proximity
-const PICKUP_RADIUS = 3.5;           // used only if USE_DISTANCE_CHECK=true
+const ITEM_ID = "demoItem1";
+const ITEM_POS = [2, 0, 0];
 
-function Billboard({ children, position = [0, 0, 0] }) {
-    const ref = useRef();
-    const { camera } = useThree();
-    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
-    return <group ref={ref} position={position}>{children}</group>;
-}
-
+// Small UI bits (billboard text)
 function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff" }) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
@@ -38,7 +33,7 @@ function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = 
         ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
         ctx.fillStyle = fg;
-        ctx.font = "600 48px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial";
+        ctx.font = "600 48px system-ui, -apple-system, Segoe UI, Roboto, Arial";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(text, canvas.width / 2, y + h / 2);
 
@@ -56,8 +51,14 @@ function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = 
     );
 }
 
+function Billboard({ children, position = [0, 0, 0] }) {
+    const ref = useRef();
+    const { camera } = useThree();
+    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
+    return <group ref={ref} position={position}>{children}</group>;
+}
+
 function ItemMesh() {
-    // a simple “battery-like” shape
     return (
         <group>
             <mesh><cylinderGeometry args={[0.15, 0.15, 0.35, 12]} /><meshStandardMaterial color="#2dd4bf" /></mesh>
@@ -67,64 +68,113 @@ function ItemMesh() {
 }
 
 export default function SimplePickupDemo() {
-    const [picked, setPicked] = useState(false);
-    const [dist, setDist] = useState(Infinity);
-    const [inRange, setInRange] = useState(false);
+    // All players list; may exclude self, so we’ll add self below
+    const others = usePlayersList(true);
+    const me = myPlayer();
+    const host = isHost();
 
-    // Track camera distance as an easy proxy for "player" proximity
-    const { camera } = useThree();
-    useFrame(() => {
-        if (!USE_DISTANCE_CHECK) return;
-        const dx = camera.position.x - ITEM_POS[0];
-        const dz = camera.position.z - ITEM_POS[2];
-        const d = Math.hypot(dx, dz);
-        setDist(d);
-        setInRange(d <= PICKUP_RADIUS);
-    });
+    // Always work with a list that includes "me"
+    const everyone = useMemo(() => {
+        const arr = [...(others || [])];
+        if (me && !arr.find(p => p.id === me.id)) arr.push(me);
+        return arr;
+    }, [others, me]);
 
-    // Key: press "P" to pick up
+    // Has the item been picked up? (host writes; everyone reads host's flag)
+    const picked = useMemo(() => {
+        // If any player has demoPicked === ITEM_ID, we consider it picked.
+        // Convention: host sets this; clients just read it.
+        return everyone.some(p => String(p.getState("demoPicked") || "") === ITEM_ID);
+    }, [everyone]);
+
+    // ---------- CLIENT: send a pickup request (P key or click) ----------
+    const reqSeq = useRef(Math.floor(Math.random() * 1000) + 1);
+
     useEffect(() => {
+        function sendRequest() {
+            if (picked) return; // already gone
+            const id = ++reqSeq.current;
+            me?.setState("reqId", id, true);
+            me?.setState("reqType", "demo_pickup", true);
+            me?.setState("reqTarget", ITEM_ID, true);
+            me?.setState("reqValue", 0, true);
+            // (host will process this and flip demoPicked; no local hiding here)
+        }
+
         function onKeyDown(e) {
             if ((e.key || "").toLowerCase() !== "p") return;
-            if (picked) return;
-            if (USE_DISTANCE_CHECK && !inRange) return;
-            console.log("[DEMO] Picked up via keyboard");
-            setPicked(true); // ✅ hide mesh
+            sendRequest();
         }
+
         window.addEventListener("keydown", onKeyDown, { passive: true });
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [picked, inRange]);
+    }, [me, picked]);
 
-    // Mouse: click the item to pick up
-    const handleClick = () => {
-        if (picked) return;
-        if (USE_DISTANCE_CHECK && !inRange) return;
-        console.log("[DEMO] Picked up via click");
-        setPicked(true); // ✅ hide mesh
-    };
+    // ---------- HOST: process pickup requests and broadcast once ----------
+    useEffect(() => {
+        if (!host) return;
 
-    if (picked) return null; // floor copy disappears entirely
+        const processed = new Map(); // per-player last handled reqId
+        let done = false;
 
-    const label = USE_DISTANCE_CHECK
-        ? (inRange ? `Press P or Click to pick up (d=${dist.toFixed(2)})` : `Get closer (d=${dist.toFixed(2)})`)
-        : "Press P or Click to pick up";
+        const tick = () => {
+            if (done) return;
+            // If already picked, no more work
+            const isPicked = everyone.some(p => String(p.getState("demoPicked") || "") === ITEM_ID);
+            if (isPicked) { done = true; return; }
+
+            for (const p of everyone) {
+                const reqId = Number(p.getState("reqId") || 0);
+                const reqType = String(p.getState("reqType") || "");
+                const reqTarget = String(p.getState("reqTarget") || "");
+
+                if (!reqId || reqType !== "demo_pickup" || reqTarget !== ITEM_ID) continue;
+                if (processed.get(p.id) === reqId) continue;
+
+                // Accept first valid request → mark picked globally (host-owned flag)
+                myPlayer()?.setState("demoPicked", ITEM_ID, true);
+                console.log("[HOST] demo item picked by", p.id);
+                processed.set(p.id, reqId);
+                done = true;
+                break;
+            }
+
+            // keep polling until done
+            if (!done) queueMicrotask(tick);
+        };
+
+        // start fast microtask loop (cheap; reacts quickly)
+        queueMicrotask(tick);
+        return () => { done = true; };
+    }, [host, everyone]);
+
+    // ---------- Render ----------
+    if (picked) return null; // item has been picked → hide for everyone
 
     return (
         <group
             position={[ITEM_POS[0], ITEM_POS[1] + 0.25, ITEM_POS[2]]}
-            onPointerDown={(e) => { e.stopPropagation(); handleClick(); }}
+            onPointerDown={(e) => {
+                e.stopPropagation();
+                // mirror the keyboard path: send a pickup request
+                const id = ++reqSeq.current;
+                me?.setState("reqId", id, true);
+                me?.setState("reqType", "demo_pickup", true);
+                me?.setState("reqTarget", ITEM_ID, true);
+                me?.setState("reqValue", 0, true);
+            }}
             onPointerOver={() => { document.body.style.cursor = "pointer"; }}
             onPointerOut={() => { document.body.style.cursor = ""; }}
         >
             <ItemMesh />
-            {/* ring */}
+            {/* floor ring */}
             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.35, 0.42, 24]} />
-                <meshBasicMaterial color={"#86efac"} transparent opacity={0.85} />
+                <meshBasicMaterial color="#86efac" transparent opacity={0.85} />
             </mesh>
-            {/* floating label */}
+            {/* label */}
             <Billboard position={[0, 0.85, 0]}>
-                <TextSprite text={label} />
+                <TextSprite text={"Press P or Click to pick up"} />
             </Billboard>
         </group>
     );

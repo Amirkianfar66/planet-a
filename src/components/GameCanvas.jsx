@@ -2,7 +2,6 @@
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
-import { isHost as prIsHost } from "playroomkit";
 
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
@@ -12,17 +11,6 @@ import {
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
-import HostRafDriver from "../systems/HostRafDriver.jsx";
-
-// ⬇️ Toggle this to quickly switch between the minimal demo and full game
-const USE_DEMO = false;
-
-// Full game components
-import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
-import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
-import InteractionSystem from "../systems/InteractionSystem.jsx";
-
-// Minimal working demo (single item, press P or click to pick up)
 import SimplePickupDemo from "../world/SimplePickupDemo.jsx";
 
 /* ---------- Canvas-text floor label ----------- */
@@ -114,7 +102,7 @@ function FloorAndWalls() {
     );
 }
 
-/* ---------------- Root canvas + overlays ---------------- */
+/* ---------------- Root canvas + demo ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -124,7 +112,6 @@ export default function GameCanvas({ dead = [] }) {
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 gl={{ powerPreference: "high-performance" }}
             >
-                {/* Scene background */}
                 <color attach="background" args={["#0b1220"]} />
 
                 <ambientLight intensity={0.7} />
@@ -132,27 +119,13 @@ export default function GameCanvas({ dead = [] }) {
 
                 <FloorAndWalls />
 
-                {/* ⬇️ Choose demo or full system */}
-                {USE_DEMO ? <SimplePickupDemo /> : <ItemsAndDevices />}
+                {/* 💡 Minimal single-item pickup demo */}
+                <SimplePickupDemo />
 
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
-
-                {/* Host-only rAF driver for full system */}
-                {!USE_DEMO && prIsHost() && <HostRafDriver />}
             </Canvas>
-
-            {/* DOM overlays should NOT block canvas clicks */}
-            {!USE_DEMO && (
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                    <InteractionSystem />
-                    {/* If InteractionSystem renders interactive elements, set pointerEvents:'auto' on those nodes only. */}
-                </div>
-            )}
-
-            {/* Non-visual host logic (host-only, full system only) */}
-            {!USE_DEMO && prIsHost() && <ItemsHostLogic />}
         </div>
     );
 }
