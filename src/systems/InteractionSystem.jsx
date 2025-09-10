@@ -2,7 +2,7 @@
 import { myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
-import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
+import { PICKUP_RADIUS, DEVICE_RADIUS, PICKUP_COOLDOWN } from "../data/constants.js";
 import { requestAction } from "../network/playroom.js";
 
 /**
@@ -37,8 +37,22 @@ export default function InteractionSystem() {
             const carryId = me.getState("carry") || null;
             const list = itemsRef.current || [];
 
+            // ---------- PICKUP (P) ----------
             if (k === "p") {
-                if (carryId) return; // already holding something
+                // already holding something
+                if (carryId) return;
+
+                // client-side cooldown UX (host still authoritative)
+                const nowSec = (Date.now() / 1000) | 0;
+                const until = Number(me.getState("pickupUntil") || 0);
+                if (nowSec < until) {
+                    const left = Math.max(0, Math.ceil(until - nowSec));
+                    // TODO: surface in your HUD if desired
+                    console.warn(`[pickup] on cooldown: ${left}s left (of ${PICKUP_COOLDOWN}s)`);
+                    return; // don't send the action during cooldown
+                }
+
+                // find nearest free item in radius
                 let pick = null, best = Infinity;
                 for (const it of list) {
                     if (it.holder) continue;
@@ -49,11 +63,13 @@ export default function InteractionSystem() {
                 return;
             }
 
+            // ---------- DROP (O) ----------
             if (k === "o") {
                 if (carryId) requestAction("drop", carryId, 0);
                 return;
             }
 
+            // ---------- USE (I) ----------
             if (k === "i") {
                 if (!carryId) return;
 
@@ -65,8 +81,9 @@ export default function InteractionSystem() {
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
 
-                if (dev) requestAction("use", `${dev.id}|${carryId}`, 0);
-                else {
+                if (dev) {
+                    requestAction("use", `${dev.id}|${carryId}`, 0);
+                } else {
                     const it = list.find(x => x.id === carryId);
                     if (it && it.type === "food") requestAction("use", `eat|${carryId}`, 0);
                 }

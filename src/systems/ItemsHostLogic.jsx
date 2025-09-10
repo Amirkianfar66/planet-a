@@ -3,8 +3,7 @@ import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { useMeters, hostAppendEvent, useEvents } from "../network/playroom.js";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js";
-import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY } from "../data/constants.js";
-
+import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
 const FLOOR_Y = 0;
 const GRAV = 16;
 const THROW_SPEED = 8;
@@ -121,6 +120,17 @@ export default function ItemsHostLogic() {
 
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
+                    // --- Host-side cooldown gate ---
+                    const nowSec = (Date.now() / 1000) | 0;
+                    const nextAllowed = Number(p.getState("pickupUntil") || 0);
+                    if (nowSec < nextAllowed) {
+                        const left = Math.max(0, Math.ceil(nextAllowed - nowSec));
+                        hostAppendEvent(setEvents, `${name} tried to pick up but is on cooldown (${left}s left).`);
+                        console.log(`[HOST] pickup blocked by cooldown: ${left}s left (player=${p.id})`);
+                        // stop processing this request
+                        return;
+                    }
+
                     const it = findItem(target);
                     if (!it) {
                         hostAppendEvent(setEvents, `${name} tried to pick up a missing item (${target}).`);
@@ -134,22 +144,29 @@ export default function ItemsHostLogic() {
                         console.log(`[HOST] pickup check ${it.id} dist=${dist.toFixed(2)} R=${PICKUP_RADIUS}`);
 
                         if (dist <= PICKUP_RADIUS) {
+                            // put into player's hand/backpack, remove floor physics
                             setItems(prev => prev.map(j =>
                                 j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
                             ), true);
 
                             p.setState("carry", it.id, true);
+
                             const bp = getBackpack(p);
                             if (!bp.find(b => b.id === it.id)) {
                                 setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
                             }
-                            console.log("[HOST] PICKUP OK", it.id);
+
+                            // >>> start cooldown now
+                            p.setState("pickupUntil", nowSec + PICKUP_COOLDOWN, true);
+
+                            console.log("[HOST] PICKUP OK", it.id, `(cooldown ${PICKUP_COOLDOWN}s)`);
                             hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
                         } else {
                             hostAppendEvent(setEvents, `${name} is too far to pick up ${it.type}.`);
                         }
                     }
                 }
+
 
                 // ---------- DROP ----------
                 if (type === "drop") {
