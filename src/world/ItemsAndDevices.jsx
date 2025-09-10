@@ -96,11 +96,14 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-function ItemEntity({ it }) {
-    if (it.holder) return null; // safety: never render held items
-
-    const actionable = canPickUp(it);
-    const label = it.name || prettyName(it.type);
++ function ItemEntity({ id }) {
+         // Pull the latest items array every render
+             const { items } = useItemsSync();
+         const it = useMemo(() => (items || []).find(i => i.id === id), [items, id]);
+         if (!it) return null;
+         if (it.holder) return null; // held → don't render floor copy
+         const actionable = canPickUp(it);
+         const label = it.name || prettyName(it.type);
 
     return (
         <group
@@ -122,7 +125,7 @@ function ItemEntity({ it }) {
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-    const floorItems = useMemo(() => (items || []).filter(it => !it.holder), [items]);
+    const itemIds = useMemo(() => (items || []).map(i => i.id), [items]);
 
     return (
         <group>
@@ -138,7 +141,7 @@ export default function ItemsAndDevices() {
                     </mesh>
                 </group>
             ))}
-            {floorItems.map((it) => (<ItemEntity key={it.id} it={it} />))}
+            {itemIds.map((id) => (<ItemEntity key={id} id={id} />))}
         </group>
     );
 }
