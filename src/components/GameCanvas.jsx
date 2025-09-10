@@ -15,6 +15,7 @@ import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
+import HostRafDriver from "../systems/HostRafDriver.jsx";
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({
@@ -115,7 +116,7 @@ export default function GameCanvas({ dead = [] }) {
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 gl={{ powerPreference: "high-performance" }}
             >
-                {/* Scene background (optional) */}
+                {/* Scene background */}
                 <color attach="background" args={["#0b1220"]} />
 
                 <ambientLight intensity={0.7} />
@@ -126,16 +127,18 @@ export default function GameCanvas({ dead = [] }) {
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
+
+                {/* Host-only rAF + background fallback driver */}
+                {prIsHost() && <HostRafDriver />}
             </Canvas>
 
             {/* DOM overlays should NOT block canvas clicks */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                 <InteractionSystem />
-                {/* If InteractionSystem contains interactive inputs/buttons,
-                    give those specific elements pointerEvents: 'auto'. */}
+                {/* If InteractionSystem renders interactive elements, set pointerEvents: 'auto' on those specific nodes. */}
             </div>
 
-            {/* Non-visual host logic */}
+            {/* Non-visual host logic (host-only) */}
             {prIsHost() && <ItemsHostLogic />}
         </div>
     );

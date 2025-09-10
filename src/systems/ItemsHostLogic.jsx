@@ -1,8 +1,7 @@
-// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
-import { useMeters, hostAppendEvent, useEvents } from "../network/playroom";
+import { useMeters, hostAppendEvent, useEvents } from "../network/playroom.js";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY } from "../data/constants.js";
 
@@ -13,11 +12,12 @@ const THROW_SPEED = 8;
 export default function ItemsHostLogic() {
     const host = isHost();
     const players = usePlayersList(true);
-    
     const { items, setItems } = useItemsSync();
     const { setOxygen, setPower, setCCTV } = useMeters();
     const [, setEvents] = useEvents();
     const processed = useRef(new Map());
+
+    // latest snapshots for the rAF driver (no re-creating the tick)
     const playersRef = useRef(players);
     const itemsRef = useRef(items);
     useEffect(() => { playersRef.current = players; }, [players]);
@@ -32,36 +32,29 @@ export default function ItemsHostLogic() {
     const nameFromItem = (it) => it.name || (it.type?.toUpperCase?.() || "ITEM");
     const hasCapacity = (p) => getBackpack(p).length < (Number(BAG_CAPACITY) || 8);
 
-    // distance^2 helper
+    // distance check
     const near2 = (ax, az, bx, bz, r) => ((ax - bx) ** 2 + (az - bz) ** 2) <= r * r;
-    // Announce once
-    useEffect(() => {
-        if (host) console.log("[HOST] ItemsHostLogic active.");
-    }, [host]);
 
-    // Log only when item IDs change (not every reference change)
+    // Announce once
+    useEffect(() => { if (host) console.log("[HOST] ItemsHostLogic active."); }, [host]);
+
+    // Log only when item IDs change
+    const idSetRef = useRef(null);
     useEffect(() => {
         if (!host) return;
-        const prevIds = idSetRef.current;
-        const currIds = new Set(items.map(i => i.id));
-
-        let changed = false;
-        if (!prevIds || prevIds.size !== currIds.size) {
-            changed = true;
-        } else {
-            for (const id of currIds) if (!prevIds.has(id)) { changed = true; break; }
-        }
-
+        const prev = idSetRef.current;
+        const curr = new Set(items.map(i => i.id));
+        let changed = !prev || prev.size !== curr.size;
+        if (!changed && prev) for (const id of curr) { if (!prev.has(id)) { changed = true; break; } }
         if (changed) {
             console.groupCollapsed(`[HOST] items changed (${items.length})`);
             console.table(items.map(i => ({ id: i.id, type: i.type, holder: i.holder })));
             console.groupEnd();
-            idSetRef.current = currIds;
+            idSetRef.current = curr;
         }
     }, [host, items]);
 
-    const idSetRef = useRef(null);
-    // Simple physics for thrown items
+    // Simple physics for thrown items (interval is fine; can migrate to rAF later if needed)
     useEffect(() => {
         if (!host) return;
         const id = setInterval(() => {
@@ -79,9 +72,7 @@ export default function ItemsHostLogic() {
                             vy *= -0.3;
                             vx *= 0.7;
                             vz *= 0.7;
-                            if (Math.abs(vy) < 0.5) {
-                                vx = vy = vz = 0;
-                            }
+                            if (Math.abs(vy) < 0.5) { vx = vy = vz = 0; }
                         }
                     }
                     return { ...it, x, y, z, vx, vy, vz };
@@ -91,42 +82,30 @@ export default function ItemsHostLogic() {
         return () => clearInterval(id);
     }, [host, setItems]);
 
+    // -------- rAF-driven host processing (exposed to HostRafDriver) --------
     useEffect(() => {
         if (!host) return;
 
-        const tick = setInterval(() => {
-            // 1) Always grab current host player and list of others
+        const process = () => {
             const selfNow = myPlayer();
             const list = [...(playersRef.current || [])];
             if (selfNow) list.push(selfNow);
 
-            // 2) Dedupe by id
+            // dedupe by id
             const seen = new Set();
             const everyone = list.filter(p => p && !seen.has(p.id) && seen.add(p.id));
 
-            // 3) Log who we’re scanning (so you can SEE if the host player is included)
-            console.debug("[HOST] scan", {
-                count: everyone.length,
-                ids: everyone.map(p => p.id.slice(0, 4))
-            });
-
             for (const p of everyone) {
-                // 4) Read request states and log them BEFORE gating
                 const reqId = Number(p.getState("reqId") || 0);
-                const type = String(p.getState("reqType") || "");
-                const tgt = String(p.getState("reqTarget") || "");
-                const val = Number(p.getState("reqValue") || 0);
-
                 const lastEntry = processed.current.get(p.id);
                 const lastId = (lastEntry && typeof lastEntry.id === "number") ? lastEntry.id : -1;
+                if (reqId === lastId) continue; // skip exact duplicate; allow lower/higher after reloads
 
-                console.debug(`[HOST] peek ${p.id.slice(0, 4)} reqId=${reqId} last=${lastId} type=${type} tgt=${tgt}`);
+                const type = String(p.getState("reqType") || "");
+                const target = String(p.getState("reqTarget") || "");
+                const value = Number(p.getState("reqValue") || 0);
 
-                // 5) Gate: skip only exact duplicates; allow lower or higher (handles hot reloads)
-                if (reqId === lastId) continue;
-
-                // 6) Now we officially "received" it
-                console.log(`[HOST] req ${p.id.slice(0, 4)}: type=${type} target=${tgt} val=${val} id=${reqId}`);
+                console.log(`[HOST] req ${p.id.slice(0, 4)}: type=${type} target=${target} val=${value} id=${reqId}`);
 
                 const name = p.getProfile().name || `Player ${p.id.slice(0, 4)}`;
                 const px = Number(p.getState("x") || 0);
@@ -138,9 +117,9 @@ export default function ItemsHostLogic() {
 
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
-                    const it = findItem(tgt);
+                    const it = findItem(target);
                     if (!it) {
-                        hostAppendEvent(setEvents, `${name} tried to pick up a missing item (${tgt}).`);
+                        hostAppendEvent(setEvents, `${name} tried to pick up a missing item (${target}).`);
                     } else if (it.holder && it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
@@ -163,7 +142,6 @@ export default function ItemsHostLogic() {
                             console.log("[HOST] PICKUP OK", it.id);
                             hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
                         } else {
-                            console.log("[HOST] PICKUP TOO FAR", it.id);
                             hostAppendEvent(setEvents, `${name} is too far to pick up ${it.type}.`);
                         }
                     }
@@ -171,15 +149,15 @@ export default function ItemsHostLogic() {
 
                 // ---------- DROP ----------
                 if (type === "drop") {
-                    const it = findItem(tgt);
+                    const it = findItem(target);
                     if (!it) {
-                        hostAppendEvent(setEvents, `${name} tried to drop a missing item (${tgt}).`);
+                        hostAppendEvent(setEvents, `${name} tried to drop a missing item (${target}).`);
                     } else if (it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to drop ${it.type} but isn't holding it.`);
                     } else {
                         setItems(prev => prev.map(j =>
                             j.id === it.id
-                                ? { ...j, holder: null, x: px, y: 0, z: pz, vx: 0, vy: 0, vz: 0 }
+                                ? { ...j, holder: null, x: px, y: FLOOR_Y, z: pz, vx: 0, vy: 0, vz: 0 }
                                 : j
                         ), true);
                         p.setState("carry", "", true);
@@ -188,13 +166,34 @@ export default function ItemsHostLogic() {
                     }
                 }
 
+                // ---------- THROW ----------
+                if (type === "throw") {
+                    const it = findItem(target);
+                    if (!it) {
+                        hostAppendEvent(setEvents, `${name} tried to throw a missing item (${target}).`);
+                    } else if (it.holder !== p.id) {
+                        hostAppendEvent(setEvents, `${name} tried to throw ${it.type} but isn't holding it.`);
+                    } else {
+                        const yaw = value; // radians
+                        const vx = Math.sin(yaw) * THROW_SPEED;
+                        const vz = Math.cos(yaw) * THROW_SPEED;
+                        const vy = 4.5;
+
+                        setItems(prev => prev.map(j =>
+                            j.id === it.id
+                                ? { ...j, holder: null, x: px, y: py + 1.1, z: pz, vx, vy, vz }
+                                : j
+                        ), true);
+                        p.setState("carry", "", true);
+                        setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+                        hostAppendEvent(setEvents, `${name} threw ${it.type}.`);
+                    }
+                }
+
                 // ---------- USE ----------
                 if (type === "use") {
-                    const [kind, rest] = tgt.split("|");
-                    if (!kind || !rest) {
-                        processed.current.set(p.id, { id: reqId });
-                        continue;
-                    }
+                    const [kind, rest] = String(target).split("|");
+                    if (!kind || !rest) { processed.current.set(p.id, { id: reqId }); continue; }
                     const bp = getBackpack(p);
 
                     if (kind === "eat") {
@@ -206,7 +205,7 @@ export default function ItemsHostLogic() {
                         } else if (it.type !== "food") {
                             hostAppendEvent(setEvents, `${name} tried to eat ${it.type} (not edible).`);
                         } else {
-                            setItems(prev => prev.filter(j => j.id !== it.id), true);
+                            setItems(prev => prev.filter(j => j.id !== it.id), true); // consume
                             p.setState("carry", "", true);
                             setBackpack(p, bp.filter(b => b.id !== it.id));
                             hostAppendEvent(setEvents, `${name} ate some food.`);
@@ -223,38 +222,34 @@ export default function ItemsHostLogic() {
                             hostAppendEvent(setEvents, `${name} tried to use ${it.type} but isn't holding it.`);
                         } else if (!dev) {
                             hostAppendEvent(setEvents, `${name} tried to use ${it.type} at unknown device (${deviceId}).`);
+                        } else if (!near2(px, pz, dev.x, dev.z, Number(dev.radius) || Number(DEVICE_RADIUS) || 1.3)) {
+                            hostAppendEvent(setEvents, `${name} is too far from ${dev.label} to use ${it.type}.`);
                         } else {
-                            const dx = px - dev.x, dz = pz - dev.z;
-                            const dist = Math.hypot(dx, dz);
-                            const R = Number(dev.radius) || Number(DEVICE_RADIUS) || 1.3;
-                            if (dist > R) {
-                                hostAppendEvent(setEvents, `${name} is too far from ${dev.label} to use ${it.type}.`);
+                            const eff = USE_EFFECTS[it.type]?.[dev.type];
+                            if (!eff) {
+                                hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label} → no effect.`);
                             } else {
-                                const eff = USE_EFFECTS[it.type]?.[dev.type];
-                                if (!eff) {
-                                    hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label} → no effect.`);
-                                } else {
-                                    const [meter, delta] = eff;
-                                    if (meter === "oxygen") setOxygen(v => clamp01(Number(v) + delta), true);
-                                    if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
-                                    if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
+                                const [meter, delta] = eff;
+                                if (meter === "oxygen") setOxygen(v => clamp01(Number(v) + delta), true);
+                                if (meter === "power") setPower(v => clamp01(Number(v) + delta), true);
+                                if (meter === "cctv") setCCTV(v => clamp01(Number(v) + delta), true);
 
-                                    setItems(prev => prev.filter(j => j.id !== it.id), true);
-                                    p.setState("carry", "", true);
-                                    setBackpack(p, bp.filter(b => b.id !== it.id));
-                                    hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
-                                }
+                                setItems(prev => prev.filter(j => j.id !== it.id), true); // consume
+                                p.setState("carry", "", true);
+                                setBackpack(p, bp.filter(b => b.id !== it.id));
+                                hostAppendEvent(setEvents, `${name} used ${it.type} at ${dev.label}.`);
                             }
                         }
                     }
                 }
 
-                // 7) Mark processed (store an object so we tolerate counter resets)
+                // mark processed
                 processed.current.set(p.id, { id: reqId });
             }
-        }, 120);
+        };
 
-        return () => clearInterval(tick);
+        window.__planetAHostTick = process;
+        return () => { delete window.__planetAHostTick; };
     }, [host, setItems, setEvents, setOxygen, setPower, setCCTV]);
 
     return null;

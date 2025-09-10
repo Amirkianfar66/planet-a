@@ -1,30 +1,33 @@
-﻿// src/systems/InteractionSystem.jsx
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
 import { requestAction } from "../network/playroom.js";
 
+/**
+ * Keyboard handler for P/O/I.
+ * - Singleton listener (guards against double mounts and OS key-repeat)
+ * - Reads items via ref (no re-subscribes)
+ */
 export default function InteractionSystem() {
     const { items } = useItemsSync();
     const itemsRef = useRef(items);
     useEffect(() => { itemsRef.current = items; }, [items]);
 
     useEffect(() => {
-        // ensure single global listener
         if (window.__planetAInputAttached) return;
         window.__planetAInputAttached = true;
 
-        const downRef = new Set();
+        // Global set to block repeat
+        window.__planetAInputDown = window.__planetAInputDown || new Set();
+        const down = window.__planetAInputDown;
 
         function onKeyDown(e) {
             const k = (e.key || "").toLowerCase();
             if (k !== "p" && k !== "o" && k !== "i") return;
-
-            // prevent OS repeat / double listeners triggering
-            if (e.repeat || downRef.has(k)) return;
-            downRef.add(k);
+            if (e.repeat || down.has(k)) return;
+            down.add(k);
 
             const me = myPlayer();
             if (!me) return;
@@ -53,12 +56,15 @@ export default function InteractionSystem() {
 
             if (k === "i") {
                 if (!carryId) return;
+
+                // nearest device first
                 let dev = null, best = Infinity;
                 for (const d of DEVICES) {
                     const dx = px - d.x, dz = pz - d.z, d2 = dx * dx + dz * dz;
                     const r = +d.radius || DEVICE_RADIUS;
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
+
                 if (dev) requestAction("use", `${dev.id}|${carryId}`, 0);
                 else {
                     const it = list.find(x => x.id === carryId);
@@ -69,40 +75,16 @@ export default function InteractionSystem() {
 
         function onKeyUp(e) {
             const k = (e.key || "").toLowerCase();
-            if (k === "p" || k === "o" || k === "i") {
-                // clear pressed state
-                // (guard if this listener becomes singleton across hot reloads)
-                try { window.__planetAInputDown?.delete(k); } catch { }
-            }
+            if (k === "p" || k === "o" || k === "i") down.delete(k);
         }
 
-        // keep a global set so it survives if component remounts
-        window.__planetAInputDown = window.__planetAInputDown || new Set();
-        const globalDown = window.__planetAInputDown;
-
-        // proxy to global set
-        const keydown = (e) => {
-            if (e.repeat) return;
-            const k = (e.key || "").toLowerCase();
-            if (k === "p" || k === "o" || k === "i") {
-                if (globalDown.has(k)) return;
-                globalDown.add(k);
-            }
-            onKeyDown(e);
-        };
-        const keyup = (e) => {
-            const k = (e.key || "").toLowerCase();
-            globalDown.delete(k);
-            onKeyUp(e);
-        };
-
-        window.addEventListener("keydown", keydown, { passive: true });
-        window.addEventListener("keyup", keyup, { passive: true });
+        window.addEventListener("keydown", onKeyDown, { passive: true });
+        window.addEventListener("keyup", onKeyUp, { passive: true });
 
         return () => {
-            window.removeEventListener("keydown", keydown);
-            window.removeEventListener("keyup", keyup);
-            window.__planetAInputAttached = false;
+            window.removeEventListener("keydown", onKeyDown);
+            window.removeEventListener("keyup", onKeyUp);
+            delete window.__planetAInputAttached;
         };
     }, []);
 

@@ -1,13 +1,10 @@
-// src/world/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
-import useItemsSync from "../systems/useItemsSync.js";      // explicit .js for Vercel
-import { DEVICES } from "../data/gameObjects.js";           // explicit .js
+import useItemsSync from "../systems/useItemsSync.js";
+import { DEVICES } from "../data/gameObjects.js";
 import { myPlayer } from "playroomkit";
-import { PICKUP_RADIUS } from "../data/constants.js";       // keep in sync with host
-
-/* ------------ helpers ------------ */
+import { PICKUP_RADIUS } from "../data/constants.js";
 
 function prettyName(type) {
     switch (String(type)) {
@@ -19,31 +16,20 @@ function prettyName(type) {
     }
 }
 
-/** Always face camera */
 function Billboard({ children, position = [0, 0, 0] }) {
     const ref = useRef();
     const { camera } = useThree();
-    useFrame(() => {
-        if (ref.current) ref.current.quaternion.copy(camera.quaternion);
-    });
+    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
     return <group ref={ref} position={position}>{children}</group>;
 }
 
-/** Text on a plane via CanvasTexture */
-function TextSprite({
-    text = "",
-    width = 0.95,
-    bg = "rgba(20,26,34,0.92)",
-    fg = "#ffffff",
-    accent = "#9cc8ff",
-}) {
+function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff", accent = "#9cc8ff" }) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 512; canvas.height = 192;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // rounded rect
         const x = 6, y = 50, w = canvas.width - 12, h = 92, r = 20;
         ctx.fillStyle = bg;
         ctx.beginPath();
@@ -53,20 +39,15 @@ function TextSprite({
         ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
         ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
-        // accent dot
-        ctx.fillStyle = accent;
-        ctx.beginPath(); ctx.arc(x + 20, y + 20, 8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(x + 20, y + 20, 8, 0, Math.PI * 2); ctx.fill();
 
-        // text
         ctx.fillStyle = fg;
         ctx.font = "600 48px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(text, canvas.width / 2, y + h / 2);
 
         const tex = new THREE.CanvasTexture(canvas);
-        tex.minFilter = THREE.LinearFilter;
-        tex.anisotropy = 4;
+        tex.minFilter = THREE.LinearFilter; tex.anisotropy = 4;
         return tex;
     }, [text, bg, fg, accent]);
 
@@ -107,7 +88,7 @@ function ItemMesh({ type = "crate" }) {
 }
 
 function canPickUp(it) {
-    if (!it || it.holder) return false; // held items are not actionable
+    if (!it || it.holder) return false;
     const me = myPlayer();
     const px = Number(me.getState("x") || 0);
     const pz = Number(me.getState("z") || 0);
@@ -115,10 +96,8 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-/* ------------ item entity (no DOM, no buttons) ------------ */
 function ItemEntity({ it }) {
-    // If somehow called with a held item, never render it.
-    if (it.holder) return null;
+    if (it.holder) return null; // safety: never render held items
 
     const actionable = canPickUp(it);
     const label = it.name || prettyName(it.type);
@@ -126,29 +105,14 @@ function ItemEntity({ it }) {
     return (
         <group
             position={[it.x, (it.y || 0) + 0.25, it.z]}
-            onPointerOver={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = actionable ? "pointer" : "not-allowed";
-            }}
-            onPointerOut={(e) => {
-                e.stopPropagation();
-                document.body.style.cursor = "";
-            }}
+            onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = actionable ? "pointer" : "not-allowed"; }}
+            onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = ""; }}
         >
-            {/* actual item */}
             <ItemMesh type={it.type} />
-
-            {/* small ring to show focus */}
             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.35, 0.42, 24]} />
-                <meshBasicMaterial
-                    color={actionable ? "#86efac" : "#64748b"}
-                    transparent
-                    opacity={actionable ? 0.85 : 0.4}
-                />
+                <meshBasicMaterial color={actionable ? "#86efac" : "#64748b"} transparent opacity={actionable ? 0.85 : 0.4} />
             </mesh>
-
-            {/* floating hint */}
             <Billboard position={[0, 0.85, 0]}>
                 <TextSprite text={actionable ? `Press P to pick up ${label}` : label} />
             </Billboard>
@@ -156,16 +120,12 @@ function ItemEntity({ it }) {
     );
 }
 
-/* ------------ export: devices + floor items ------------ */
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-
-    // Only render items that are NOT held by any player.
     const floorItems = useMemo(() => (items || []).filter(it => !it.holder), [items]);
 
     return (
         <group>
-            {/* Devices (static meshes; interaction via keyboard + host) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -178,11 +138,7 @@ export default function ItemsAndDevices() {
                     </mesh>
                 </group>
             ))}
-
-            {/* Floor items vanish immediately once holder is set */}
-            {floorItems.map((it) => (
-                <ItemEntity key={it.id} it={it} />
-            ))}
+            {floorItems.map((it) => (<ItemEntity key={it.id} it={it} />))}
         </group>
     );
 }
