@@ -39,23 +39,24 @@ export default function InteractionSystem() {
 
             // ---------- PICKUP (P) ----------
             if (k === "p") {
-                // already holding something
-                if (carryId) return;
+                // allow pickup EVEN IF already holding something:
+                // - host will add to backpack
+                // - if not holding, host may also set carry
+                // cooldown UX (host is authoritative)
+                const nowSec = Math.floor(Date.now() / 1000);
+                let until = Number(me.getState("pickupUntil") || 0);
+                if (until > 1e11) until = Math.floor(until / 1000); // normalize if ms slipped in
 
-                // client-side cooldown UX (host still authoritative)
-                const nowSec = (Date.now() / 1000) | 0;
-                const until = Number(me.getState("pickupUntil") || 0);
                 if (nowSec < until) {
                     const left = Math.max(0, Math.ceil(until - nowSec));
-                    // TODO: surface in your HUD if desired
-                    console.warn(`[pickup] on cooldown: ${left}s left (of ${PICKUP_COOLDOWN}s)`);
-                    return; // don't send the action during cooldown
+                    console.warn(`[pickup] cooldown: ${left}s remaining (of ${PICKUP_COOLDOWN}s)`);
+                    return;
                 }
 
-                // find nearest free item in radius
+                // find nearest free item within radius
                 let pick = null, best = Infinity;
                 for (const it of list) {
-                    if (it.holder) continue;
+                    if (it.holder) continue; // skip items already owned by someone
                     const dx = px - it.x, dz = pz - it.z, d2 = dx * dx + dz * dz;
                     if (d2 < best && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) { pick = it; best = d2; }
                 }
