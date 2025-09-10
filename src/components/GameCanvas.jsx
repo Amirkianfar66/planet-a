@@ -1,7 +1,6 @@
 ﻿// src/components/GameCanvas.jsx
 import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
-import { isHost as prIsHost } from "playroomkit";
 import * as THREE from "three";
 
 import {
@@ -12,10 +11,7 @@ import {
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
-import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
-import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
-import InteractionSystem from "../systems/InteractionSystem.jsx";
-import HostRafDriver from "../systems/HostRafDriver.jsx";
+import SimplePickupDemo from "../world/SimplePickupDemo.jsx";
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({
@@ -106,7 +102,7 @@ function FloorAndWalls() {
     );
 }
 
-/* ---------------- Root canvas + overlays ---------------- */
+/* ---------------- Root canvas + demo ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -116,30 +112,20 @@ export default function GameCanvas({ dead = [] }) {
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 gl={{ powerPreference: "high-performance" }}
             >
-                {/* Scene background */}
                 <color attach="background" args={["#0b1220"]} />
 
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 10, 3]} intensity={1} />
 
                 <FloorAndWalls />
-                <ItemsAndDevices />
+
+                {/* 💡 Minimal single-item pickup demo */}
+                <SimplePickupDemo />
+
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
-
-                {/* Host-only rAF + background fallback driver */}
-                {prIsHost() && <HostRafDriver />}
             </Canvas>
-
-            {/* DOM overlays should NOT block canvas clicks */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                <InteractionSystem />
-                {/* If InteractionSystem renders interactive elements, set pointerEvents: 'auto' on those specific nodes. */}
-            </div>
-
-            {/* Non-visual host logic (host-only) */}
-            {prIsHost() && <ItemsHostLogic />}
         </div>
     );
 }
