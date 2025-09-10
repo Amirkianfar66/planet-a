@@ -1,3 +1,4 @@
+// src/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
@@ -23,7 +24,13 @@ function Billboard({ children, position = [0, 0, 0] }) {
     return <group ref={ref} position={position}>{children}</group>;
 }
 
-function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff", accent = "#9cc8ff" }) {
+function TextSprite({
+    text = "",
+    width = 0.95,
+    bg = "rgba(20,26,34,0.92)",
+    fg = "#ffffff",
+    accent = "#9cc8ff"
+}) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 512; canvas.height = 192;
@@ -89,21 +96,24 @@ function ItemMesh({ type = "crate" }) {
 
 function canPickUp(it) {
     if (!it || it.holder) return false;
-    const me = myPlayer();
+    const me = myPlayer?.();
+    if (!me) return false;
     const px = Number(me.getState("x") || 0);
     const pz = Number(me.getState("z") || 0);
     const dx = px - it.x, dz = pz - it.z;
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-+ function ItemEntity({ id }) {
-         // Pull the latest items array every render
-             const { items } = useItemsSync();
-         const it = useMemo(() => (items || []).find(i => i.id === id), [items, id]);
-         if (!it) return null;
-         if (it.holder) return null; // held → don't render floor copy
-         const actionable = canPickUp(it);
-         const label = it.name || prettyName(it.type);
+// Re-reads the latest item by id each render so 'holder' hides floor copy immediately
+function ItemEntity({ id }) {
+    const { items } = useItemsSync();
+    const it = useMemo(() => (items || []).find(i => i.id === id), [items, id]);
+
+    if (!it) return null;
+    if (it.holder) return null; // ✅ held → don't render floor copy
+
+    const actionable = canPickUp(it);
+    const label = it.name || prettyName(it.type);
 
     return (
         <group
@@ -129,6 +139,7 @@ export default function ItemsAndDevices() {
 
     return (
         <group>
+            {/* Devices */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -141,6 +152,8 @@ export default function ItemsAndDevices() {
                     </mesh>
                 </group>
             ))}
+
+            {/* Items */}
             {itemIds.map((id) => (<ItemEntity key={id} id={id} />))}
         </group>
     );
