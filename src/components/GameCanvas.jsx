@@ -13,16 +13,11 @@ import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
 
-// --- Toggle demo vs full system ---
-const USE_DEMO = false;
-
-// Demo (single networked item)
-import SimplePickupDemo from "../world/SimplePickupDemo.jsx";
-
-// Full system (host-authoritative items)
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
+// If you still use a host rAF driver elsewhere, keep this:
+// import HostRafDriver from "../systems/HostRafDriver.jsx";
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({
@@ -113,7 +108,7 @@ function FloorAndWalls() {
     );
 }
 
-/* ---------------- Root canvas + overlays ---------------- */
+/* ---------------- Root canvas ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -131,24 +126,24 @@ export default function GameCanvas({ dead = [] }) {
 
                 <FloorAndWalls />
 
-                {/* Demo or Full system */}
-                {USE_DEMO ? <SimplePickupDemo /> : <ItemsAndDevices />}
+                {/* Full networked item system */}
+                <ItemsAndDevices />
 
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
+
+                {/* If you still rely on a host rAF driver, uncomment: */}
+                {/* {prIsHost() && <HostRafDriver />} */}
             </Canvas>
 
             {/* DOM overlays should NOT block canvas clicks */}
-            {!USE_DEMO && (
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                    <InteractionSystem />
-                    {/* If InteractionSystem renders interactive elements, give those nodes pointerEvents:'auto'. */}
-                </div>
-            )}
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+                <InteractionSystem />
+            </div>
 
             {/* Non-visual host logic (host-only) */}
-            {!USE_DEMO && prIsHost() && <ItemsHostLogic />}
+            {prIsHost() && <ItemsHostLogic />}
         </div>
     );
 }
