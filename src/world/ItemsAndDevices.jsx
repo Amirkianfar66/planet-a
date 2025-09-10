@@ -1,4 +1,3 @@
-// src/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
@@ -116,11 +115,7 @@ function ItemEntity({ id }) {
     const label = it.name || prettyName(it.type);
 
     return (
-        <group
-            position={[it.x, (it.y || 0) + 0.25, it.z]}
-            onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = actionable ? "pointer" : "not-allowed"; }}
-            onPointerOut={(e) => { e.stopPropagation(); document.body.style.cursor = ""; }}
-        >
+        <group position={[it.x, (it.y || 0) + 0.25, it.z]}>
             <ItemMesh type={it.type} />
             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.35, 0.42, 24]} />
@@ -140,7 +135,7 @@ export default function ItemsAndDevices() {
     return (
         <group>
             {/* Devices */}
-            {DEVICES.map((d) => (
+            {DEVICES.map(d => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
                         <boxGeometry args={[1.1, 1.0, 0.6]} />
@@ -154,7 +149,7 @@ export default function ItemsAndDevices() {
             ))}
 
             {/* Items */}
-            {itemIds.map((id) => (<ItemEntity key={id} id={id} />))}
+            {itemIds.map(id => <ItemEntity key={id} id={id} />)}
         </group>
     );
 }
