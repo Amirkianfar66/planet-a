@@ -18,7 +18,7 @@ export default function useItemsSync() {
     myPlayer().setState("itemsJson", JSON.stringify(items), true);
   }, [iAmHost, items]);
 
-  // clients read the host's items JSON
+  // clients read the host items JSON
   useEffect(() => {
     if (iAmHost) return;
     const id = setInterval(() => {
