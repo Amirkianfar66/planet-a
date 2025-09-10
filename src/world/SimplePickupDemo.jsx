@@ -1,20 +1,18 @@
-import React, { useMemo, useRef } from "react";
-import * as THREE from "three";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
-import useItemsSync from "../systems/useItemsSync.js";
-import { DEVICES } from "../data/gameObjects.js";
-import { myPlayer } from "playroomkit";
-import { PICKUP_RADIUS } from "../data/constants.js";
+import * as THREE from "three";
 
-function prettyName(type) {
-    switch (String(type)) {
-        case "o2can": return "O₂ Canister";
-        case "battery": return "Battery";
-        case "fuel": return "Fuel Rod";
-        case "food": return "Food";
-        default: return (type || "Item").toString();
-    }
-}
+/** ----------------------------------------------------------
+ *  SimplePickupDemo
+ *  - Renders ONE item at ITEM_POS.
+ *  - Pick up by pressing "P" or clicking the item.
+ *  - No networking, no external stores — purely local state.
+ *  - If you want distance gating, flip USE_DISTANCE_CHECK to true.
+ * --------------------------------------------------------- */
+
+const ITEM_POS = [2, 0, 0];         // x, y, z
+const USE_DISTANCE_CHECK = false;    // set true to require proximity
+const PICKUP_RADIUS = 3.5;           // used only if USE_DISTANCE_CHECK=true
 
 function Billboard({ children, position = [0, 0, 0] }) {
     const ref = useRef();
@@ -23,7 +21,7 @@ function Billboard({ children, position = [0, 0, 0] }) {
     return <group ref={ref} position={position}>{children}</group>;
 }
 
-function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff", accent = "#9cc8ff" }) {
+function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff" }) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 512; canvas.height = 192;
@@ -39,8 +37,6 @@ function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = 
         ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
         ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
 
-        ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(x + 20, y + 20, 8, 0, Math.PI * 2); ctx.fill();
-
         ctx.fillStyle = fg;
         ctx.font = "600 48px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -49,100 +45,87 @@ function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = 
         const tex = new THREE.CanvasTexture(canvas);
         tex.minFilter = THREE.LinearFilter; tex.anisotropy = 4;
         return tex;
-    }, [text, bg, fg, accent]);
+    }, [text, bg, fg]);
 
     const aspect = 512 / 192;
-    const height = width / aspect;
-
     return (
         <mesh>
-            <planeGeometry args={[width, height]} />
+            <planeGeometry args={[width, width / aspect]} />
             <meshBasicMaterial map={texture} transparent depthWrite={false} />
         </mesh>
     );
 }
 
-function ItemMesh({ type = "crate" }) {
-    switch (type) {
-        case "food":
-            return (<mesh><boxGeometry args={[0.35, 0.25, 0.35]} /><meshStandardMaterial color="#ff9f43" /></mesh>);
-        case "battery":
-            return (
-                <group>
-                    <mesh><cylinderGeometry args={[0.15, 0.15, 0.35, 12]} /><meshStandardMaterial color="#2dd4bf" /></mesh>
-                    <mesh position={[0, 0.2, 0]}><cylinderGeometry args={[0.06, 0.06, 0.1, 12]} /><meshStandardMaterial color="#0f172a" /></mesh>
-                </group>
-            );
-        case "o2can":
-            return (
-                <group>
-                    <mesh><cylinderGeometry args={[0.2, 0.2, 0.5, 14]} /><meshStandardMaterial color="#9bd1ff" /></mesh>
-                    <mesh position={[0, 0.28, 0]}><boxGeometry args={[0.08, 0.12, 0.08]} /><meshStandardMaterial color="#1e293b" /></mesh>
-                </group>
-            );
-        case "fuel":
-            return (<mesh><boxGeometry args={[0.12, 0.6, 0.12]} /><meshStandardMaterial color="#a78bfa" /></mesh>);
-        default:
-            return (<mesh><boxGeometry args={[0.3, 0.3, 0.3]} /><meshStandardMaterial color="#9ca3af" /></mesh>);
-    }
-}
-
-function canPickUp(it) {
-    if (!it || it.holder) return false;
-    const me = myPlayer?.();
-    if (!me) return false;
-    const px = Number(me.getState("x") || 0);
-    const pz = Number(me.getState("z") || 0);
-    const dx = px - it.x, dz = pz - it.z;
-    return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
-}
-
-/* --- child that re-reads item state by id --- */
-function ItemEntity({ id }) {
-    const { items } = useItemsSync();
-    const it = (items || []).find(i => i.id === id);
-    if (!it || it.holder) return null;
-
-    const actionable = canPickUp(it);
-    const label = it.name || prettyName(it.type);
-
+function ItemMesh() {
+    // a simple “battery-like” shape
     return (
-        <group position={[it.x, (it.y || 0) + 0.25, it.z]} visible={!it.holder}>
-            <ItemMesh type={it.type} />
-            <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[0.35, 0.42, 24]} />
-                <meshBasicMaterial color={actionable ? "#86efac" : "#64748b"} transparent opacity={actionable ? 0.85 : 0.4} />
-            </mesh>
-            <Billboard position={[0, 0.85, 0]}>
-                <TextSprite text={actionable ? `Press P to pick up ${label}` : label} />
-            </Billboard>
+        <group>
+            <mesh><cylinderGeometry args={[0.15, 0.15, 0.35, 12]} /><meshStandardMaterial color="#2dd4bf" /></mesh>
+            <mesh position={[0, 0.2, 0]}><cylinderGeometry args={[0.06, 0.06, 0.1, 12]} /><meshStandardMaterial color="#0f172a" /></mesh>
         </group>
     );
 }
 
-/* --- parent list: only items with no holder --- */
-export default function ItemsAndDevices() {
-    const { items } = useItemsSync();
-    const floorItems = useMemo(() => (items || []).filter(i => !i.holder), [items]);
+export default function SimplePickupDemo() {
+    const [picked, setPicked] = useState(false);
+    const [dist, setDist] = useState(Infinity);
+    const [inRange, setInRange] = useState(false);
+
+    // Track camera distance as an easy proxy for "player" proximity
+    const { camera } = useThree();
+    useFrame(() => {
+        if (!USE_DISTANCE_CHECK) return;
+        const dx = camera.position.x - ITEM_POS[0];
+        const dz = camera.position.z - ITEM_POS[2];
+        const d = Math.hypot(dx, dz);
+        setDist(d);
+        setInRange(d <= PICKUP_RADIUS);
+    });
+
+    // Key: press "P" to pick up
+    useEffect(() => {
+        function onKeyDown(e) {
+            if ((e.key || "").toLowerCase() !== "p") return;
+            if (picked) return;
+            if (USE_DISTANCE_CHECK && !inRange) return;
+            console.log("[DEMO] Picked up via keyboard");
+            setPicked(true); // ✅ hide mesh
+        }
+        window.addEventListener("keydown", onKeyDown, { passive: true });
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [picked, inRange]);
+
+    // Mouse: click the item to pick up
+    const handleClick = () => {
+        if (picked) return;
+        if (USE_DISTANCE_CHECK && !inRange) return;
+        console.log("[DEMO] Picked up via click");
+        setPicked(true); // ✅ hide mesh
+    };
+
+    if (picked) return null; // floor copy disappears entirely
+
+    const label = USE_DISTANCE_CHECK
+        ? (inRange ? `Press P or Click to pick up (d=${dist.toFixed(2)})` : `Get closer (d=${dist.toFixed(2)})`)
+        : "Press P or Click to pick up";
 
     return (
-        <group>
-            {DEVICES.map(d => (
-                <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
-                    <mesh>
-                        <boxGeometry args={[1.1, 1.0, 0.6]} />
-                        <meshStandardMaterial color="#2c3444" />
-                    </mesh>
-                    <mesh position={[0, 0.3, 0.33]}>
-                        <planeGeometry args={[0.8, 0.35]} />
-                        <meshBasicMaterial color="#8fb3ff" />
-                    </mesh>
-                </group>
-            ))}
-
-            {floorItems.map(it => (
-                <ItemEntity key={`${it.id}:${it.holder || "free"}`} id={it.id} />
-            ))}
+        <group
+            position={[ITEM_POS[0], ITEM_POS[1] + 0.25, ITEM_POS[2]]}
+            onPointerDown={(e) => { e.stopPropagation(); handleClick(); }}
+            onPointerOver={() => { document.body.style.cursor = "pointer"; }}
+            onPointerOut={() => { document.body.style.cursor = ""; }}
+        >
+            <ItemMesh />
+            {/* ring */}
+            <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.35, 0.42, 24]} />
+                <meshBasicMaterial color={"#86efac"} transparent opacity={0.85} />
+            </mesh>
+            {/* floating label */}
+            <Billboard position={[0, 0.85, 0]}>
+                <TextSprite text={label} />
+            </Billboard>
         </group>
     );
 }

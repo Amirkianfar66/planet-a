@@ -11,7 +11,7 @@ import {
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
-
+import SimplePickupDemo from "../world/SimplePickupDemo.jsx";
 
 /* ---------- Canvas-text floor label ----------- */
 function TextLabel({
