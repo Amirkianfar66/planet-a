@@ -119,7 +119,7 @@ export default function GameCanvas({ dead = [] }) {
 
                 <FloorAndWalls />
 
-                {/* 💡 Minimal single-item pickup demo */}
+                {/* Networked one-item demo (host authoritative) */}
                 <SimplePickupDemo />
 
                 <Players3D dead={dead} />
