@@ -23,13 +23,7 @@ function Billboard({ children, position = [0, 0, 0] }) {
     return <group ref={ref} position={position}>{children}</group>;
 }
 
-function TextSprite({
-    text = "",
-    width = 0.95,
-    bg = "rgba(20,26,34,0.92)",
-    fg = "#ffffff",
-    accent = "#9cc8ff"
-}) {
+function TextSprite({ text = "", width = 0.95, bg = "rgba(20,26,34,0.92)", fg = "#ffffff", accent = "#9cc8ff" }) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 512; canvas.height = 192;
@@ -103,19 +97,17 @@ function canPickUp(it) {
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
-// Re-reads the latest item by id each render so 'holder' hides floor copy immediately
+/* --- child that re-reads item state by id --- */
 function ItemEntity({ id }) {
     const { items } = useItemsSync();
     const it = (items || []).find(i => i.id === id);
-
-    if (!it) return null;
-    if (it.holder) return null; // ✅ held → don't render floor copy
+    if (!it || it.holder) return null;
 
     const actionable = canPickUp(it);
     const label = it.name || prettyName(it.type);
 
     return (
-        <group position={[it.x, (it.y || 0) + 0.25, it.z]}>
+        <group position={[it.x, (it.y || 0) + 0.25, it.z]} visible={!it.holder}>
             <ItemMesh type={it.type} />
             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[0.35, 0.42, 24]} />
@@ -128,13 +120,13 @@ function ItemEntity({ id }) {
     );
 }
 
+/* --- parent list: only items with no holder --- */
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-    
+    const floorItems = useMemo(() => (items || []).filter(i => !i.holder), [items]);
 
     return (
         <group>
-            {/* Devices */}
             {DEVICES.map(d => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -148,10 +140,9 @@ export default function ItemsAndDevices() {
                 </group>
             ))}
 
-            {/* Items */}
-            {(items || []).map((it) => (
-                   <ItemEntity key={`${it.id}:${it.holder || "free"}`} id={it.id} />
-                 ))}
+            {floorItems.map(it => (
+                <ItemEntity key={`${it.id}:${it.holder || "free"}`} id={it.id} />
+            ))}
         </group>
     );
 }

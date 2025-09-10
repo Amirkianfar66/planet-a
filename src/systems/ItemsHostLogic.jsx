@@ -121,7 +121,6 @@ export default function ItemsHostLogic() {
 
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
-                    // cooldown (seconds) with ms→s safety
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
                     if (until > 1e11) until = Math.floor(until / 1000);
@@ -135,40 +134,34 @@ export default function ItemsHostLogic() {
                     const it = findItem(target);
                     if (!it) {
                         hostAppendEvent(setEvents, `${name} tried to pick up a missing item (${target}).`);
-                        processed.current.set(p.id, { id: reqId });
-                        continue;
+                        processed.current.set(p.id, { id: reqId }); continue;
                     }
                     if (it.holder && it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
-                        processed.current.set(p.id, { id: reqId });
-                        continue;
+                        processed.current.set(p.id, { id: reqId }); continue;
                     }
                     if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                        processed.current.set(p.id, { id: reqId });
-                        continue;
+                        processed.current.set(p.id, { id: reqId }); continue;
                     }
 
                     const dx = px - it.x, dz = pz - it.z;
                     const dist = Math.hypot(dx, dz);
-                    console.log(`[HOST] pickup check ${it.id} dist=${dist.toFixed(2)} R=${PICKUP_RADIUS}`);
-
                     if (dist > PICKUP_RADIUS) {
                         hostAppendEvent(setEvents, `${name} is too far to pick up ${it.type}.`);
-                        processed.current.set(p.id, { id: reqId });
-                        continue;
+                        processed.current.set(p.id, { id: reqId }); continue;
                     }
 
-                    // ✅ Always remove floor copy: mark as held by this player (broadcast)
+                    // ✅ Remove floor copy (set holder) and broadcast
                     setItems(prev =>
                         prev.map(j => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
                         true);
 
-                    // Put in hand only if empty hand; otherwise keep carrying current item
+                    // Only change 'carry' if hand is empty
                     const carrying = String(p.getState("carry") || "");
                     if (!carrying) p.setState("carry", it.id, true);
 
-                    // Ensure it's in backpack once
+                    // Ensure it's in the backpack
                     const bp = getBackpack(p);
                     if (!bp.find(b => b.id === it.id)) {
                         setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
@@ -183,7 +176,6 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, { id: reqId });
                     continue;
                 }
-
 
 
                 // ---------- DROP ----------
