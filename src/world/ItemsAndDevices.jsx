@@ -35,7 +35,7 @@ function TextSprite({
     width = 0.95,
     bg = "rgba(20,26,34,0.92)",
     fg = "#ffffff",
-    accent = "#9cc8ff"
+    accent = "#9cc8ff",
 }) {
     const texture = useMemo(() => {
         const canvas = document.createElement("canvas");
@@ -107,7 +107,7 @@ function ItemMesh({ type = "crate" }) {
 }
 
 function canPickUp(it) {
-    if (!it || it.holder) return false;
+    if (!it || it.holder) return false; // held items are not actionable
     const me = myPlayer();
     const px = Number(me.getState("x") || 0);
     const pz = Number(me.getState("z") || 0);
@@ -117,6 +117,9 @@ function canPickUp(it) {
 
 /* ------------ item entity (no DOM, no buttons) ------------ */
 function ItemEntity({ it }) {
+    // If somehow called with a held item, never render it.
+    if (it.holder) return null;
+
     const actionable = canPickUp(it);
     const label = it.name || prettyName(it.type);
 
@@ -157,9 +160,12 @@ function ItemEntity({ it }) {
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
+    // Only render items that are NOT held by any player.
+    const floorItems = useMemo(() => (items || []).filter(it => !it.holder), [items]);
+
     return (
         <group>
-            {/* Devices (non-interactive here; use handled via keyboard + host) */}
+            {/* Devices (static meshes; interaction via keyboard + host) */}
             {DEVICES.map((d) => (
                 <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
                     <mesh>
@@ -173,8 +179,8 @@ export default function ItemsAndDevices() {
                 </group>
             ))}
 
-            {/* Items only when not held */}
-            {items.filter(it => !it.holder).map((it) => (
+            {/* Floor items vanish immediately once holder is set */}
+            {floorItems.map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}
         </group>

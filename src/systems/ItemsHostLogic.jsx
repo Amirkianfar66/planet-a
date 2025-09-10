@@ -134,30 +134,46 @@ export default function ItemsHostLogic() {
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
                     const it = findItem(target);
+
                     if (!it) {
                         hostAppendEvent(setEvents, `${name} tried to pick up a missing item (${target}).`);
                     } else if (it.holder && it.holder !== p.id) {
                         hostAppendEvent(setEvents, `${name} tried to pick up ${it.type} but it's already held.`);
                     } else if (!hasCapacity(p)) {
                         hostAppendEvent(setEvents, `${name}'s backpack is full.`);
-                    } else if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {
-                        setItems(prev =>
-                            prev.map(j => j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j),
-                            true
-                        );
-                        p.setState("carry", it.id, true);
-                        const bp = getBackpack(p);
-                        if (!bp.find(b => b.id === it.id)) {
-                            setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
-                        }
-                        hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
                     } else {
-                        hostAppendEvent(
-                            setEvents,
-                            `${name} is too far to pick up ${it?.type || "item"} (player=(${px.toFixed(2)},${pz.toFixed(2)}), item=(${it?.x},${it?.z}))`
-                        );
+                        // 🔎 log distance BEFORE the radius check
+                        const dx = px - (it?.x ?? 0), dz = pz - (it?.z ?? 0);
+                        const dist = Math.hypot(dx, dz);
+                        console.log(`[HOST] pickup check ${it?.id} dist=${dist.toFixed(2)} R=${PICKUP_RADIUS}`);
+
+                        if (near2(px, pz, it.x, it.z, PICKUP_RADIUS)) {
+                            // ✅ success path
+                            setItems(
+                                prev => prev.map(j =>
+                                    j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
+                                ),
+                                true
+                            );
+                            p.setState("carry", it.id, true);
+
+                            const bp = getBackpack(p);
+                            if (!bp.find(b => b.id === it.id)) {
+                                setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
+                            }
+
+                            console.log("[HOST] PICKUP OK", it.id);               // 👈 put it here
+                            hostAppendEvent(setEvents, `${name} picked up ${it.type}.`);
+                        } else {
+                            console.log("[HOST] PICKUP TOO FAR", it?.id);          // 👈 and here
+                            hostAppendEvent(
+                                setEvents,
+                                `${name} is too far to pick up ${it?.type || "item"} (player=(${px.toFixed(2)},${pz.toFixed(2)}), item=(${it?.x},${it?.z}))`
+                            );
+                        }
                     }
                 }
+
 
                 // ---------- DROP ----------
                 if (type === "drop") {
