@@ -104,7 +104,11 @@ export default function ItemsHostLogic() {
                 const type = String(p.getState("reqType") || "");
                 const target = String(p.getState("reqTarget") || "");
                 const value = Number(p.getState("reqValue") || 0);
-
+                // Ignore initial/uninitialized state (id=0), but mark processed so we don't spam
+                       if (reqId === 0) {
+                             processed.current.set(p.id, { id: 0 });
+                             continue;
+                           }
                 console.log(`[HOST] req ${p.id.slice(0, 4)}: type=${type} target=${target} val=${value} id=${reqId}`);
 
                 const name = p.getProfile().name || `Player ${p.id.slice(0, 4)}`;
