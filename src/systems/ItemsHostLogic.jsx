@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import useItemsSync from "./useItemsSync.js";
+import useItemsSync from "../systems/useItemsSync.js"
 import { useMeters, hostAppendEvent, useEvents } from "../network/playroom.js";
 import { DEVICES, USE_EFFECTS, clamp01 } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
+
 const FLOOR_Y = 0;
 const GRAV = 16;
 const THROW_SPEED = 8;
@@ -120,7 +121,7 @@ export default function ItemsHostLogic() {
 
                 // ---------- PICKUP ----------
                 if (type === "pickup") {
-                    // cooldown (seconds, with ms→s safety)
+                    // cooldown (seconds) with ms→s safety
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
                     if (until > 1e11) until = Math.floor(until / 1000);
@@ -163,11 +164,11 @@ export default function ItemsHostLogic() {
                         prev.map(j => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
                         true);
 
-                    // Only put in hand if empty hand; otherwise leave current carry as-is
+                    // Put in hand only if empty hand; otherwise keep carrying current item
                     const carrying = String(p.getState("carry") || "");
                     if (!carrying) p.setState("carry", it.id, true);
 
-                    // Ensure it’s in backpack (once)
+                    // Ensure it's in backpack once
                     const bp = getBackpack(p);
                     if (!bp.find(b => b.id === it.id)) {
                         setBackpack(p, [...bp, { id: it.id, type: it.type, name: nameFromItem(it) }]);
@@ -182,6 +183,7 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, { id: reqId });
                     continue;
                 }
+
 
 
                 // ---------- DROP ----------

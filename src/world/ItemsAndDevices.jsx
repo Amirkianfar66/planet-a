@@ -106,7 +106,7 @@ function canPickUp(it) {
 // Re-reads the latest item by id each render so 'holder' hides floor copy immediately
 function ItemEntity({ id }) {
     const { items } = useItemsSync();
-    const it = useMemo(() => (items || []).find(i => i.id === id), [items, id]);
+    const it = (items || []).find(i => i.id === id);
 
     if (!it) return null;
     if (it.holder) return null; // ✅ held → don't render floor copy
@@ -130,7 +130,7 @@ function ItemEntity({ id }) {
 
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-    const itemIds = useMemo(() => (items || []).map(i => i.id), [items]);
+    
 
     return (
         <group>
@@ -149,7 +149,9 @@ export default function ItemsAndDevices() {
             ))}
 
             {/* Items */}
-            {itemIds.map(id => <ItemEntity key={id} id={id} />)}
+            {(items || []).map((it) => (
+                   <ItemEntity key={`${it.id}:${it.holder || "free"}`} id={it.id} />
+                 ))}
         </group>
     );
 }
