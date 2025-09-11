@@ -1,5 +1,4 @@
-// src/components/Players3D.jsx
-import React from "react";
+﻿import React from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
 import { ROLE_COMPONENTS, Engineer as DefaultRole } from "./characters3d/index.js";
 import { DEVICES } from "../data/gameObjects.js";
@@ -8,19 +7,13 @@ import { requestAction } from "../network/playroom";
 export default function Players3D({ dead = [] }) {
     const players = usePlayersList(true);
 
-    // nearest device within its radius
     const nearestDevice = (x, z) => {
-        let best = null;
-        let bestD2 = Infinity;
+        let best = null, bestD2 = Infinity;
         for (const d of DEVICES) {
-            const dx = d.x - x;
-            const dz = d.z - z;
+            const dx = d.x - x, dz = d.z - z;
             const d2 = dx * dx + dz * dz;
             const r = (d.radius || 1.3);
-            if (d2 <= r * r && d2 < bestD2) {
-                best = d;
-                bestD2 = d2;
-            }
+            if (d2 <= r * r && d2 < bestD2) { best = d; bestD2 = d2; }
         }
         return best;
     };
@@ -35,8 +28,19 @@ export default function Players3D({ dead = [] }) {
                 const z = Number(p.getState("z") ?? 0);
                 const yaw = Number(p.getState("yaw") ?? 0);
 
-                const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
+                // ✅ Prefer the editable, network-synced name
+                const nameState = String(p.getState?.("name") ?? "").trim();
+                const baseName =
+                    nameState ||
+                    p.getProfile?.().name ||
+                    p.name ||
+                    `Player-${String(p.id || "").slice(-4)}`;
+
                 const role = String(p.getState("role") || "Engineer");
+
+                // Show "Name — Role" above the head (adjust if you want only the name)
+                const headLabel = role ? `${baseName} — ${role}` : baseName;
+
                 const speed = Number(p.getState("spd") || 0);
                 const airborne = !!p.getState("air");
                 const carry = String(p.getState("carry") || "");
@@ -47,11 +51,8 @@ export default function Players3D({ dead = [] }) {
                 const handleUseCarry = () => {
                     if (!isLocal || !carry) return;
                     const dev = nearestDevice(x, z);
-                    if (dev) {
-                        requestAction("use", `${dev.id}|${carry}`, 0);
-                    } else {
-                        requestAction("use", `eat|${carry}`, 0);
-                    }
+                    if (dev) requestAction("use", `${dev.id}|${carry}`, 0);
+                    else requestAction("use", `eat|${carry}`, 0);
                 };
 
                 const handleThrowCarry = () => {
@@ -62,7 +63,7 @@ export default function Players3D({ dead = [] }) {
                 return (
                     <group key={p.id} position={[x, y, z]} rotation={[0, yaw, 0]}>
                         <Comp
-                            name={name}
+                            name={headLabel}    // ← use the synced name (and role)
                             showName
                             speed={speed}
                             airborne={airborne}

@@ -4,24 +4,26 @@ import {
     useMultiplayerState,
     myPlayer,
     isHost,
-    getRoomCode, // ← use official getter, not window.playroomkit
+    getRoomCode, // ok if your playroomkit exports it
 } from "playroomkit";
 
 /* -------------------- Room code helpers -------------------- */
 export async function ensureRoomCodeInUrl(retries = 120) {
-    // Try to read ?r= from URL, else poll getRoomCode() until we have one (~6s max)
+    if (typeof window === "undefined") return undefined;
+
     let code = null;
     try {
         code = new URL(window.location.href).searchParams.get("r");
     } catch { }
+
     let i = 0;
     while (!code && i < retries) {
         try { code = getRoomCode?.(); } catch { }
         if (code) break;
-        // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, 50));
+        await new Promise((r) => setTimeout(r, 50)); // ~6s worst case
         i++;
     }
+
     if (code) {
         const u = new URL(window.location.href);
         u.searchParams.set("r", code);
@@ -29,34 +31,43 @@ export async function ensureRoomCodeInUrl(retries = 120) {
     }
     return code || undefined;
 }
-// Show an in-lobby reveal for N ms (timestamp in ms since epoch)
+
+// Keep your reveal hook
 export function useLobbyRevealUntil() {
-    return useMultiplayerState('lobbyRevealUntil', 0);
+    return useMultiplayerState("lobbyRevealUntil", 0);
 }
 
+/* ---------- Invite URL builders: sync and async (preferred) ---------- */
 export function teamInviteUrl(teamId) {
-    // Build from origin+path so we don’t carry stale query noise
+    if (typeof window === "undefined") {
+        return `/?team=${encodeURIComponent(teamId)}`;
+    }
     const base = new URL(window.location.origin + window.location.pathname);
-    // Prefer ?r= already in URL; otherwise ask SDK
-    const existing = new URL(window.location.href).searchParams.get("r");
-    const code = existing || getRoomCode?.();
+    const u = new URL(window.location.href);
+
+    // prefer existing ?r=, otherwise ask SDK
+    const code = u.searchParams.get("r") || getRoomCode?.();
     if (code) base.searchParams.set("r", code);
+
     base.searchParams.set("team", teamId);
     return base.toString();
+}
+
+// ✅ Use this one in your Lobby before copying/sharing the link
+export async function teamInviteUrlAsync(teamId) {
+    await ensureRoomCodeInUrl(); // guarantees ?r= is present
+    return teamInviteUrl(teamId);
 }
 
 /* -------------------- Open lobby (always persist ?r=) -------------------- */
 export async function openLobby() {
     try {
+        if (typeof window === "undefined") return;
         const url = new URL(window.location.href);
         const roomCodeFromUrl = url.searchParams.get("r") || undefined;
 
-        // Join existing room if r= is present; otherwise create one
         await insertCoin({ skipLobby: true, roomCode: roomCodeFromUrl });
-
-        // Now force-write ?r=<code> for everyone (host + joiners)
-        await ensureRoomCodeInUrl();
-        // console.debug("[playroom] room code:", getRoomCode?.());
+        await ensureRoomCodeInUrl(); // force-write ?r= for everyone
     } catch (e) {
         console.error("insertCoin failed:", e);
         throw e;
@@ -80,9 +91,9 @@ export function useMeters() {
     const [cctv, setCCTV] = useMultiplayerState("cctv", 100);
     return { oxygen, power, cctv, setOxygen, setPower, setCCTV };
 }
-// One-time guard so host assigns infection only once
+
 export function useInfectedAssigned() {
-    return useMultiplayerState('infectedAssigned', false);
+    return useMultiplayerState("infectedAssigned", false);
 }
 
 export function useDead() { return useMultiplayerState("dead", []); }
@@ -129,7 +140,6 @@ export async function waitForLocalPlayer(timeoutMs = 5000) {
     const start = Date.now();
     while (!myPlayer?.()) {
         if (Date.now() - start > timeoutMs) return null;
-        // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 50));
     }
     return myPlayer();

@@ -77,22 +77,22 @@ export default function App() {
         setEvents,
     });
 
-    // ensure local player has a name/team once ready
+    // Give the player a name only (do NOT auto-assign team here)
     useEffect(() => {
         if (!ready) return;
         const me = myPlayer();
         if (!me) return;
-
         if (!me.getState?.("name")) {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
         }
-        const currentTeam = me.getState?.("team") || me.getState?.("teamName");
-        if (!currentTeam) {
-            me.setState?.("team", "Team Alpha", true);
-        }
+        // IMPORTANT: don't set any default team here.
+        // Let Lobby handle team join/create and url invites.
     }, [ready]);
 
+    // (Optional) host-only quick launch used outside Lobby, but we don't need it now
+    // because Lobby handles launch + infected reveal. Keeping here in case you want
+    // a keyboard shortcut later.
     function launchGame() {
         if (!isHost()) return;
         setPhase("day", true);
@@ -105,18 +105,18 @@ export default function App() {
     const myId = meP?.id;
 
     const labelFromType = (t) =>
-        t === "food" ? "Food Ration"
-            : t === "battery" ? "Battery Pack"
-                : t === "o2can" ? "O₂ Canister"
-                    : t === "fuel" ? "Fuel Rod"
-                        : (t || "Item");
+        t === "food" ? "Food Ration" :
+            t === "battery" ? "Battery Pack" :
+                t === "o2can" ? "O₂ Canister" :
+                    t === "fuel" ? "Fuel Rod" :
+                        (t || "Item");
 
     const iconForType = (t) =>
-        t === "food" ? "🍎"
-            : t === "battery" ? "🔋"
-                : t === "o2can" ? "🫧"
-                    : t === "fuel" ? "🟣"
-                        : "📦";
+        t === "food" ? "🍎" :
+            t === "battery" ? "🔋" :
+                t === "o2can" ? "🫧" :
+                    t === "fuel" ? "🟣" :
+                        "📦";
 
     const myBackpack = useMemo(() => {
         if (!myId) return [];
@@ -140,7 +140,9 @@ export default function App() {
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
-    if (isInLobby) return <Lobby onLaunch={launchGame} />;
+
+    // Render your custom Lobby while phase is 'lobby'
+    if (isInLobby) return <Lobby />;
 
     // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
     const game = {
@@ -153,18 +155,14 @@ export default function App() {
             backpack: myBackpack,
             capacity: 8,
         },
-        // Drop a specific item (by id)
         onDropItem: (id) => requestAction("drop", id),
-        // Use a specific item (by id)
         onUseItem: (id) => {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") {
-                // eat anywhere
                 requestAction("use", `eat|${id}`);
             } else {
-                // other types must be used at a device; do it via world interaction
-                // (optional: show a toast/hint here)
+                // use other items at devices via world interaction
             }
         },
         requestAction,

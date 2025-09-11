@@ -39,8 +39,16 @@ function setMyState(key, value) {
     try { me.setState?.(key, value, true); } catch { }
 }
 function getPlayerName(p) {
-    return p?.getProfile?.().name || getPState(p, 'name', p?.name || `Player-${String(p?.id || '').slice(-4)}`);
+    // ✅ Prefer the editable, network-synced name first
+    const explicit = getPState(p, 'name', null);
+    if (explicit && String(explicit).trim()) return String(explicit).trim();
+
+    // fallback to Playroom profile name, then SDK name, then ID tail
+    return p?.getProfile?.().name
+        || p?.name
+        || `Player-${String(p?.id || '').slice(-4)}`;
 }
+
 function teamOf(p) { return getPState(p, 'team', null); }
 function roleOf(p) { return getPState(p, 'role', ''); }
 function slotOf(p) { const s = getPState(p, 'slot', null); return (s === 0 || s === 1 || s === 2) ? s : null; }
