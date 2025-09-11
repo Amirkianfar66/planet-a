@@ -18,15 +18,18 @@ function MetersPanel({
         ? (meters.find((m) => m.id === "energy") || meters.find((m) => m.id === "power"))
         : null;
 
-    const lifeVal = clamp100(lifeRec?.value ?? life ?? 100);
-    const oxygenVal = clamp100(oxyRec?.value ?? oxygen ?? 0);
-    const energyVal = clamp100(engRec?.value ?? energy ?? power ?? 0);
+    const lifeVal = clamp100(life ?? lifeRec?.value ?? 100);
+    const oxygenVal = clamp100(oxygen ?? oxyRec?.value ?? 0);
+    const energyVal = clamp100(energy ?? engRec?.value ?? power ?? 0);
 
     const lifeLabel = lifeRec?.label ?? "Life";
     const oxygenLabel = oxyRec?.label ?? "Oxygen";
     const energyLabel = engRec?.label ?? "Energy";
 
-    const energyKey = engRec?.id ?? (energy !== undefined ? "energy" : "power");
+    const energyKey =
+           energy !== undefined
+                 ? "energy"                     // prefer explicit local energy
+             : (engRec?.id ?? (power !== undefined ? "power" : "energy"));
 
     const Bar = ({ label, value, color }) => (
         <div style={{ display: "grid", gap: 4 }}>
