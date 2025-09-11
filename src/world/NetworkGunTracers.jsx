@@ -15,8 +15,8 @@ function Tracer({ a, b, life }) {
         return { pos: mid.toArray(), quat: q, len: length };
     }, [a, b]);
 
-    const width = 0.04; // thickness
-    const opacity = Math.max(0.15, life); // fade a bit
+    const width = 0.04;
+    const opacity = Math.max(0.15, life);
 
     return (
         <mesh position={pos} quaternion={quat}>
@@ -46,46 +46,65 @@ function ImpactFlash({ p, life }) {
     );
 }
 
+// --- helper: read vec from state even if serialized as JSON string
+const readVec = (p, key) => {
+    const v = p.getState?.(key);
+    if (Array.isArray(v)) return v;
+    if (typeof v === "string") {
+        try { const j = JSON.parse(v); if (Array.isArray(j)) return j; } catch { }
+    }
+    return null;
+};
+
 export default function NetworkGunTracers() {
     const players = usePlayersList(true);
+    const playersRef = useRef(players);
+    useEffect(() => { playersRef.current = players; }, [players]);
+
     const [segs, setSegs] = useState([]); // {id,a,b,until}
     const seen = useRef(new Map());
     const DURATION = 140; // ms on screen
 
-    // poll players' shotFxId at a light rate
+    // poll players' shotFxId at a light rate (kept constant; no interval churn)
     useEffect(() => {
         const iv = setInterval(() => {
             const now = performance.now();
+            const list = playersRef.current || [];
             const additions = [];
-            for (const p of players) {
+
+            for (const p of list) {
                 const fxId = Number(p.getState?.("shotFxId") || 0);
                 if (!fxId) continue;
-                const last = seen.current.get(p.id) || 0;
-                if (fxId !== last) {
-                    const a = p.getState?.("shotFxA");
-                    const b = p.getState?.("shotFxB");
-                    if (Array.isArray(a) && Array.isArray(b)) {
-                        additions.push({ id: `${p.id}:${fxId}`, a, b, until: now + DURATION });
-                    }
-                    seen.current.set(p.id, fxId);
-                }
+                if (seen.current.get(p.id) === fxId) continue;
+
+                const a = readVec(p, "shotFxA");
+                const b = readVec(p, "shotFxB");
+                if (a && b) additions.push({ id: `${p.id}:${fxId}`, a, b, until: now + DURATION });
+
+                seen.current.set(p.id, fxId);
             }
-            if (additions.length) setSegs(prev => [...prev, ...additions].slice(-64));
+
+            if (additions.length) {
+                setSegs(prev => [...prev, ...additions].slice(-64));
+            }
         }, 80);
         return () => clearInterval(iv);
-    }, [players]);
+    }, []);
 
-    // prune expired and force a light re-render
+    // prune only when something actually expires (no per-frame re-render flood)
     useFrame(() => {
         const now = performance.now();
-        setSegs(prev => prev.filter(s => s.until > now));
+        setSegs(prev => {
+            const next = prev.filter(s => s.until > now);
+            return next.length === prev.length ? prev : next;
+        });
     });
 
     const now = performance.now();
     return (
         <>
             {segs.map(s => {
-                const life = Math.max(0, (s.until - now) / DURATION);
+                const life = Math.max(0, (s.until - now) / DURATION); // fades without extra state
                 return (
                     <React.Fragment key={s.id}>
                         <Tracer a={s.a} b={s.b} life={life} />

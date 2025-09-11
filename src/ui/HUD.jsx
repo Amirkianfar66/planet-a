@@ -1,5 +1,5 @@
 // src/ui/HUD.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { myPlayer } from "playroomkit";
 import { MetersPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
 import { useGameState } from "../game/GameStateProvider";
@@ -62,42 +62,51 @@ function KeyGuidePanel() {
             <div><Key>Space</Key> Jump</div>
             <div><Key>P</Key> Interact — Pick Up / Use (at device) / Eat (food)</div>
             <div><Key>I</Key> Use selected from Backpack &nbsp;·&nbsp; <Key>O</Key> Drop held &nbsp;·&nbsp; <Key>R</Key> Throw held</div>
-            <div><Key>F</Key> Role Ability (e.g. <b>Shoot</b> for Guard)</div>
+            <div>
+                <Key>F</Key> Role Ability &nbsp;·&nbsp; <Key>G</Key> Bite <span style={{ opacity: 0.7 }}>(if infected)</span>
+            </div>
         </div>
     );
 }
 
 /* ---------- Ability bar (bottom-right above backpack) --------- */
-function AbilityBar({ role, onUse }) {
-    const abilities = useMemo(() => getAbilitiesForRole(role), [role]);
-    const [cooldowns, setCooldowns] = useState({}); // id -> readyAt ms
+function AbilityBar({ role, onUse, disabled = false }) {
+    // Track infection so abilities recompute immediately after infection flips
+    const me = myPlayer();
+    const [infected, setInfected] = useState(!!me?.getState?.("infected"));
+    useEffect(() => {
+        const t = setInterval(() => {
+            const flag = !!me?.getState?.("infected");
+            setInfected(prev => (prev === flag ? prev : flag));
+        }, 200);
+        return () => clearInterval(t);
+    }, [me]);
 
-    // simple local cooldown guard (host re-checks too)
-    const canFire = (id) => {
-        const t = cooldowns[id] || 0;
-        return performance.now() >= t;
-    };
+    const abilities = useMemo(() => getAbilitiesForRole(role), [role, infected]);
+
+    const [cooldowns, setCooldowns] = useState({}); // id -> readyAt ms
+    const canFire = (id) => performance.now() >= (cooldowns[id] || 0);
 
     const trigger = (a) => {
-        if (!a) return;
+        if (!a || disabled) return;
         if (!canFire(a.id)) return;
         onUse?.(a);
         setCooldowns((c) => ({ ...c, [a.id]: performance.now() + (a.cooldownMs || 0) }));
     };
 
-    // Key binding: use first ability's key; if conflict later, extend to many
+    // Key binding: match by configured key for ANY ability (F for role, G for Bite, etc.)
     useEffect(() => {
-        if (!abilities.length) return;
-        const a = abilities[0];
+        if (disabled) return;
         const onKey = (e) => {
-            if (e.code === (a.key || "KeyF")) {
+            const hit = abilities.find(ab => (ab.key || "KeyF") === e.code);
+            if (hit) {
                 e.preventDefault();
-                trigger(a);
+                trigger(hit);
             }
         };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [abilities]);
+    }, [abilities, disabled]);
 
     if (!abilities.length) return null;
 
@@ -114,23 +123,24 @@ function AbilityBar({ role, onUse }) {
                 color: "white",
                 width: 220,
                 pointerEvents: "auto",
+                opacity: disabled ? 0.5 : 1,
             }}
         >
             <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>Role Ability</div>
             {abilities.map((a) => {
                 const readyIn = Math.max(0, (cooldowns[a.id] || 0) - performance.now());
-                const disabled = readyIn > 0;
+                const isDisabled = disabled || readyIn > 0;
                 const sec = Math.ceil(readyIn / 1000);
                 return (
                     <button
                         key={a.id}
                         onClick={() => trigger(a)}
-                        disabled={disabled}
+                        disabled={isDisabled}
                         className="item-btn"
                         style={{ width: "100%" }}
                         title={a.label}
                     >
-                        {a.icon || "★"} {a.label} {disabled ? `(${sec}s)` : ""}
+                        {a.icon || "★"} {a.label} {readyIn > 0 ? `(${sec}s)` : ""}
                     </button>
                 );
             })}
@@ -140,18 +150,21 @@ function AbilityBar({ role, onUse }) {
 
 /**
  * HUD – overlay
- * - Left: Status (O2/Energy), Role
- * - Chat: pinned bottom-left
- * - Top-center: Keyboard guide
- * - Backpack: pinned bottom-right
- * - Ability bar: pinned above backpack
+ * - Left: Status (Life/O2/Energy), Role
+ * - Chat: bottom-left
+ * - Top-center: Keyboard guide (hidden when dead)
+ * - Backpack: bottom-right
+ * - Ability bar: above backpack (disabled when dead)
  */
 export default function HUD({ game = {} }) {
     const { oxygen = 100, power = 100, myRole = "Unassigned" } = useGameState();
 
+    const me = myPlayer();
+    const lifeVal = Number(me?.getState?.("life") ?? 100);
+    const amDead = Boolean(me?.getState?.("dead"));
+
     // Prefer data passed in via `game`; fall back to myPlayer() state
     const meProp = game?.me || {};
-    const me = myPlayer();
     const bpFromPlayer = me?.getState?.("backpack") || [];
     const capFromPlayer = Number(me?.getState?.("capacity")) || 8;
 
@@ -164,17 +177,19 @@ export default function HUD({ game = {} }) {
             : (type, target, value) => prRequestAction(type, target, value);
 
     const handleUseItem = (id) => {
+        if (amDead) return; // dead: no using
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
     const handleDrop = (id) => {
+        if (amDead) return; // dead: no dropping
         if (typeof game.onDropItem === "function") return game.onDropItem(id);
         requestAction("dropItem", String(id));
     };
 
     // Ability trigger → compute origin/dir and send to host
     const useAbility = (ability) => {
-        // Basic origin from my player state (x,z). y ~ 1.2 shoulder height.
+        if (amDead) return; // dead: no abilities
         const px = Number(me?.getState?.("x") || 0);
         const pz = Number(me?.getState?.("z") || 0);
         const ry = Number(me?.getState?.("ry") || me?.getState?.("yaw") || 0); // radians
@@ -191,9 +206,16 @@ export default function HUD({ game = {} }) {
     };
 
     return (
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            {/* Keyboard guide (top-center) */}
-            <KeyGuidePanel />
+        <div
+            style={{
+                position: "absolute",
+                inset: 0,
+                pointerEvents: "none",
+                filter: amDead ? "grayscale(0.8)" : "none",
+            }}
+        >
+            {/* Keyboard guide (hidden when dead) */}
+            {!amDead && <KeyGuidePanel />}
 
             {/* Columns for status/role (unchanged layout) */}
             <div
@@ -209,7 +231,7 @@ export default function HUD({ game = {} }) {
             >
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                    <MetersPanel energy={Number(power)} oxygen={Number(oxygen)} />
+                    <MetersPanel life={lifeVal} energy={Number(power)} oxygen={Number(oxygen)} />
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>
@@ -222,8 +244,8 @@ export default function HUD({ game = {} }) {
                 <div />
             </div>
 
-            {/* Ability bar (pinned above backpack) */}
-            <AbilityBar role={myRole} onUse={useAbility} />
+            {/* Ability bar (pinned above backpack; disabled when dead) */}
+            <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} />
 
             {/* BOTTOM-RIGHT: Backpack (pinned) */}
             <div
@@ -240,10 +262,36 @@ export default function HUD({ game = {} }) {
                 <BackpackPanel items={items} capacity={capacity} onUse={handleUseItem} onDrop={handleDrop} />
             </div>
 
-            {/* BOTTOM-LEFT: Team chat (pinned) */}
+            {/* BOTTOM-LEFT: Team chat (pinned). If you want to block typing when dead, add inputDisabled to TeamChatPanel. */}
             <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
                 <TeamChatPanel style={{ position: "static" }} />
             </div>
+
+            {/* Death overlay */}
+            {amDead && (
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "grid",
+                        placeItems: "center",
+                        background: "radial-gradient(ellipse at center, rgba(120,0,0,0.15), rgba(0,0,0,0.65))",
+                        pointerEvents: "none",
+                    }}
+                >
+                    <div
+                        style={{
+                            color: "#ffe1e1",
+                            textShadow: "0 2px 18px rgba(0,0,0,0.6)",
+                            fontWeight: 900,
+                            letterSpacing: 1,
+                            fontSize: 42,
+                        }}
+                    >
+                        YOU DIED
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

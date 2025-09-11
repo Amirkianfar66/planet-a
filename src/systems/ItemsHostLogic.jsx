@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
+import { hostHandleShoot, readActionPayload, hostHandleBite } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -78,6 +79,18 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
+            // Ensure each player has a life + energy meter (host-side, one-time per player)
+            for (const pl of everyone) {
+                const hasLife = pl.getState?.("life");
+                if (hasLife === undefined || hasLife === null) {
+                    pl.setState?.("life", 100, true);
+                }
+                const hasEnergy = pl.getState?.("energy");
+                if (hasEnergy === undefined || hasEnergy === null) {
+                    pl.setState?.("energy", 100, true);
+                }
+            }
+
             const list = itemsRef.current || [];
             const findItem = (id) => list.find(i => i.id === id);
 
@@ -93,6 +106,21 @@ export default function ItemsHostLogic() {
                 const px = Number(p.getState("x") || 0);
                 const py = Number(p.getState("y") || 0);
                 const pz = Number(p.getState("z") || 0);
+
+                // ABILITY: shoot
+                if (type === "ability" && target === "shoot") {
+                    const payload = readActionPayload(p); // { origin:[x,y,z], dir:[dx,dy,dz] }
+                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone }); // tracer + hit check
+                    processed.current.set(p.id, reqId);
+                    continue;
+                }
+
+                // ABILITY: bite (infect)
+                if (type === "ability" && target === "bite") {
+                    hostHandleBite({ biter: p, setEvents: undefined, players: everyone }); // pass players
+                    processed.current.set(p.id, reqId);
+                    continue;
+                }
 
                 // PICKUP
                 if (type === "pickup") {
@@ -172,8 +200,13 @@ export default function ItemsHostLogic() {
                     const it = findItem(idStr);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
 
-                    // eat food
+                    // eat food → refill ENERGY for non-infected only
                     if (kind === "eat" && it.type === "food") {
+                        const isInfected = !!p.getState?.("infected");
+                        if (!isInfected) {
+                            // Fill to 100% energy (you can change to +50 if you prefer partial)
+                            p.setState?.("energy", 100, true);
+                        }
                         setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j), true);
                         setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);

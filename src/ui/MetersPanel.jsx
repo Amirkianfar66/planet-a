@@ -1,17 +1,28 @@
-// src/ui/MetersPanel.jsx
 import React from "react";
 
-function MetersPanel({ oxygen, energy, power, meters, title = "Life Support", onRepair }) {
+function MetersPanel({
+    oxygen,
+    energy,
+    power,
+    meters,
+    life,                 // ⬅️ new optional prop
+    title = "Life Support",
+    onRepair,
+}) {
     const clamp100 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
 
+    // prefer meters[] records if provided
+    const lifeRec = Array.isArray(meters) ? meters.find((m) => m.id === "life") : null;
     const oxyRec = Array.isArray(meters) ? meters.find((m) => m.id === "oxygen") : null;
     const engRec = Array.isArray(meters)
         ? (meters.find((m) => m.id === "energy") || meters.find((m) => m.id === "power"))
         : null;
 
+    const lifeVal = clamp100(lifeRec?.value ?? life ?? 100);
     const oxygenVal = clamp100(oxyRec?.value ?? oxygen ?? 0);
     const energyVal = clamp100(engRec?.value ?? energy ?? power ?? 0);
 
+    const lifeLabel = lifeRec?.label ?? "Life";
     const oxygenLabel = oxyRec?.label ?? "Oxygen";
     const energyLabel = engRec?.label ?? "Energy";
 
@@ -43,10 +54,14 @@ function MetersPanel({ oxygen, energy, power, meters, title = "Life Support", on
         >
             {title && <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 2 }}>{title}</div>}
 
+            {/* NEW: Life first, in red */}
+            <Bar label={lifeLabel} value={lifeVal} color={lifeRec?.color ?? "#f87171"} />
+
             <Bar label={oxygenLabel} value={oxygenVal} color={oxyRec?.color ?? "#fca5a5"} />
             <Bar label={energyLabel} value={energyVal} color={engRec?.color ?? "#a7f3d0"} />
 
             <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <button onClick={() => onRepair?.("life")}>Heal +10</button>
                 <button onClick={() => onRepair?.("oxygen")}>Repair O₂ +10</button>
                 <button onClick={() => onRepair?.(energyKey)}>Repair Energy +10</button>
             </div>

@@ -16,6 +16,10 @@ import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
 import NetworkGunTracers from "../world/NetworkGunTracers.jsx";
+import BeamLasers from "../world/BeamLasers.jsx";
+import DeathMarkers from "../world/DeathMarkers.jsx";
+import DeathSystem from "../systems/DeathSystem.jsx";
+
 function TextLabel({
     text,
     position = [0, 0.01, 0],
@@ -115,9 +119,14 @@ export default function GameCanvas({ dead = [] }) {
                 {/* Items & players */}
                 <ItemsAndDevices />
                 <Players3D dead={dead} />
+
+                {/* Death FX */}
+                <DeathMarkers />
+
+                {/* Local systems */}
                 <LocalController />
                 <ThirdPersonCamera />
-
+                <BeamLasers />
                 <NetworkGunTracers />
             </Canvas>
 
@@ -128,6 +137,9 @@ export default function GameCanvas({ dead = [] }) {
 
             {/* Host-only logic */}
             {prIsHost() && <ItemsHostLogic />}
+
+            {/* Death logic (meters → dead) */}
+            <DeathSystem />
         </div>
     );
 }

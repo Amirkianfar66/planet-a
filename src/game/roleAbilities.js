@@ -2,8 +2,11 @@
 // Central definition of role abilities (+ defaults).
 // Each ability may define: key, label, cooldownMs, range, damage, etc.
 
+import { myPlayer } from "playroomkit";
+
 export const ROLES = ['Engineer', 'Research', 'StationDirector', 'Officer', 'Guard', 'FoodSupplier'];
 
+// ---- Base role abilities (unchanged) ----
 export const ROLE_ABILITIES = {
     Guard: [
         {
@@ -34,6 +37,84 @@ export const ROLE_ABILITIES = {
     ],
 };
 
+// ---- Infected overlay ability (added on top of any base role) ----
+const INFECTED_ABILITY = {
+    id: 'bite',
+    key: 'KeyG',                 // Bite wants F by default
+    label: 'Bite (Infect)',
+    cooldownMs: 1500,
+    range: 1.6,                  // close range
+    damage: 0,                   // infection only (no HP damage here)
+    icon: '🧛',
+};
+
+// Keys we’ll use to resolve conflicts when Infected overlays base role
+const KEY_POOL = ['KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK'];
+
+/**
+ * Ensure unique hotkeys. Keeps the earliest ability's desired key if possible,
+ * and shifts later conflicting abilities to the next available key in KEY_POOL.
+ * We also try to keep "bite" on KeyF whenever the player is infected.
+ */
+function assignUniqueKeys(abilities, prioritizeBite = true) {
+    const used = new Set();
+    const byId = Object.fromEntries(abilities.map(a => [a.id, a]));
+    // If prioritizeBite, lock Bite to KeyF first.
+    if (prioritizeBite && byId['bite']) {
+        const biteKey = byId['bite'].key || 'KeyG';
+           byId['bite'].key = biteKey;
+           used.add(biteKey);
+         }
+    // Pass 1: honor requested keys if free (except conflicts with a locked Bite/F)
+    for (const a of abilities) {
+        if (a.id === 'bite' && prioritizeBite) continue;
+        if (a.key && !used.has(a.key)) {
+            used.add(a.key);
+        } else {
+            a.key = null; // mark for reassignment
+        }
+    }
+    // Pass 2: assign free keys from pool
+    for (const a of abilities) {
+        if (a.key) continue;
+        const next = KEY_POOL.find(k => !used.has(k));
+        a.key = next || a.key || 'KeyH';
+        used.add(a.key);
+    }
+    return abilities;
+}
+
+/**
+ * PUBLIC API (back-compat): get abilities for a *role*, but if the local player
+ * is infected, we overlay the Infected Bite on top and fix key conflicts.
+ */
 export function getAbilitiesForRole(role) {
-    return ROLE_ABILITIES[role] || [];
+    const base = ROLE_ABILITIES[role] || [];
+    const abilities = [...base];
+
+    const me = myPlayer?.();
+    const infected = !!me?.getState?.("infected");
+
+    if (infected) {
+        // Prepend Bite so HUD lists it first & we can keep F on it
+        abilities.unshift({ ...INFECTED_ABILITY });
+        assignUniqueKeys(abilities, /* prioritizeBite */ false);
+    }
+
+    return abilities;
+}
+
+/**
+ * Optional: explicit helper if you ever need to compute abilities
+ * for an arbitrary player (not just local).
+ */
+export function getAbilitiesForPlayer(baseRole, player) {
+    const base = ROLE_ABILITIES[baseRole] || [];
+    const abilities = [...base];
+    const infected = !!player?.getState?.("infected");
+    if (infected) {
+        abilities.unshift({ ...INFECTED_ABILITY });
+        assignUniqueKeys(abilities, true);
+    }
+    return abilities;
 }
