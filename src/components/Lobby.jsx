@@ -1,6 +1,9 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { myPlayer, usePlayersList, isHost } from 'playroomkit';
-import { usePhase, useTimer, useLengths, useRolesAssigned } from '../network/playroom';
+import {
+    usePhase, useTimer, useLengths, useRolesAssigned, useInfectedAssigned,
+    teamInviteUrl, waitForLocalPlayer, useLobbyRevealUntil
+} from '../network/playroom';
 
 const TEAMS = [
     { id: 'alpha', name: 'Alpha' },
@@ -9,15 +12,20 @@ const TEAMS = [
     { id: 'delta', name: 'Delta' },
 ];
 
-// Customize roles here
 const ROLES = ['Engineer', 'Research', 'StationDirector', 'Officer', 'Guard', 'FoodSupplier'];
 
-// --- launch rules (flip as you like) ---
-const REQUIRE_ROLE_FOR_ALL = true;  // everyone must pick a role before launch
-const REQUIRE_TEAM_FOR_ALL = true;  // everyone must be in a team
-const REQUIRE_FULL_TEAMS = false; // if true: each team must have exactly 3 players
+// Launch rules
+const MIN_PLAYERS = 2;
+const REQUIRE_ROLE_FOR_ALL = true;
+const REQUIRE_TEAM_FOR_ALL = true;
+const REQUIRE_FULL_TEAMS = false;
 
-// --- helpers to read/write simple per-player state safely ---
+// Steps
+const STEP_START = 'start';
+const STEP_JOIN = 'join';
+const STEP_TEAM = 'team';
+
+// --- helpers over Playroom state ---
 function getPState(p, key, fallback = undefined) {
     try {
         if (p?.state && key in p.state) return p.state[key];
@@ -28,19 +36,16 @@ function getPState(p, key, fallback = undefined) {
 function setMyState(key, value) {
     const me = myPlayer?.();
     if (!me) return;
-    try {
-        if (typeof me.setState === 'function') me.setState(key, value, true);
-        else if (me.state) me.state[key] = value; // fallback (best-effort)
-    } catch { }
+    try { me.setState?.(key, value, true); } catch { }
 }
 function getPlayerName(p) {
-    // prefer profile name if available
     return p?.getProfile?.().name || getPState(p, 'name', p?.name || `Player-${String(p?.id || '').slice(-4)}`);
 }
 function teamOf(p) { return getPState(p, 'team', null); }
 function roleOf(p) { return getPState(p, 'role', ''); }
+function slotOf(p) { const s = getPState(p, 'slot', null); return (s === 0 || s === 1 || s === 2) ? s : null; }
+function isInfected(p) { return !!getPState(p, 'infected', false); }
 
-// For simple “first joiner is leader” logic. Host can override.
 function leaderIdForTeam(players, teamId) {
     const teamers = players.filter(p => teamOf(p) === teamId);
     if (teamers.length === 0) return null;
@@ -50,24 +55,38 @@ function leaderIdForTeam(players, teamId) {
 }
 
 export default function Lobby() {
-    const players = usePlayersList(true); // include self
+    const players = usePlayersList(true);
     const iAmHost = isHost?.() ?? false;
+
     const [phase, setPhase] = usePhase();
     const [, setTimer] = useTimer();
     const { dayLength } = useLengths();
     const [, setRolesAssigned] = useRolesAssigned();
-    const [tab, setTab] = useState('party');
+    const [, setInfectedAssigned] = useInfectedAssigned();
+    const [revealUntil, setRevealUntil] = useLobbyRevealUntil();
 
-    // Parse team param from URL to auto-join when arriving via invite
-    React.useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const invitedTeam = params.get('team');
-        if (invitedTeam && TEAMS.some(t => t.id === invitedTeam)) {
-            setTimeout(() => attemptJoinTeam(invitedTeam), 50);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    // small ticker so countdown updates
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setTick(t => t + 1), 250);
+        return () => clearInterval(id);
     }, []);
+    const now = Date.now();
+    const revealActive = Number(revealUntil) > now;
+    const revealRemaining = Math.max(0, Math.ceil((Number(revealUntil) - now) / 1000));
 
+    // UI flow
+    const [step, setStep] = useState(STEP_START);
+    const [showInvite, setShowInvite] = useState(false);
+
+    // Local fallback so Team page renders immediately after we join/create
+    const [clientMyTeam, setClientMyTeam] = useState(null);
+
+    // Robust auto-join from links
+    const [pendingTeamFromLink, setPendingTeamFromLink] = useState(null);
+    const [linkTries, setLinkTries] = useState(0);
+
+    // roster by team
     const rosterByTeam = useMemo(() => {
         const map = Object.fromEntries(TEAMS.map(t => [t.id, []]));
         for (const p of players) {
@@ -80,150 +99,260 @@ export default function Lobby() {
         return map;
     }, [players]);
 
+    // me
     const myId = myPlayer?.()?.id;
     const me = players.find(p => p.id === myId);
-    const myTeam = useMemo(() => (me ? teamOf(me) : null), [me]);
+    const myTeamFromPlayers = useMemo(() => (me ? teamOf(me) : null), [me]);
     const myRole = useMemo(() => (me ? roleOf(me) : ''), [me]);
+    const mySlot = useMemo(() => (me ? slotOf(me) : null), [me]);
 
-    const attemptJoinTeam = useCallback((teamId) => {
+    // Use either the players list or our local fallback
+    const myTeam = myTeamFromPlayers || clientMyTeam;
+
+    /* -------------------------------------------
+       Read ?team= (or #team=) once -> store pending
+    -------------------------------------------- */
+    React.useEffect(() => {
+        const pickTeam = (s) => {
+            const q = new URLSearchParams(s);
+            const t = q.get('team');
+            return TEAMS.some(x => x.id === t) ? t : null;
+        };
+        const fromSearch = pickTeam(window.location.search);
+        const fromHash = pickTeam(window.location.hash?.startsWith('#') ? window.location.hash.slice(1) : '');
+        const invitedTeam = fromSearch || fromHash;
+        if (invitedTeam) setPendingTeamFromLink(invitedTeam);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    /* -------------------------------------------
+       Auto-join from link when myPlayer() exists
+    -------------------------------------------- */
+    React.useEffect(() => {
+        if (!pendingTeamFromLink || myTeam) return;
+
+        let cancelled = false;
+        const tryJoin = async () => {
+            const meNow = await waitForLocalPlayer();
+            if (!meNow) { setLinkTries(n => n + 1); return false; }
+            const ok = await attemptJoinTeam(pendingTeamFromLink);
+            if (ok) {
+                setPendingTeamFromLink(null);
+                setLinkTries(0);
+                setStep(STEP_TEAM);
+                return true;
+            }
+            setLinkTries(n => n + 1);
+            return false;
+        };
+
+        (async () => {
+            if (cancelled) return;
+            if (await tryJoin()) return;
+            const id = setInterval(async () => {
+                if (cancelled) { clearInterval(id); return; }
+                if (linkTries > 50) { clearInterval(id); return; } // ~10s
+                (await tryJoin()) && clearInterval(id);
+            }, 200);
+            return () => clearInterval(id);
+        })();
+
+        return () => { cancelled = true; };
+    }, [pendingTeamFromLink, myTeam, linkTries]); // attemptJoinTeam below
+
+    // --- actions ---
+    const ensureMySlot = useCallback((teamId, preferred = null) => {
+        const list = rosterByTeam[teamId] || [];
+        const taken = new Set(list.map(slotOf).filter(s => s !== null));
+        let target = preferred;
+        if (target === null || taken.has(target)) {
+            for (let i = 0; i < 3; i++) if (!taken.has(i)) { target = i; break; }
+        }
+        if (target === null) return false;
+        setMyState('slot', target);
+        return true;
+    }, [rosterByTeam]);
+
+    const attemptJoinTeam = useCallback(async (teamId) => {
+        // ensure local player exists
+        const meReady = await waitForLocalPlayer();
+        if (!meReady) return false;
+
         const current = rosterByTeam[teamId] || [];
         if (current.length >= 3) {
             alert(`Team ${teamId.toUpperCase()} is full (3/3).`);
             return false;
         }
+
         setMyState('team', teamId);
-        if (myRole && current.some(p => roleOf(p) === myRole)) {
-            // avoid duplicate if uniqueness enforced
-            const taken = new Set(current.map(roleOf));
-            const free = ROLES.find(r => !taken.has(r)) || '';
+        // local fallback so UI can render immediately
+        setClientMyTeam(teamId);
+
+        // seat me in first free slot
+        ensureMySlot(teamId);
+
+        // avoid duplicate role on join
+        const takenRoles = new Set(current.map(roleOf));
+        if (myRole && takenRoles.has(myRole)) {
+            const free = ROLES.find(r => !takenRoles.has(r)) || '';
             setMyState('role', free);
         }
-        return true;
-    }, [rosterByTeam, myRole]);
 
+        // wait until the state shows up locally (up to ~2s)
+        for (let i = 0; i < 40; i++) {
+            if (myPlayer()?.getState?.('team') === teamId) break;
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise(r => setTimeout(r, 50));
+        }
+
+        // reflect chosen team in URL using the canonical builder (preserves ?r=)
+        const url = teamInviteUrl(teamId);
+        window.history.replaceState({}, '', url);
+
+        return true;
+    }, [rosterByTeam, myRole, ensureMySlot]);
+
+    // Create team → prefer empty team, else any with room; seat me slot 0; mark leader
+    const createTeam = useCallback(async () => {
+        let target = TEAMS.find(t => (rosterByTeam[t.id] || []).length === 0)?.id;
+        if (!target) target = TEAMS.find(t => (rosterByTeam[t.id] || []).length < 3)?.id;
+        if (!target) { alert('All teams are full right now.'); return; }
+
+        const ok = await attemptJoinTeam(target);
+        if (!ok) return;
+
+        // seat me at slot 0 if possible
+        ensureMySlot(target, 0);
+
+        // mark me as leader
+        for (const p of players) {
+            if (teamOf(p) === target) p.setState?.('isLeader', p.id === myId, true);
+        }
+
+        setShowInvite(false);
+        setStep(STEP_TEAM);
+    }, [players, rosterByTeam, attemptJoinTeam, ensureMySlot, myId]);
+
+    const goJoin = useCallback(() => { setShowInvite(false); setStep(STEP_JOIN); }, []);
     const leaveTeam = useCallback(() => {
+        setMyState('slot', null);
+        setMyState('role', '');
         setMyState('team', null);
+        setClientMyTeam(null);
+        setShowInvite(false);
+        setStep(STEP_START);
     }, []);
 
     const setRole = useCallback((newRole) => {
-        // enforce unique roles per team (toggle off if you don't want this)
         if (myTeam) {
             const taken = new Set((rosterByTeam[myTeam] || []).map(roleOf));
-            if (taken.has(newRole)) {
-                alert(`Role "${newRole}" already taken in ${myTeam.toUpperCase()}.`);
-                return;
-            }
+            if (taken.has(newRole)) { alert(`Role "${newRole}" already taken in ${myTeam.toUpperCase()}.`); return; }
         }
         setMyState('role', newRole);
     }, [myTeam, rosterByTeam]);
 
     const makeLeader = useCallback((teamId, playerId) => {
-        if (!isHost?.()) return;
+        const leaderCan = isHost?.() || leaderIdForTeam(players, teamId) === myId;
+        if (!leaderCan) return;
         for (const p of players) {
-            if (teamOf(p) === teamId) {
-                p.setState?.('isLeader', p.id === playerId, true);
-            }
+            if (teamOf(p) === teamId) p.setState?.('isLeader', p.id === playerId, true);
         }
-    }, [players]);
+    }, [players, myId]);
 
-    const myIsLeader = useMemo(() => {
-        if (!myTeam) return false;
-        const leadId = leaderIdForTeam(players, myTeam);
-        return leadId === myId;
-    }, [players, myTeam, myId]);
+    const myLeaderId = useMemo(() => (myTeam ? leaderIdForTeam(players, myTeam) : null), [players, myTeam]);
+    const myIsLeader = myLeaderId === myId;
 
-    const inviteLinkFor = useCallback((teamId) => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('team', teamId);
-        return url.toString();
-    }, []);
+    // Invite helpers
+    const inviteLinkFor = useCallback((teamId) => teamInviteUrl(teamId), []);
 
-    const copyLink = useCallback(async (teamId) => {
-        const link = inviteLinkFor(teamId);
-        try {
-            await navigator.clipboard.writeText(link);
-            alert(`Copied link for ${teamId.toUpperCase()}:\n${link}`);
-        } catch {
-            prompt(`Copy the link for ${teamId.toUpperCase()}:`, link);
-        }
-    }, [inviteLinkFor]);
-
-    const shareLink = useCallback(async (teamId) => {
-        const link = inviteLinkFor(teamId);
-        if (navigator.share) {
-            try {
-                await navigator.share({ title: `Join ${teamId.toUpperCase()} Team`, url: link });
-            } catch { /* no-op */ }
-        } else {
-            copyLink(teamId);
-        }
-    }, [inviteLinkFor, copyLink]);
-
-    // 🔒 Launch requirements
+    // Launch gating
     const launchIssues = useMemo(() => {
         const issues = [];
-        if (players.length === 0) issues.push('No players connected');
+        if (players.length < MIN_PLAYERS) issues.push(`Need at least ${MIN_PLAYERS} players`);
 
-        // team caps
         for (const t of TEAMS) {
             const list = (rosterByTeam[t.id] || []);
             if (list.length > 3) issues.push(`Team ${t.name} has more than 3 players`);
             if (REQUIRE_FULL_TEAMS && list.length !== 3) issues.push(`Team ${t.name} must be exactly 3 players`);
         }
-
         if (REQUIRE_TEAM_FOR_ALL) {
             for (const p of players) if (!teamOf(p)) { issues.push('Everyone must join a team'); break; }
         }
         if (REQUIRE_ROLE_FOR_ALL) {
             for (const p of players) if (!roleOf(p)) { issues.push('Everyone must pick a role'); break; }
         }
-
         return issues;
     }, [players, rosterByTeam]);
 
     const canLaunch = launchIssues.length === 0;
+    const canPressLaunch = iAmHost || myIsLeader;
 
+    // ===== LAUNCH: assign infected, reveal in lobby (4s), then start Day 1 =====
     const onLaunch = useCallback((e) => {
-        if (!iAmHost) return;
+        if (!canPressLaunch) return;
         const force = e?.altKey === true;
         if (!canLaunch && !force) {
             alert('Teams not ready:\n• ' + launchIssues.join('\n• '));
             return;
         }
-        // Start Day 1 and let App fill any missing roles
-        setRolesAssigned(false, true);
-        setPhase('day', true);
-        setTimer(dayLength, true);
-    }, [iAmHost, canLaunch, launchIssues, setRolesAssigned, setPhase, setTimer, dayLength]);
 
-    const showInviteTab = iAmHost || myIsLeader;
+        // 1) Assign one infected per team (host/leader triggers, but writes are replicated)
+        const byTeam = new Map();
+        for (const p of players) {
+            const t = teamOf(p);
+            if (!t) continue;
+            const arr = byTeam.get(t) || [];
+            arr.push(p);
+            byTeam.set(t, arr);
+        }
+        for (const [, arr] of byTeam.entries()) {
+            if (arr.length < 1) continue;
+            // clear old flags
+            arr.forEach(pl => pl.setState?.('infected', false, true));
+            // pick exactly one
+            const pick = arr[Math.floor(Math.random() * arr.length)];
+            pick.setState?.('infected', true, true);
+        }
 
+        // 2) Mark: roles to be considered assigned, infections assigned, and open a short reveal window
+        setRolesAssigned(true, true);
+        setInfectedAssigned(true, true);
+        setRevealUntil(Date.now() + 10000, true); // 4s
+
+        // 3) After reveal, start Day 1
+        setTimeout(() => {
+            setPhase('day', true);
+            setTimer(dayLength, true);
+        }, 4100);
+    }, [canPressLaunch, canLaunch, launchIssues, players, setRolesAssigned, setInfectedAssigned, setRevealUntil, setPhase, setTimer, dayLength]);
+
+    // ─────────── Render ───────────
     return (
         <div style={styles.wrap}>
             <h1 style={styles.title}>Lobby</h1>
 
-            <div style={styles.tabs}>
-                {['party', 'invite', 'launch'].map(t => (
-                    <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        style={{ ...styles.tab, ...(tab === t ? styles.tabActive : {}) }}
-                    >
-                        {t === 'party' ? 'Party' : t === 'invite' ? 'Invite' : 'Launch'}
+            {step === STEP_START && (
+                <div style={{ display: 'grid', gap: 12, maxWidth: 520 }}>
+                    <button onClick={createTeam} style={{ ...styles.bigBtn, background: '#0a0a0a', color: '#fff', borderColor: '#0a0a0a' }}>
+                        Create a Team
                     </button>
-                ))}
-            </div>
+                    <button onClick={goJoin} style={styles.bigBtn}>
+                        Join a Team
+                    </button>
+                    <div style={{ opacity: .7, fontSize: 12 }}>
+                        Host: <b>{iAmHost ? 'yes' : 'no'}</b> • Phase: <b>{String(phase || 'lobby')}</b>
+                    </div>
+                </div>
+            )}
 
-            {/* ─────────────────────────────────────────────────────────────
-          PARTY TAB
-          - If NOT in a team: show Team Picker (no rosters/roles).
-          - If IN a team: show ONLY your Team Lobby (private).
-         ───────────────────────────────────────────────────────────── */}
-            {tab === 'party' && (
-                !myTeam ? (
+            {step === STEP_JOIN && (
+                <div>
+                    <button onClick={() => setStep(STEP_START)} style={styles.secondaryBtn}>&larr; Back</button>
+                    <h3>Pick a Team to Join</h3>
                     <div style={styles.partyGrid}>
                         {TEAMS.map(team => {
-                            const count = (rosterByTeam[team.id] || []).length;
+                            const list = rosterByTeam[team.id] || [];
+                            const count = list.length;
                             const full = count >= 3;
                             return (
                                 <div key={team.id} style={styles.teamCard}>
@@ -234,183 +363,170 @@ export default function Lobby() {
                                         </div>
                                         <div>
                                             <button
-                                                onClick={() => attemptJoinTeam(team.id)}
-                                                disabled={full}
-                                                style={{ ...styles.primaryBtn, ...(full ? styles.disabledBtn : {}) }}
+                                                onClick={async () => {
+                                                    const ok = await attemptJoinTeam(team.id);
+                                                    if (ok) setStep(STEP_TEAM);
+                                                }}
+                                                disabled={full || revealActive}
+                                                style={{ ...styles.primaryBtn, ...((full || revealActive) ? styles.disabledBtn : {}) }}
                                             >
                                                 {full ? 'Full' : 'Join'}
                                             </button>
                                         </div>
                                     </div>
                                     <div style={{ fontSize: 12, opacity: 0.7 }}>
-                                        Join to enter this team’s private lobby.
+                                        You’ll see the private team page after joining.
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                ) : (
-                    // PRIVATE TEAM LOBBY (your team only)
-                    <div style={styles.teamCard}>
-                        <div style={styles.teamHeader}>
-                            <div>
-                                <div style={styles.teamName}>
-                                    {TEAMS.find(t => t.id === myTeam)?.name} — Team Lobby
-                                </div>
-                                <div style={styles.teamSub}>{(rosterByTeam[myTeam] || []).length}/3 players</div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button onClick={leaveTeam} style={styles.secondaryBtn}>Leave</button>
-                                {(myIsLeader || iAmHost) && (
-                                    <>
-                                        <button onClick={() => copyLink(myTeam)} style={styles.secondaryBtn}>Copy invite</button>
-                                        <button onClick={() => shareLink(myTeam)} style={styles.primaryBtn}>Share invite</button>
-                                    </>
-                                )}
+                </div>
+            )}
+
+            {step === STEP_TEAM && myTeam && (
+                <div style={styles.teamCard}>
+                    <div style={styles.teamHeader}>
+                        <div>
+                            <div style={styles.teamName}>{TEAMS.find(t => t.id === myTeam)?.name} — Team</div>
+                            <div style={styles.teamSub}>{(rosterByTeam[myTeam] || []).length}/3 players</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={leaveTeam} style={styles.secondaryBtn} disabled={revealActive}>Change Team</button>
+                            <button onClick={() => setShowInvite(s => !s)} style={{ ...styles.primaryBtn, ...(revealActive ? styles.disabledBtn : {}) }}>
+                                {showInvite ? 'Hide Invite' : 'Invite'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {revealActive && (
+                        <div style={styles.revealBanner}>
+                            Infected reveal: <b>{revealRemaining}s</b> — watch for the red badges.
+                        </div>
+                    )}
+
+                    {showInvite && (
+                        <div style={{ ...styles.inviteCard, marginBottom: 10 }}>
+                            <div style={styles.inviteTitle}>Share this link</div>
+                            <div style={styles.inviteLinkPreview}>{inviteLinkFor(myTeam)}</div>
+                            <div style={styles.inviteBtns}>
+                                <button onClick={() => navigator.clipboard.writeText(inviteLinkFor(myTeam))} style={styles.secondaryBtn}>Copy</button>
+                                <button onClick={() => {
+                                    const link = inviteLinkFor(myTeam);
+                                    if (navigator.share) navigator.share({ title: `Join ${myTeam.toUpperCase()} Team`, url: link }).catch(() => { });
+                                    else navigator.clipboard.writeText(link);
+                                }} style={styles.primaryBtn}>Share</button>
                             </div>
                         </div>
+                    )}
 
-                        <div>
-                            {(rosterByTeam[myTeam] || []).map(p => {
-                                const leaderId = leaderIdForTeam(players, myTeam);
-                                return (
-                                    <div key={p.id} style={styles.playerRow}>
-                                        <div style={styles.playerMain}>
-                                            <div style={styles.playerName}>
-                                                {getPlayerName(p)} {p.id === leaderId && <span title="Leader" style={styles.leaderStar}>⭐</span>}
-                                                {p.id === myId && <span style={styles.youBadge}>you</span>}
+                    {/* Ordered 3 slots, then extras */}
+                    <div>
+                        {(() => {
+                            const list = rosterByTeam[myTeam] || [];
+                            const slots = Array(3).fill(null);
+                            const extras = [];
+                            for (const p of list) {
+                                const s = slotOf(p);
+                                if (s !== null && s >= 0 && s < 3 && slots[s] === null) slots[s] = p;
+                                else extras.push(p);
+                            }
+                            const leaderId = leaderIdForTeam(players, myTeam);
+                            return (
+                                <>
+                                    {slots.map((p, i) => (
+                                        p ? (
+                                            <div key={p.id} style={{ ...styles.playerRow, ...(revealActive && isInfected(p) ? styles.infectedRow : {}) }}>
+                                                <div style={styles.playerMain}>
+                                                    <div style={styles.playerName}>
+                                                        {getPlayerName(p)} {p.id === leaderId && <span title="Leader" style={styles.leaderStar}>⭐</span>}
+                                                        {p.id === myId && <span style={styles.youBadge}>you</span>}
+                                                    </div>
+                                                    <div style={styles.roleText}>
+                                                        {roleOf(p) || <span style={{ opacity: .6 }}>no role</span>}
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                    {revealActive && isInfected(p) && <span style={styles.infectedPill}>INFECTED</span>}
+                                                    {(iAmHost || myIsLeader) && (
+                                                        <button onClick={() => makeLeader(myTeam, p.id)} style={styles.smallBtn} title="Make leader" disabled={revealActive}>
+                                                            Make Leader
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div style={styles.roleText}>
-                                                {roleOf(p) || <span style={{ opacity: 0.6 }}>no role</span>}
+                                        ) : (
+                                            <div key={`empty-${i}`} style={styles.emptySlot}>Empty slot</div>
+                                        )
+                                    ))}
+                                    {extras.map(p => (
+                                        <div key={p.id} style={{ ...styles.playerRow, ...(revealActive && isInfected(p) ? styles.infectedRow : {}) }}>
+                                            <div style={styles.playerMain}>
+                                                <div style={styles.playerName}>
+                                                    {getPlayerName(p)} {p.id === leaderId && <span title="Leader" style={styles.leaderStar}>⭐</span>}
+                                                    {p.id === myId && <span style={styles.youBadge}>you</span>}
+                                                </div>
+                                                <div style={styles.roleText}>{roleOf(p) || <span style={{ opacity: .6 }}>no role</span>}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                {revealActive && isInfected(p) && <span style={styles.infectedPill}>INFECTED</span>}
+                                                {(iAmHost || myIsLeader) && <button onClick={() => makeLeader(myTeam, p.id)} style={styles.smallBtn} disabled={revealActive}>Make Leader</button>}
                                             </div>
                                         </div>
-                                        {iAmHost && (
-                                            <button
-                                                onClick={() => makeLeader(myTeam, p.id)}
-                                                style={styles.smallBtn}
-                                                title="Make leader"
-                                            >
-                                                Make Leader
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                    ))}
+                                </>
+                            );
+                        })()}
+                    </div>
 
-                            {Array.from({ length: Math.max(0, 3 - (rosterByTeam[myTeam] || []).length) }).map((_, i) => (
-                                <div key={`empty-${i}`} style={styles.emptySlot}>Empty slot</div>
-                            ))}
-                        </div>
+                    {/* Your role */}
+                    <div style={styles.rolePicker}>
+                        <label style={styles.label}>Your Role</label>
+                        <select
+                            value={myRole || ''}
+                            onChange={(e) => setRole(e.target.value)}
+                            disabled={revealActive}
+                            style={{ ...styles.select, ...(revealActive ? styles.disabledBtn : {}) }}
+                        >
+                            <option value="">Choose role…</option>
+                            {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
 
-                        {/* Your role (private to this team view) */}
-                        <div style={styles.rolePicker}>
-                            <label style={styles.label}>Your Role</label>
-                            <select
-                                value={myRole || ''}
-                                onChange={(e) => setRole(e.target.value)}
-                                style={styles.select}
-                            >
-                                <option value="">Choose role…</option>
-                                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                            </select>
-                            {myIsLeader && (
-                                <div style={styles.leaderNote}>
-                                    You are the team leader. Share your team’s invite from here.
+                    {/* Launch */}
+                    <div style={{ marginTop: 16 }}>
+                        <div style={{ fontSize: 12, opacity: .8, marginBottom: 8 }}>
+                            Host: <b>{iAmHost ? 'yes' : 'no'}</b> • Leader: <b>{myIsLeader ? 'yes' : 'no'}</b> • Phase: <b>{String(phase || 'lobby')}</b>
+                            {launchIssues.length > 0 && (
+                                <div style={{ marginTop: 6 }}>
+                                    <div>Blocked by:</div>
+                                    <ul style={{ margin: '4px 0 0 16px' }}>
+                                        {launchIssues.map((msg, i) => <li key={i}>{msg}</li>)}
+                                    </ul>
                                 </div>
                             )}
                         </div>
 
-                        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 8 }}>
-                            This team lobby is private. Other teams can’t see your roles or roster details.
-                        </div>
+                        <button
+                            onClick={onLaunch}
+                            disabled={!canPressLaunch || !canLaunch || revealActive}
+                            title={canPressLaunch ? 'Launch → reveal infected (4s) → Day 1' : 'Only team leader or host can launch.'}
+                            style={{ ...styles.launchBtn, ...((canPressLaunch && canLaunch && !revealActive) ? {} : styles.disabledBtn) }}
+                        >
+                            Launch Game
+                        </button>
                     </div>
-                )
-            )}
-
-            {/* ─────────────────────────────────────────────────────────────
-          INVITE TAB
-          - Host sees all teams’ links.
-          - Team leader sees only their team’s link.
-          - Others: message to join a team / become leader.
-         ───────────────────────────────────────────────────────────── */}
-            {tab === 'invite' && (
-                <div style={styles.inviteWrap}>
-                    {iAmHost ? (
-                        <>
-                            <p style={{ marginTop: 0 }}>Host view — share any team link:</p>
-                            <div style={styles.inviteGrid}>
-                                {TEAMS.map(t => (
-                                    <div key={t.id} style={styles.inviteCard}>
-                                        <div style={styles.inviteTitle}>{t.name} Team Link</div>
-                                        <div style={styles.inviteLinkPreview}>{inviteLinkFor(t.id)}</div>
-                                        <div style={styles.inviteBtns}>
-                                            <button onClick={() => copyLink(t.id)} style={styles.secondaryBtn}>Copy</button>
-                                            <button onClick={() => shareLink(t.id)} style={styles.primaryBtn}>Share</button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : myIsLeader && myTeam ? (
-                        <>
-                            <p style={{ marginTop: 0 }}>Share your team link:</p>
-                            <div style={styles.inviteGrid}>
-                                <div style={styles.inviteCard}>
-                                    <div style={styles.inviteTitle}>
-                                        {TEAMS.find(t => t.id === myTeam)?.name} Team Link
-                                    </div>
-                                    <div style={styles.inviteLinkPreview}>{inviteLinkFor(myTeam)}</div>
-                                    <div style={styles.inviteBtns}>
-                                        <button onClick={() => copyLink(myTeam)} style={styles.secondaryBtn}>Copy</button>
-                                        <button onClick={() => shareLink(myTeam)} style={styles.primaryBtn}>Share</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <div style={{ opacity: 0.85 }}>
-                            Only your team leader (or host) can share invite links.
-                            {(!myTeam) && <div>Join a team first from the Party tab.</div>}
-                        </div>
-                    )}
                 </div>
             )}
 
-            {/* ─────────────────────────────────────────────────────────────
-          LAUNCH TAB (unchanged)
-         ───────────────────────────────────────────────────────────── */}
-            {tab === 'launch' && (
-                <div style={styles.launchWrap}>
-                    <div className="lobby-debug" style={{ fontSize: 12, opacity: .8, marginBottom: 8 }}>
-                        Host: <b>{iAmHost ? 'yes' : 'no'}</b> •
-                        {' '}Phase: <b>{String(phase || 'lobby')}</b>
-                        {launchIssues.length > 0 && (
-                            <div style={{ marginTop: 6 }}>
-                                <div>Blocked by:</div>
-                                <ul style={{ margin: '4px 0 0 16px' }}>
-                                    {launchIssues.map((msg, i) => <li key={i}>{msg}</li>)}
-                                </ul>
-                            </div>
-                        )}
+            {step === STEP_TEAM && !myTeam && (
+                <div style={{ opacity: .9 }}>
+                    <div style={{ marginBottom: 8 }}>Creating your team…</div>
+                    <div style={{ fontSize: 12 }}>
+                        If this takes longer than a couple seconds, go{' '}
+                        <button onClick={() => setStep(STEP_START)} style={{ ...styles.secondaryBtn, padding: '4px 8px' }}>Back</button>
+                        {' '}and try again.
                     </div>
-
-                    {iAmHost ? (
-                        <>
-                            <button
-                                onClick={onLaunch}
-                                disabled={!canLaunch}
-                                title="Tip: hold Alt to force-launch (debug)."
-                                style={{ ...styles.launchBtn, ...(canLaunch ? {} : styles.disabledBtn) }}
-                            >
-                                Launch Game
-                            </button>
-                            <div style={{ fontSize: 12, opacity: .7, marginTop: 8 }}>
-                                Tip: Hold <kbd>Alt</kbd> while clicking to force launch (debug).
-                            </div>
-                        </>
-                    ) : (
-                        <div style={{ opacity: 0.8 }}>Waiting for host to launch…</div>
-                    )}
                 </div>
             )}
         </div>
@@ -420,9 +536,9 @@ export default function Lobby() {
 const styles = {
     wrap: { maxWidth: 1100, margin: '24px auto', padding: 16, fontFamily: 'ui-sans-serif, system-ui, Arial' },
     title: { fontSize: 28, fontWeight: 700, marginBottom: 12 },
-    tabs: { display: 'flex', gap: 8, marginBottom: 16 },
-    tab: { padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#f7f7f7', cursor: 'pointer' },
-    tabActive: { background: '#111', color: '#fff', borderColor: '#111' },
+
+    // start & join
+    bigBtn: { padding: '14px 18px', borderRadius: 12, border: '1px solid #ddd', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 16 },
 
     partyGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 16 },
     teamCard: { border: '1px solid #e5e7eb', borderRadius: 14, padding: 12, background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' },
@@ -431,6 +547,9 @@ const styles = {
     teamSub: { fontSize: 12, opacity: 0.7 },
 
     playerRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 10, border: '1px dashed #e5e7eb', marginBottom: 6 },
+    infectedRow: { border: '1px solid #b91c1c', background: '#fff5f5' },
+    infectedPill: { fontSize: 11, fontWeight: 700, color: '#fff', background: '#b91c1c', padding: '2px 8px', borderRadius: 999 },
+
     playerMain: { display: 'flex', gap: 10, alignItems: 'center' },
     playerName: { fontWeight: 600 },
     leaderStar: { marginLeft: 6 },
@@ -441,20 +560,26 @@ const styles = {
     rolePicker: { marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
     label: { fontSize: 13, opacity: 0.8 },
     select: { padding: '6px 10px', borderRadius: 10, border: '1px solid #ddd' },
-    leaderNote: { fontSize: 12, opacity: 0.8 },
 
-    smallBtn: { padding: '6px 10px', borderRadius: 10, border: '1px solid #ddd', background: '#f7f7f7', cursor: 'pointer' },
-    primaryBtn: { padding: '8px 12px', borderRadius: 10, border: '1px solid #111', background: '#111', color: '#fff', cursor: 'pointer' },
-    secondaryBtn: { padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' },
-    disabledBtn: { opacity: 0.5, cursor: 'not-allowed' },
-
-    inviteWrap: { marginTop: 12 },
-    inviteGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 },
     inviteCard: { border: '1px solid #e5e7eb', borderRadius: 14, padding: 12, background: '#fff' },
     inviteTitle: { fontWeight: 700, marginBottom: 6 },
     inviteLinkPreview: { fontSize: 12, background: '#fafafa', border: '1px solid #eee', borderRadius: 8, padding: 8, marginBottom: 8, wordBreak: 'break-all' },
+    inviteBtns: { display: 'flex', gap: 8 },
 
-    launchWrap: { padding: 16 },
-    readyRow: { marginBottom: 12 },
+    primaryBtn: { padding: '8px 12px', borderRadius: 10, border: '1px solid #111', background: '#111', color: '#fff', cursor: 'pointer' },
+    secondaryBtn: { padding: '8px 12px', borderRadius: 10, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' },
+    smallBtn: { padding: '6px 10px', borderRadius: 10, border: '1px solid #ddd', background: '#f7f7f7', cursor: 'pointer' },
+    disabledBtn: { opacity: 0.5, cursor: 'not-allowed' },
+
     launchBtn: { padding: '12px 16px', borderRadius: 12, border: '1px solid #0a0a0a', background: '#0a0a0a', color: '#fff', fontWeight: 700, cursor: 'pointer' },
+
+    revealBanner: {
+        padding: '6px 10px',
+        marginBottom: 10,
+        borderRadius: 10,
+        background: '#fff5f5',
+        border: '1px solid #fecaca',
+        color: '#7f1d1d',
+        fontSize: 12
+    },
 };

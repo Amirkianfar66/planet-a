@@ -1,120 +1,95 @@
-﻿import { insertCoin, useMultiplayerState, myPlayer, isHost } from "playroomkit";
+﻿// src/network/playroom.js
+import {
+    insertCoin,
+    useMultiplayerState,
+    myPlayer,
+    isHost,
+    getRoomCode, // ← use official getter, not window.playroomkit
+} from "playroomkit";
 
-/* -------------------------------------------
-   DEV: trace subscriptions to find duplicates
--------------------------------------------- */
-const _subCounts = new Map();
-function _debugSub(key) {
-    const n = (_subCounts.get(key) || 0) + 1;
-    _subCounts.set(key, n);
-    // eslint-disable-next-line no-console
-    if (import.meta.env.DEV) {
-        console.log(`[playroom] useMultiplayerState("${key}") subscribe #${n}`);
-        if (n > 10) console.warn(`[playroom] "${key}" now has ${n} subscribers.`);
+/* -------------------- Room code helpers -------------------- */
+export async function ensureRoomCodeInUrl(retries = 120) {
+    // Try to read ?r= from URL, else poll getRoomCode() until we have one (~6s max)
+    let code = null;
+    try {
+        code = new URL(window.location.href).searchParams.get("r");
+    } catch { }
+    let i = 0;
+    while (!code && i < retries) {
+        try { code = getRoomCode?.(); } catch { }
+        if (code) break;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 50));
+        i++;
     }
+    if (code) {
+        const u = new URL(window.location.href);
+        u.searchParams.set("r", code);
+        window.history.replaceState({}, "", u.toString());
+    }
+    return code || undefined;
 }
-function useStateKey(key, defVal) {
-    _debugSub(key);
-    return useMultiplayerState(key, defVal);
-}
-
-/* -------------------------------------------
-   Lobby / room join
--------------------------------------------- */
-function getRoomCodeFromUrl(u) {
-    const fromQuery = u.searchParams.get("r");
-    if (fromQuery) return fromQuery;
-    const m = (u.hash || "").match(/(?:^#|[?#&])r=([^&]+)/i);
-    return m ? decodeURIComponent(m[1]) : undefined;
+// Show an in-lobby reveal for N ms (timestamp in ms since epoch)
+export function useLobbyRevealUntil() {
+    return useMultiplayerState('lobbyRevealUntil', 0);
 }
 
+export function teamInviteUrl(teamId) {
+    // Build from origin+path so we don’t carry stale query noise
+    const base = new URL(window.location.origin + window.location.pathname);
+    // Prefer ?r= already in URL; otherwise ask SDK
+    const existing = new URL(window.location.href).searchParams.get("r");
+    const code = existing || getRoomCode?.();
+    if (code) base.searchParams.set("r", code);
+    base.searchParams.set("team", teamId);
+    return base.toString();
+}
+
+/* -------------------- Open lobby (always persist ?r=) -------------------- */
 export async function openLobby() {
     try {
         const url = new URL(window.location.href);
-        const roomCode = getRoomCodeFromUrl(url);
+        const roomCodeFromUrl = url.searchParams.get("r") || undefined;
 
-        await insertCoin({ skipLobby: true, roomCode });
+        // Join existing room if r= is present; otherwise create one
+        await insertCoin({ skipLobby: true, roomCode: roomCodeFromUrl });
 
-        if (isHost()) {
-            const prk = (typeof window !== "undefined" && window.playroomkit) || null;
-            const getRoomCode =
-                prk && typeof prk.getRoomCode === "function" ? prk.getRoomCode : null;
-            try {
-                const code = getRoomCode ? getRoomCode() : roomCode;
-                if (code) {
-                    url.searchParams.set("r", code);
-                    if (/#r=/i.test(url.hash)) {
-                        url.hash = url.hash.replace(/(^#|[&#])r=[^&]*/gi, "").replace(/^#&?$/, "");
-                    }
-                    window.history.replaceState({}, "", url.toString());
-                }
-            } catch { /* noop */ }
-        }
+        // Now force-write ?r=<code> for everyone (host + joiners)
+        await ensureRoomCodeInUrl();
+        // console.debug("[playroom] room code:", getRoomCode?.());
     } catch (e) {
         console.error("insertCoin failed:", e);
         throw e;
     }
 }
 
-/* -------------------------------------------
-   Global multiplayer state hooks (consolidated)
--------------------------------------------- */
-export function usePhase() { return useStateKey("phase", "lobby"); }
-export function useTimer() { return useStateKey("timer", 60); }
+/* -------------------- Shared game state hooks -------------------- */
+export function usePhase() { return useMultiplayerState("phase", "lobby"); }
+export function useTimer() { return useMultiplayerState("timer", 60); }
 
-const LENGTHS_DEFAULTS = { dayLength: 60, meetingLength: 30, nightLength: 45 };
 export function useLengths() {
-    const [lengths, setLengths] = useStateKey("lengths", LENGTHS_DEFAULTS);
-    const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
-    const dayLength = num(lengths?.dayLength, LENGTHS_DEFAULTS.dayLength);
-    const meetingLength = num(lengths?.meetingLength, LENGTHS_DEFAULTS.meetingLength);
-    const nightLength = num(lengths?.nightLength, LENGTHS_DEFAULTS.nightLength);
-
-    const upd = (key) => (val, broadcast) =>
-        setLengths((prev) => {
-            const cur = prev && typeof prev === "object" ? prev : LENGTHS_DEFAULTS;
-            const base = num(cur[key], LENGTHS_DEFAULTS[key]);
-            const nextVal = typeof val === "function" ? val(base) : val;
-            return { ...cur, [key]: nextVal };
-        }, broadcast);
-
-    return { dayLength, meetingLength, nightLength, setDayLen: upd("dayLength"), setMeetLen: upd("meetingLength"), setNightLen: upd("nightLength") };
+    const [dayLength, setDayLen] = useMultiplayerState("dayLength", 60);
+    const [meetingLength, setMeetLen] = useMultiplayerState("meetingLength", 30);
+    const [nightLength, setNightLen] = useMultiplayerState("nightLength", 45);
+    return { dayLength, meetingLength, nightLength, setDayLen, setMeetLen, setNightLen };
 }
 
-const METERS_DEFAULTS = { oxygen: 100, power: 100, cctv: 100 };
 export function useMeters() {
-    const [meters, setMeters] = useStateKey("meters", METERS_DEFAULTS);
-    const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
-    const oxygen = num(meters?.oxygen, METERS_DEFAULTS.oxygen);
-    const power = num(meters?.power, METERS_DEFAULTS.power);
-    const cctv = num(meters?.cctv, METERS_DEFAULTS.cctv);
-
-    const upd = (key) => (val, broadcast) =>
-        setMeters((prev) => {
-            const cur = prev && typeof prev === "object" ? prev : METERS_DEFAULTS;
-            const base = num(cur[key], METERS_DEFAULTS[key]);
-            const nextVal = typeof val === "function" ? val(base) : val;
-            return { ...cur, [key]: nextVal };
-        }, broadcast);
-
-    const setMeterValue = (k, val, broadcast) => upd(k)(val, broadcast);
-
-    return {
-        oxygen, power, cctv,
-        setOxygen: upd("oxygen"), setPower: upd("power"), setCCTV: upd("cctv"),
-        meters, getMeter: (k, d = 0) => num(meters?.[k], d),
-        setMeter: (k) => upd(k),
-        setMeterValue,
-    };
+    const [oxygen, setOxygen] = useMultiplayerState("oxygen", 100);
+    const [power, setPower] = useMultiplayerState("power", 100);
+    const [cctv, setCCTV] = useMultiplayerState("cctv", 100);
+    return { oxygen, power, cctv, setOxygen, setPower, setCCTV };
+}
+// One-time guard so host assigns infection only once
+export function useInfectedAssigned() {
+    return useMultiplayerState('infectedAssigned', false);
 }
 
-export function useDead() { return useStateKey("dead", []); }
-export function useEvents() { return useStateKey("events", []); }
-export function useRolesAssigned() { return useStateKey("rolesAssigned", false); }
+export function useDead() { return useMultiplayerState("dead", []); }
+export function useEvents() { return useMultiplayerState("events", []); }
+export function useRolesAssigned() { return useMultiplayerState("rolesAssigned", false); }
 
-/* -------------------------------------------
-   Player helpers
--------------------------------------------- */
+/* -------------------- Player helpers -------------------- */
 export function setMyPos(x, y, z) {
     const p = myPlayer();
     p.setState("x", x, true);
@@ -124,41 +99,22 @@ export function setMyPos(x, y, z) {
 export function getMyPos() {
     const p = myPlayer();
     return {
-        x: Number(p.getState("x") ?? 0),
-        y: Number(p.getState("y") ?? 0),
-        z: Number(p.getState("z") ?? 0),
+        x: +(p.getState("x") ?? 0),
+        y: +(p.getState("y") ?? 0),
+        z: +(p.getState("z") ?? 0),
     };
 }
 
-/* -------------------------------------------
-   Client → host action request (deduped)
--------------------------------------------- */
-const _lastReq = { t: 0, type: "", target: "" };
-
-export function requestAction(type, target = "", value = 0) {
-    // burst dedupe to avoid double-fire on key repeat / double mount
-    const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
-    const tgt = String(target);
-    if (now - _lastReq.t < 150 && _lastReq.type === type && _lastReq.target === tgt) {
-        return;
-    }
-    _lastReq.t = now; _lastReq.type = type; _lastReq.target = tgt;
-
+/* -------------------- Actions & events -------------------- */
+export function requestAction(type, target, value) {
     const p = myPlayer();
     const nextId = (Number(p.getState("reqId") || 0) + 1) | 0;
-
     p.setState("reqType", String(type), true);
-    p.setState("reqTarget", tgt, true);
+    p.setState("reqTarget", String(target), true);
     p.setState("reqValue", Number(value) | 0, true);
     p.setState("reqId", nextId, true);
-
-    // eslint-disable-next-line no-console
-    console.log(`[REQ] ${type} target=${tgt} id=${nextId}`);
 }
 
-/* -------------------------------------------
-   Host-only: append an event to the shared feed (keeps last 25)
--------------------------------------------- */
 export function hostAppendEvent(setEvents, msg) {
     if (!isHost()) return;
     setEvents((arr) => {
@@ -166,4 +122,15 @@ export function hostAppendEvent(setEvents, msg) {
         if (next.length > 25) next.splice(0, next.length - 25);
         return next;
     }, true);
+}
+
+/* -------------------- Utility -------------------- */
+export async function waitForLocalPlayer(timeoutMs = 5000) {
+    const start = Date.now();
+    while (!myPlayer?.()) {
+        if (Date.now() - start > timeoutMs) return null;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, 50));
+    }
+    return myPlayer();
 }
