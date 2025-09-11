@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite } from "../network/playroom";
++import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -13,6 +13,8 @@ const THROW_SPEED = 8;
 export default function ItemsHostLogic() {
     const host = isHost();
     const players = usePlayersList(true);
+    const [phase] = usePhase();
+    const prevPhaseRef = useRef(null);
     const { items, setItems } = useItemsSync();
 
     const itemsRef = useRef(items);
@@ -64,6 +66,30 @@ export default function ItemsHostLogic() {
         }, DT * 1000);
         return () => clearInterval(h);
     }, [host, setItems]);
+    useEffect(() => {
+        if (!host) return;
+
+        // fire once on transition into "day"
+        if (prevPhaseRef.current === null) {
+                prevPhaseRef.current = phase;
+                return;
+              }
+        
+              // fire once on transition into "day"
+              if (phase === "day" && prevPhaseRef.current !== "day") {
+            const everyone = [...(playersRef.current || [])];
+            const self = myPlayer();
+            if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
+
+            for (const pl of everyone) {
+                const cur = Number(pl.getState?.("energy") ?? 100);
+                const next = Math.max(0, Math.floor(cur * 0.5)); // −50%
+                pl.setState?.("energy", next, true);
+            }
+        }
+
+        prevPhaseRef.current = phase;
+    }, [host, phase]);
 
     // Process client requests (pickup / drop / throw / use)
     useEffect(() => {
