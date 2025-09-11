@@ -134,6 +134,85 @@ export function hostAppendEvent(setEvents, msg) {
         return next;
     }, true);
 }
+// --- Ability helpers (host) ---
+
+const ABILITY_CD_KEY = (abilityId) => `cd:${abilityId}Until`;
+
+function nowMs() { return Date.now(); }
+
+function isGuard(player) {
+    try { return String(player?.getState?.('role') || '') === 'Guard'; } catch { return false; }
+}
+
+// Compute closest player hit by a ray (origin, dir) within range.
+// dir should be normalized; we do a simple cylinder distance test around the ray.
+function raycastPlayers(origin, dir, range, excludeId, friendlyFire = false) {
+    const [ox, oy, oz] = origin; const [dx, dy, dz] = dir;
+    const players = window.playroom?.players?.() || []; // or your usePlayersList() bridge
+    const HIT_RADIUS = 0.75;
+
+    let best = null;
+    let bestT = Infinity;
+
+    for (const p of players) {
+        if (!p?.id || p.id === excludeId) continue;
+
+        // skip already downed players if you track it on state
+        const dead = !!p.getState?.('dead');
+        if (dead) continue;
+
+        // position
+        const px = Number(p.getState?.('x') || 0);
+        const pz = Number(p.getState?.('z') || 0);
+        const py = 1.2;
+
+        // solve closest point on ray
+        const vx = px - ox, vy = py - oy, vz = pz - oz;
+        const t = (vx * dx + vy * dy + vz * dz); // ray param
+        if (t < 0 || t > range) continue;
+
+        // perpendicular distance^2 from player to ray
+        const rx = ox + dx * t, ry = oy + dy * t, rz = oz + dz * t;
+        const ddx = px - rx, ddy = py - ry, ddz = pz - rz;
+        const dist2 = ddx * ddx + ddy * ddy + ddz * ddz;
+
+        if (dist2 <= (HIT_RADIUS * HIT_RADIUS) && t < bestT) {
+            best = p; bestT = t;
+        }
+    }
+    return best ? { target: best, t: bestT } : null;
+}
+
+function hostHandleShoot({ shooter, payload, setEvents }) {
+    // cooldown gate
+    const until = Number(shooter.getState(ABILITY_CD_KEY('shoot')) || 0);
+    if (until && nowMs() < until) return;
+
+    if (!isGuard(shooter)) return; // role check
+
+    const origin = payload?.origin || [0, 1.2, 0];
+    let dir = payload?.dir || [0, 0, 1];
+    // normalize dir
+    const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
+    dir = [dir[0] / len, dir[1] / len, dir[2] / len];
+
+    const RANGE = 12;
+    const hit = raycastPlayers(origin, dir, RANGE, shooter.id, false);
+
+    // set cooldown
+    shooter.setState(ABILITY_CD_KEY('shoot'), nowMs() + 700, true);
+
+    if (hit?.target) {
+        const victim = hit.target;
+        // simple "downed" flag for now (you can integrate with your dead[] array)
+        victim.setState('dead', true, true);
+        setEvents?.((prev) => [...prev, `${shooter.getProfile().name || 'Guard'} shot ${victim.getProfile().name || 'Player'}.`]);
+        console.log('[HOST] ability:shoot hit', victim.id);
+    } else {
+        setEvents?.((prev) => [...prev, `${shooter.getProfile().name || 'Guard'} fired.`]);
+        console.log('[HOST] ability:shoot miss');
+    }
+}
 
 /* -------------------- Utility -------------------- */
 export async function waitForLocalPlayer(timeoutMs = 5000) {

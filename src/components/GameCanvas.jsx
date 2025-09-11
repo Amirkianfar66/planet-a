@@ -15,7 +15,7 @@ import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
-
+import NetworkGunTracers from "../world/NetworkGunTracers.jsx";
 function TextLabel({
     text,
     position = [0, 0.01, 0],
@@ -117,6 +117,8 @@ export default function GameCanvas({ dead = [] }) {
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
+
+                <NetworkGunTracers />
             </Canvas>
 
             {/* Input overlay (non-blocking) */}

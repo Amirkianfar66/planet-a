@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
@@ -68,7 +68,12 @@ export default function ItemsHostLogic() {
     useEffect(() => {
         if (!host) return;
 
+        let cancelled = false;
+        let timerId = null;
+
         const loop = () => {
+            if (cancelled) return;
+
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
@@ -93,7 +98,7 @@ export default function ItemsHostLogic() {
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000);
+                    if (until > 1e11) until = Math.floor(until / 1000); // handle ms vs s
                     if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                     const it = findItem(target);
@@ -119,21 +124,26 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // DROP
+                // DROP  ⬅️ also remove from backpack
                 if (type === "drop") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
 
                     setItems(prev => prev.map(j =>
-                        j.id === it.id ? { ...j, holder: null, x: px, y: Math.max(py + 0.5, FLOOR_Y + 0.01), z: pz, vx: 0, vy: 0, vz: 0 } : j
+                        j.id === it.id
+                            ? { ...j, holder: null, x: px, y: Math.max(py + 0.5, FLOOR_Y + 0.01), z: pz, vx: 0, vy: 0, vz: 0 }
+                            : j
                     ), true);
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                    // remove from backpack
+                    setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+
                     processed.current.set(p.id, reqId);
                     continue;
                 }
 
-                // THROW (value = yaw radians or use p.getState("yaw"))
+                // THROW  ⬅️ also remove from backpack
                 if (type === "throw") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -149,6 +159,9 @@ export default function ItemsHostLogic() {
                     ), true);
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                    // remove from backpack
+                    setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+
                     processed.current.set(p.id, reqId);
                     continue;
                 }
@@ -176,7 +189,7 @@ export default function ItemsHostLogic() {
                         if (dx * dx + dz * dz <= r * r) {
                             const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                             if (eff) {
-                                // (Apply meters in your own meter system if desired)
+                                // (Apply meters in your system if desired)
                                 // Consume item
                                 setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j), true);
                                 setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
@@ -191,13 +204,19 @@ export default function ItemsHostLogic() {
                 processed.current.set(p.id, reqId);
             }
 
-            setTimeout(loop, 50);
+            // schedule next tick
+            timerId = setTimeout(loop, 50);
         };
 
-        console.log("[HOST] ItemsHostLogic running.");
         loop();
-        return () => { };
+
+        // proper cleanup
+        return () => {
+            cancelled = true;
+            if (timerId) clearTimeout(timerId);
+        };
     }, [host, setItems]);
+
 
     return null;
 }
