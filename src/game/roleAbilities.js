@@ -13,8 +13,8 @@ export const ROLE_ABILITIES = {
             id: 'shoot',
             key: 'KeyF',                  // keyboard code
             label: 'Shoot',
-            cooldownMs: 700,
-            range: 12,                    // meters
+            cooldownMs: 7000,
+            range: 10,                    // meters
             damage: 100,                  // instant down for now
             friendlyFire: false,
             icon: '🔫',
@@ -42,7 +42,7 @@ const INFECTED_ABILITY = {
     id: 'bite',
     key: 'KeyG',                 // Bite wants F by default
     label: 'Bite (Infect)',
-    cooldownMs: 1500,
+    cooldownMs: 240000,
     range: 1.6,                  // close range
     damage: 0,                   // infection only (no HP damage here)
     icon: '🧛',
