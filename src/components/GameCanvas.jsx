@@ -136,7 +136,7 @@ export default function GameCanvas({ dead = [] }) {
             </div>
 
             {/* Host-only logic */}
-            {prIsHost() && <ItemsHostLogic />}
+            <ItemsHostLogic />
 
             {/* Death logic (meters → dead) */}
             <DeathSystem />

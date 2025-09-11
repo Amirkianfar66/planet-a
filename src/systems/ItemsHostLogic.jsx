@@ -4,6 +4,7 @@ import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase } from "..
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
+import { useGameClock } from "../systems/dayNightClock"; // ⬅️ NEW
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -14,9 +15,8 @@ export default function ItemsHostLogic() {
     const host = isHost();
     const players = usePlayersList(true);
     const [phase] = usePhase();
-    const prevPhaseRef = useRef(null);
-    const { items, setItems } = useItemsSync();
 
+    const { items, setItems } = useItemsSync();
     const itemsRef = useRef(items);
     useEffect(() => { itemsRef.current = items; }, [items]);
 
@@ -24,6 +24,10 @@ export default function ItemsHostLogic() {
     useEffect(() => { playersRef.current = players; }, [players]);
 
     const processed = useRef(new Map());
+
+    // ⬇️ track the day number; we’ll decay energy exactly once per increment
+    const dayNumber = useGameClock((s) => s.dayNumber);
+    const prevDayRef = useRef(dayNumber);
 
     const getBackpack = (p) => {
         const raw = p?.getState("backpack");
@@ -66,32 +70,30 @@ export default function ItemsHostLogic() {
         }, DT * 1000);
         return () => clearInterval(h);
     }, [host, setItems]);
+
+    // ✅ ENERGY DECAY: fire once per new day number (host-authoritative)
     useEffect(() => {
         if (!host) return;
-
-        // fire once on transition into "day"
-        if (prevPhaseRef.current === null) {
-                prevPhaseRef.current = phase;
-                return;
-              }
-        
-              // fire once on transition into "day"
-              if (phase === "day" && prevPhaseRef.current !== "day") {
+        if (prevDayRef.current === undefined) {
+            prevDayRef.current = dayNumber;
+            return;
+        }
+        if (dayNumber !== prevDayRef.current) {
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
             for (const pl of everyone) {
                 const cur = Number(pl.getState?.("energy") ?? 100);
-                const next = Math.max(0, Math.floor(cur * 0.5)); // −50%
+                const next = Math.max(0, Math.floor(cur * 0.5)); // −50% per new day
                 pl.setState?.("energy", next, true);
             }
+            prevDayRef.current = dayNumber;
+            console.log(`[HOST] Day ${dayNumber}: halved player energy.`);
         }
+    }, [host, dayNumber]);
 
-        prevPhaseRef.current = phase;
-    }, [host, phase]);
-
-    // Process client requests (pickup / drop / throw / use)
+    // Process client requests (pickup / drop / throw / use / abilities)
     useEffect(() => {
         if (!host) return;
 
@@ -105,16 +107,12 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
-            // Ensure each player has a life + energy meter (host-side, one-time per player)
+            // Ensure each player has life + energy meters (host-side, one-time per player)
             for (const pl of everyone) {
                 const hasLife = pl.getState?.("life");
-                if (hasLife === undefined || hasLife === null) {
-                    pl.setState?.("life", 100, true);
-                }
+                if (hasLife === undefined || hasLife === null) pl.setState?.("life", 100, true);
                 const hasEnergy = pl.getState?.("energy");
-                if (hasEnergy === undefined || hasEnergy === null) {
-                    pl.setState?.("energy", 100, true);
-                }
+                if (hasEnergy === undefined || hasEnergy === null) pl.setState?.("energy", 100, true);
             }
 
             const list = itemsRef.current || [];
@@ -135,15 +133,15 @@ export default function ItemsHostLogic() {
 
                 // ABILITY: shoot
                 if (type === "ability" && target === "shoot") {
-                    const payload = readActionPayload(p); // { origin:[x,y,z], dir:[dx,dy,dz] }
-                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone }); // tracer + hit check
+                    const payload = readActionPayload(p);
+                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
 
                 // ABILITY: bite (infect)
                 if (type === "ability" && target === "bite") {
-                    hostHandleBite({ biter: p, setEvents: undefined, players: everyone }); // pass players
+                    hostHandleBite({ biter: p, setEvents: undefined, players: everyone });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
@@ -152,7 +150,7 @@ export default function ItemsHostLogic() {
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000); // handle ms vs s
+                    if (until > 1e11) until = Math.floor(until / 1000);
                     if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                     const it = findItem(target);
@@ -178,7 +176,7 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // DROP  ⬅️ also remove from backpack
+                // DROP (and remove from backpack)
                 if (type === "drop") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -190,14 +188,13 @@ export default function ItemsHostLogic() {
                     ), true);
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                    // remove from backpack
                     setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
 
                     processed.current.set(p.id, reqId);
                     continue;
                 }
 
-                // THROW  ⬅️ also remove from backpack
+                // THROW (and remove from backpack)
                 if (type === "throw") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -213,7 +210,6 @@ export default function ItemsHostLogic() {
                     ), true);
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                    // remove from backpack
                     setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
 
                     processed.current.set(p.id, reqId);
@@ -230,7 +226,6 @@ export default function ItemsHostLogic() {
                     if (kind === "eat" && it.type === "food") {
                         const isInfected = !!p.getState?.("infected");
                         if (!isInfected) {
-                            // Fill to 100% energy (you can change to +50 if you prefer partial)
                             p.setState?.("energy", 100, true);
                         }
                         setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j), true);
@@ -248,8 +243,7 @@ export default function ItemsHostLogic() {
                         if (dx * dx + dz * dz <= r * r) {
                             const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                             if (eff) {
-                                // (Apply meters in your system if desired)
-                                // Consume item
+                                // apply any station/room effects here if desired
                                 setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j), true);
                                 setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                                 if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
@@ -260,8 +254,9 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
+                // default: mark processed so we don't loop on it
                 processed.current.set(p.id, reqId);
-            }
+            };
 
             // schedule next tick
             timerId = setTimeout(loop, 50);
@@ -269,13 +264,11 @@ export default function ItemsHostLogic() {
 
         loop();
 
-        // proper cleanup
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);
         };
     }, [host, setItems]);
-
 
     return null;
 }
