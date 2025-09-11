@@ -162,7 +162,15 @@ export default function HUD({ game = {} }) {
     const me = myPlayer();
     const lifeVal = Number(me?.getState?.("life") ?? 100);
     const amDead = Boolean(me?.getState?.("dead"));
-
+    // ✅ NEW: read local player energy and keep it in state so HUD updates
+    const [energyVal, setEnergyVal] = useState(Number(me?.getState?.("energy") ?? 100));
+    useEffect(() => {
+        const iv = setInterval(() => {
+            const v = Number(myPlayer()?.getState?.("energy") ?? 100);
+            setEnergyVal(prev => (prev === v ? prev : v));
+        }, 150);
+        return () => clearInterval(iv);
+    }, []);
     // Prefer data passed in via `game`; fall back to myPlayer() state
     const meProp = game?.me || {};
     const bpFromPlayer = me?.getState?.("backpack") || [];
@@ -231,7 +239,7 @@ export default function HUD({ game = {} }) {
             >
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                    <MetersPanel life={lifeVal} energy={Number(power)} oxygen={Number(oxygen)} />
+                    <MetersPanel life={lifeVal} energy={energyVal} oxygen={Number(oxygen)} />
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>

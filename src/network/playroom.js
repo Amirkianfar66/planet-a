@@ -358,8 +358,14 @@ function findBiteTarget(biter, range = 1.6, maxAngleDeg = 70) {
 
 /** Infected ability: quick bite to infect a nearby target in front arc. */
 // --- Host bite handler (paste into src/network/playroom.js) ---
+// Infected ability: quick bite to infect a nearby target in front arc.
 export function hostHandleBite({ biter, players = [], setEvents }) {
     if (!biter?.id) return;
+
+    // ✅ Only infected can bite to gain energy
+    const infected = !!biter.getState?.("infected");
+    if (!infected) return;
+
     const now = Date.now();
 
     // Cooldown (1.5s)
@@ -383,6 +389,9 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
         if (!p?.id || p.id === biter.id) continue;
         if (p.getState?.("dead")) continue;
 
+        // only bite non-infected targets
+        if (p.getState?.("infected")) continue;
+
         const px = Number(p.getState("x") || 0);
         const pz = Number(p.getState("z") || 0);
 
@@ -402,21 +411,26 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
     biter.setState("bitingUntil", now + 600, true);
 
     if (!best) return;
-    if (!!best.getState?.("infected")) return; // already infected
 
     // ✅ Infect the victim
     best.setState("infected", true, true);
     best.setState("infectedBy", biter.id, true);
     best.setState("infectedAt", now, true);
 
+    // ✅ Award energy to the biter (+50, cap 100)
+    const curE = Number(biter.getState("energy") ?? 0);
+    const nextE = Math.min(100, curE + 50);
+    biter.setState("energy", nextE, true);
+
     // Optional event line
     try {
         if (typeof hostAppendEvent === "function") {
-            const name = biter.getState?.("name") || "Someone";
-            hostAppendEvent(setEvents, `${name} bit a crew member!`);
+            const name = biter.getState?.("name") || "Infected";
+            hostAppendEvent(setEvents, `${name} bit a crew member! (+50 energy)`);
         }
     } catch { }
 }
+
 
 
 /** Extend the host-side router so ItemsHostLogic can just call one function. */
