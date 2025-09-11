@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { myPlayer, usePlayersList, isHost } from 'playroomkit';
 import {
     usePhase, useTimer, useLengths, useRolesAssigned, useInfectedAssigned,
@@ -106,13 +106,43 @@ export default function Lobby() {
     const myRole = useMemo(() => (me ? roleOf(me) : ''), [me]);
     const mySlot = useMemo(() => (me ? slotOf(me) : null), [me]);
 
-    // Use either the players list or our local fallback
+    // Use either the players list or our local fallback (define BEFORE using anywhere else)
     const myTeam = myTeamFromPlayers || clientMyTeam;
+
+    // --- name editing (self only) ---
+    const [nameDraft, setNameDraft] = useState('');
+    const nameDebRef = useRef(null);
+
+    // keep local draft in sync with network state when I change team or my state updates
+    useEffect(() => {
+        const current = me ? (me.getProfile?.().name || me.getState?.('name') || me.name || `Player-${String(me.id || '').slice(-4)}`) : '';
+        setNameDraft(current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [me?.id, myTeam]);
+
+    const handleNameChange = useCallback((e) => {
+        const v = (e.target.value || '').slice(0, 20); // limit length a bit
+        setNameDraft(v);
+        if (nameDebRef.current) clearTimeout(nameDebRef.current);
+        nameDebRef.current = setTimeout(() => {
+            const clean = v.trim() || `Player-${String(myId || '').slice(-4)}`;
+            setMyState('name', clean); // broadcast to room
+        }, 250); // debounce
+    }, [myId]);
+
+    // duplicate warning inside my team (compute AFTER myTeam exists)
+    const nameClash = useMemo(() => {
+        if (!myTeam) return false;
+        const myLower = (nameDraft || '').trim().toLowerCase();
+        if (!myLower) return false;
+        return (rosterByTeam[myTeam] || [])
+            .some(p => p.id !== myId && (getPlayerName(p) || '').trim().toLowerCase() === myLower);
+    }, [nameDraft, myTeam, rosterByTeam, myId]);
 
     /* -------------------------------------------
        Read ?team= (or #team=) once -> store pending
     -------------------------------------------- */
-    React.useEffect(() => {
+    useEffect(() => {
         const pickTeam = (s) => {
             const q = new URLSearchParams(s);
             const t = q.get('team');
@@ -128,7 +158,7 @@ export default function Lobby() {
     /* -------------------------------------------
        Auto-join from link when myPlayer() exists
     -------------------------------------------- */
-    React.useEffect(() => {
+    useEffect(() => {
         if (!pendingTeamFromLink || myTeam) return;
 
         let cancelled = false;
@@ -158,7 +188,7 @@ export default function Lobby() {
         })();
 
         return () => { cancelled = true; };
-    }, [pendingTeamFromLink, myTeam, linkTries]); // attemptJoinTeam below
+    }, [pendingTeamFromLink, myTeam, linkTries]); // attemptJoinTeam defined below
 
     // --- actions ---
     const ensureMySlot = useCallback((teamId, preferred = null) => {
@@ -296,7 +326,7 @@ export default function Lobby() {
             return;
         }
 
-        // 1) Assign one infected per team (host/leader triggers, but writes are replicated)
+        // 1) Assign one infected per team
         const byTeam = new Map();
         for (const p of players) {
             const t = teamOf(p);
@@ -314,10 +344,10 @@ export default function Lobby() {
             pick.setState?.('infected', true, true);
         }
 
-        // 2) Mark: roles to be considered assigned, infections assigned, and open a short reveal window
+        // 2) Mark: roles/infections assigned, open reveal window
         setRolesAssigned(true, true);
         setInfectedAssigned(true, true);
-        setRevealUntil(Date.now() + 10000, true); // 4s
+        setRevealUntil(Date.now() + 4000, true); // 4s
 
         // 3) After reveal, start Day 1
         setTimeout(() => {
@@ -479,6 +509,23 @@ export default function Lobby() {
                         })()}
                     </div>
 
+                    {/* Your name (self-edit) */}
+                    <div style={styles.nameEditRow}>
+                        <label style={styles.label}>Your Name</label>
+                        <input
+                            type="text"
+                            value={nameDraft}
+                            onChange={handleNameChange}
+                            maxLength={20}
+                            placeholder="Enter your name"
+                            style={styles.input}
+                            disabled={revealActive}
+                        />
+                        {nameClash && (
+                            <span style={styles.nameWarn}>name already used in team</span>
+                        )}
+                    </div>
+
                     {/* Your role */}
                     <div style={styles.rolePicker}>
                         <label style={styles.label}>Your Role</label>
@@ -556,6 +603,11 @@ const styles = {
     youBadge: { marginLeft: 8, fontSize: 11, background: '#eef2ff', padding: '2px 6px', borderRadius: 999 },
     roleText: { fontSize: 13, opacity: 0.8 },
     emptySlot: { padding: '6px 8px', borderRadius: 10, background: '#fafafa', border: '1px dashed #eee', color: '#9ca3af', marginBottom: 6, fontStyle: 'italic' },
+
+    // name editor
+    nameEditRow: { margin: '8px 0 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    input: { padding: '6px 10px', borderRadius: 10, border: '1px solid #ddd', minWidth: 180 },
+    nameWarn: { fontSize: 12, color: '#b91c1c' },
 
     rolePicker: { marginTop: 10, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
     label: { fontSize: 13, opacity: 0.8 },
