@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
