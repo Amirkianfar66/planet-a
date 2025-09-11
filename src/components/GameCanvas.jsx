@@ -1,5 +1,4 @@
-﻿// src/components/GameCanvas.jsx
-import React, { useMemo } from "react";
+﻿import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { isHost as prIsHost } from "playroomkit";
@@ -16,10 +15,7 @@ import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
-// If you still use a host rAF driver elsewhere, keep this:
-// import HostRafDriver from "../systems/HostRafDriver.jsx";
 
-/* ---------- Canvas-text floor label ----------- */
 function TextLabel({
     text,
     position = [0, 0.01, 0],
@@ -57,19 +53,16 @@ function TextLabel({
     );
 }
 
-/* ---------------- Floor, zones, walls ---------------- */
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
 
     return (
         <group>
-            {/* Base floor */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
             </mesh>
 
-            {/* Zones */}
             <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
                 <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
@@ -79,13 +72,11 @@ function FloorAndWalls() {
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
-            {/* Grid */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
             </mesh>
 
-            {/* Walls */}
             {walls.map((w, i) => (
                 <mesh {...noRay} key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
                     <boxGeometry args={[w.w, WALL_HEIGHT, w.d]} />
@@ -93,7 +84,6 @@ function FloorAndWalls() {
                 </mesh>
             ))}
 
-            {/* Labels */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
             {ROOMS.map((r) => (
                 <TextLabel
@@ -108,7 +98,6 @@ function FloorAndWalls() {
     );
 }
 
-/* ---------------- Root canvas ---------------- */
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -118,31 +107,24 @@ export default function GameCanvas({ dead = [] }) {
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 gl={{ powerPreference: "high-performance" }}
             >
-                {/* Scene background */}
                 <color attach="background" args={["#0b1220"]} />
-
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 10, 3]} intensity={1} />
-
                 <FloorAndWalls />
 
-                {/* Full networked item system */}
+                {/* Items & players */}
                 <ItemsAndDevices />
-
                 <Players3D dead={dead} />
                 <LocalController />
                 <ThirdPersonCamera />
-
-                {/* If you still rely on a host rAF driver, uncomment: */}
-                {/* {prIsHost() && <HostRafDriver />} */}
             </Canvas>
 
-            {/* DOM overlays should NOT block canvas clicks */}
+            {/* Input overlay (non-blocking) */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                 <InteractionSystem />
             </div>
 
-            {/* Non-visual host logic (host-only) */}
+            {/* Host-only logic */}
             {prIsHost() && <ItemsHostLogic />}
         </div>
     );

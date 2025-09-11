@@ -1,9 +1,8 @@
-﻿// src/systems/InteractionSystem.jsx
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import { myPlayer } from "playroomkit";
-import useItemsSync from "../systems/useItemsSync.js";
+import useItemsSync from "./useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
-import { PICKUP_RADIUS, DEVICE_RADIUS, PICKUP_COOLDOWN } from "../data/constants.js";
+import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
 
 export default function InteractionSystem() {
     const { items } = useItemsSync();
@@ -36,12 +35,6 @@ export default function InteractionSystem() {
             const carryId = me.getState("carry") || "";
 
             if (k === "p") {
-                // cooldown client-side gate (host will also enforce)
-                const now = Math.floor(Date.now() / 1000);
-                let until = Number(me.getState("pickupUntil") || 0);
-                if (until > 1e11) until = Math.floor(until / 1000);
-                if (now < until) return;
-
                 // nearest free item
                 let pick = null, best = Infinity;
                 for (const it of (itemsRef.current || [])) {
@@ -53,21 +46,17 @@ export default function InteractionSystem() {
                 return;
             }
 
-            if (k === "o") { // drop
-                if (carryId) sendReq("drop", carryId, 0);
-                return;
-            }
+            if (k === "o") { if (carryId) sendReq("drop", carryId, 0); return; }
 
-            if (k === "t") { // throw forward (yaw may already be on player state)
+            if (k === "t") {
                 if (!carryId) return;
                 const yaw = Number(me.getState("yaw") || 0);
-                sendReq("throw", carryId, yaw);
-                return;
+                sendReq("throw", carryId, yaw); return;
             }
 
-            if (k === "i") { // use: device in range or eat food
+            if (k === "i") {
                 if (!carryId) return;
-                // nearest device in range
+                // nearest device
                 let dev = null, best = Infinity;
                 for (const d of DEVICES) {
                     const dx = px - d.x, dz = pz - d.z, d2 = dx * dx + dz * dz;
