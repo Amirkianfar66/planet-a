@@ -25,9 +25,13 @@ export default function ItemsHostLogic() {
 
     const processed = useRef(new Map());
 
-    // ⬇️ track the day number; we’ll decay energy exactly once per increment
+    // ⬇️ track the day number (kept for compatibility if referenced elsewhere)
     const dayNumber = useGameClock((s) => s.dayNumber);
     const prevDayRef = useRef(dayNumber);
+
+    // ⬇️ NEW: track clock phase for half-day decay ("day" <-> "night")
+    const clockPhase = useGameClock((s) => s.phase);
+    const prevPhaseRef = useRef(clockPhase);
 
     const getBackpack = (p) => {
         const raw = p?.getState("backpack");
@@ -71,27 +75,48 @@ export default function ItemsHostLogic() {
         return () => clearInterval(h);
     }, [host, setItems]);
 
-    // ✅ ENERGY DECAY: fire once per new day number (host-authoritative)
+    // ✅ ENERGY DECAY: halve personal energy once per new dayNumber
     useEffect(() => {
         if (!host) return;
-        if (prevDayRef.current === undefined) {
-            prevDayRef.current = dayNumber;
-            return;
-        }
-        if (dayNumber !== prevDayRef.current) {
+
+        const readClock = () =>
+            (typeof useGameClock.getState === "function" ? useGameClock.getState() : null);
+
+        // initialize guard with the current day number (it's a value, not a function)
+        let lastDay = Number(readClock()?.dayNumber ?? 0);
+
+        const applyDecay = (d) => {
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
             for (const pl of everyone) {
+                if (pl.getState?.("dead")) continue;
                 const cur = Number(pl.getState?.("energy") ?? 100);
-                const next = Math.max(0, Math.floor(cur * 0.5)); // −50% per new day
-                pl.setState?.("energy", next, true);
+                const next = Math.max(0, Math.min(100, cur - 25)); // ← subtract 25 per day
+                     pl.setState?.("energy", next, true);
             }
-            prevDayRef.current = dayNumber;
-            console.log(`[HOST] Day ${dayNumber}: halved player energy.`);
-        }
-    }, [host, dayNumber]);
+            console.log(`[HOST] Day ${d}: halved personal energy for all alive players.`);
+        };
+
+        let rafId = 0;
+        const tick = () => {
+            const s = readClock();
+            if (s) {
+                const d = Number(s.dayNumber ?? 0);   // <-- VALUE
+                if (d !== lastDay) {
+                    applyDecay(d);
+                    lastDay = d;
+                }
+            }
+            rafId = requestAnimationFrame(tick);
+        };
+
+        rafId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafId);
+    }, [host]);
+
+
 
     // Process client requests (pickup / drop / throw / use / abilities)
     useEffect(() => {
@@ -150,27 +175,78 @@ export default function ItemsHostLogic() {
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000);
-                    if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
+                    if (until && nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                     const it = findItem(target);
                     if (!it) { processed.current.set(p.id, reqId); continue; }
-                    if (it.holder && it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
-                    if (!hasCapacity(p)) { processed.current.set(p.id, reqId); continue; }
 
+                    // already held by someone else?
+                    if (it.holder && it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
+
+                    // bag capacity check (need at least 1 slot to pick the first one)
+                    const cap = Number(BAG_CAPACITY || 8);
+                    const bp = getBackpack(p);
+                    const free = cap - bp.length;
+                    if (free <= 0) { processed.current.set(p.id, reqId); continue; }
+
+                    // in range?
                     const dx = px - it.x, dz = pz - it.z;
                     if (Math.hypot(dx, dz) > PICKUP_RADIUS) { processed.current.set(p.id, reqId); continue; }
 
-                    setItems(prev => prev.map(j =>
-                        j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
-                    ), true);
+                    // --- decide if this role should get a bonus copy (2x) for this item type ---
+                    const roleRaw = String(p.getState("role") || "");
+                    const roleKey = roleRaw.toLowerCase().replace(/\s+/g, ""); // normalize
+                    const t = it.type;
 
+                    const isResearch = (roleKey === "research" || roleKey === "researcher");
+                    const isEngineer = (roleKey === "engineer");
+                    const isFoodSupplier = (roleKey === "foodsupplier" || roleKey === "foodsupplier");
+
+                    const eligible =
+                        (isResearch && (t === "protection" || t === "cure_red" || t === "cure_blue")) ||
+                        (isEngineer && t === "fuel") ||
+                        (isFoodSupplier && t === "food");
+
+                    const canDouble = eligible && free >= 2; // need 2 free slots to grant the bonus
+
+                    // --- apply: mark picked item held; optionally create a bonus copy directly in backpack ---
+                    const bonusId = `${t}_bonus_${p.id.slice(0, 4)}_${(Date.now() % 100000).toString(36)}`;
+
+                    setItems(prev => {
+                        // 1) claim the original
+                        const next = prev.map(j =>
+                            j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
+                        );
+                        // 2) (optional) add a second copy straight to backpack (never appears on floor)
+                        if (canDouble) {
+                            next.push({
+                                id: bonusId,
+                                type: t,
+                                name: it.name || t,
+                                holder: p.id,
+                                x: it.x, y: FLOOR_Y, z: it.z,
+                                vx: 0, vy: 0, vz: 0
+                            });
+                        }
+                        return next;
+                    }, true);
+
+                    // carry (only needs to reference one of them)
                     const carry = String(p.getState("carry") || "");
                     if (!carry) p.setState("carry", it.id, true);
 
-                    const bp = getBackpack(p);
-                    if (!bp.find(b => b.id === it.id)) setBackpack(p, [...bp, { id: it.id, type: it.type }]);
+                    // update backpack state (avoid duping same id)
+                    const bpNow = getBackpack(p);
+                    const toAdd = [{ id: it.id, type: t }];
+                    if (canDouble) toAdd.push({ id: bonusId, type: t });
 
+                    const merged = [...bpNow];
+                    for (const add of toAdd) {
+                        if (!merged.find(b => b.id === add.id)) merged.push(add);
+                    }
+                    setBackpack(p, merged);
+
+                    // cooldown
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                     processed.current.set(p.id, reqId);
                     continue;

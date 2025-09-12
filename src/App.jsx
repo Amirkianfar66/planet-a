@@ -90,37 +90,61 @@ export default function App() {
         // Let Lobby handle team join/create and url invites.
     }, [ready]);
 
-    // (Optional) host-only quick launch used outside Lobby, but we don't need it now
-    // because Lobby handles launch + infected reveal. Keeping here in case you want
-    // a keyboard shortcut later.
+    // (Optional) host-only quick launch
     function launchGame() {
         if (!isHost()) return;
         setPhase("day", true);
         hostAppendEvent(setEvents, "Mission launch — Day 1");
     }
 
-    // items → backpack for HUD
+    // === Item presentation for HUD (updated types) ===
+    const TYPE_COLORS = {
+        food: "#22c55e",        // green
+        fuel: "#a855f7",        // purple
+        protection: "#f59e0b",  // orange
+        cure_red: "#ef4444",    // red
+        cure_blue: "#3b82f6",   // blue
+        // legacy (if any remain)
+        battery: "#2dd4bf",
+        o2can: "#9bd1ff",
+        fuel_legacy: "#a78bfa",
+    };
+
+    const labelFromType = (t) => {
+        switch (t) {
+            case "food": return "Food Ration";
+            case "fuel": return "Fuel Rod";
+            case "protection": return "Protection Badge";
+            case "cure_red": return "Cure — Red";
+            case "cure_blue": return "Cure — Blue";
+            // legacy fallback labels if older items still exist
+            case "battery": return "Battery Pack";
+            case "o2can": return "O₂ Canister";
+            default: return t || "Item";
+        }
+    };
+
+    const iconForType = (t) => {
+        switch (t) {
+            case "food": return "🍏";
+            case "fuel": return "🟣";
+            case "protection": return "🛡️";
+            case "cure_red": return "🟥";
+            case "cure_blue": return "🟦";
+            // legacy
+            case "battery": return "🔋";
+            case "o2can": return "🫧";
+            default: return "📦";
+        }
+    };
+
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
 
-    const labelFromType = (t) =>
-        t === "food" ? "Food Ration" :
-            t === "battery" ? "Battery Pack" :
-                t === "o2can" ? "O₂ Canister" :
-                    t === "fuel" ? "Fuel Rod" :
-                        (t || "Item");
-
-    const iconForType = (t) =>
-        t === "food" ? "🍎" :
-            t === "battery" ? "🔋" :
-                t === "o2can" ? "🫧" :
-                    t === "fuel" ? "🟣" :
-                        "📦";
-
     const myBackpack = useMemo(() => {
         if (!myId) return [];
-        return items
+        return (items || [])
             .filter((it) => it.holder === myId)
             .map((it) => ({
                 id: it.id,
@@ -128,6 +152,7 @@ export default function App() {
                 qty: 1,
                 icon: iconForType(it.type),
                 type: it.type,
+                color: TYPE_COLORS[it.type] || "#9ca3af",
             }));
     }, [items, myId]);
 
@@ -141,7 +166,7 @@ export default function App() {
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
 
-    // Render your custom Lobby while phase is 'lobby'
+    // Render Lobby while phase is 'lobby'
     if (isInLobby) return <Lobby />;
 
     // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
@@ -160,9 +185,10 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") {
+                // self-use food anywhere
                 requestAction("use", `eat|${id}`);
             } else {
-                // use other items at devices via world interaction
+                // other items are used at devices via world interaction (press I near device)
             }
         },
         requestAction,
