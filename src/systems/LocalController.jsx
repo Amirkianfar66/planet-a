@@ -5,12 +5,14 @@ import { myPlayer } from "playroomkit";
 import { getMyPos, setMyPos } from "../network/playroom";
 import { FLOOR, WALL_THICKNESS, wallAABBs } from "../map/deckA";
 
-
 const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
 const GRAVITY = 16;
 const JUMP_V = 5.2;
 const GROUND_Y = 0;
+
+// ⬇️ Set this to the center of your Lockdown room (map coordinates)
+const LOCKDOWN_POS = { x: 12, y: 0, z: -6 };
 
 function resolveCollisions(next) {
     for (let pass = 0; pass < 2; pass++) {
@@ -86,6 +88,22 @@ function LocalControllerInner() {
     useFrame((_, dt) => {
         if (!dt) return;
 
+        const p = myPlayer();
+
+        // ⬇️ NEW: Lockdown enforcement (no change to normal logic for others)
+        // If this player is flagged as "locked", pin them inside the Lockdown room.
+        if (p?.getState?.("locked")) {
+            const next = { x: LOCKDOWN_POS.x, y: LOCKDOWN_POS.y, z: LOCKDOWN_POS.z };
+            setPos(next);
+            setMyPos(next.x, next.y, next.z);
+
+            // Keep current facing; report no speed and on-ground
+            p.setState("yaw", yawRef.current, false);
+            p.setState("spd", 0, false);
+            p.setState("air", false, false);
+            return; // Skip normal movement while locked
+        }
+
         // yaw rotation keys
         if (keys.current["q"]) yawRef.current += 1.5 * dt;
         if (keys.current["e"]) yawRef.current -= 1.5 * dt;
@@ -135,7 +153,6 @@ function LocalControllerInner() {
         setPos(next);
         setMyPos(next.x, next.y, next.z);
 
-        const p = myPlayer();
         p.setState("yaw", yawRef.current, false);
         p.setState("spd", horizSpeed, false);
         p.setState("air", !groundedRef.current, false);

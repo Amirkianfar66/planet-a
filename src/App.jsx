@@ -141,7 +141,6 @@ export default function App() {
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
-
     const myBackpack = useMemo(() => {
         if (!myId) return [];
         return (items || [])
@@ -163,6 +162,9 @@ export default function App() {
     }, [myBackpack]);
 
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
+
+    // ⬇️ NEW: hide VotePanel for this player after they vote
+    const hasVoted = Boolean(meP?.getState?.("vote"));
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
 
@@ -213,7 +215,7 @@ export default function App() {
                 </div>
             </div>
 
-            {matchPhase === "meeting" && !dead.includes(myId) && (
+            {matchPhase === "meeting" && !dead.includes(myId) && !hasVoted && (
                 <VotePanel dead={dead} />
             )}
         </div>
