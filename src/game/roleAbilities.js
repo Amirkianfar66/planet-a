@@ -30,8 +30,14 @@ export const ROLE_ABILITIES = {
         { id: 'call_meeting', key: 'KeyF', label: 'Call Meeting', cooldownMs: 20000, icon: '📣' },
     ],
     Officer: [
-        { id: 'mark_suspect', key: 'KeyF', label: 'Mark Suspect', cooldownMs: 6000, icon: '🎯' },
-    ],
+              {
+ id: 'arrest',
+                  key: 'KeyF',
+                  label: 'Arrest (Lockdown)',
+                  cooldownMs: 0,    // server enforces once-per-officer; keep 0 here
+                  icon: '🚔',
+              },
+  ],
     FoodSupplier: [
         { id: 'drop_food', key: 'KeyF', label: 'Drop Food', cooldownMs: 6000, icon: '🍱' },
     ],
