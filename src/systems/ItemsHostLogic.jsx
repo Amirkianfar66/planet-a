@@ -139,7 +139,13 @@ export default function ItemsHostLogic() {
                 const hasEnergy = pl.getState?.("energy");
                 if (hasEnergy === undefined || hasEnergy === null) pl.setState?.("energy", 100, true);
             }
-
+            // Ensure Officers have an arrest charge (default 1)
+              const role = String(pl.getState?.("role") || "");
+              const arrests = pl.getState?.("arrestsLeft");
+              if (role === "Officer" && (arrests === undefined || arrests === null)) {
+                    pl.setState?.("arrestsLeft", 1, true);
+                  }
+        }
             const list = itemsRef.current || [];
             const findItem = (id) => list.find(i => i.id === id);
 
