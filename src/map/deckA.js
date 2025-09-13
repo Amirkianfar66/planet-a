@@ -23,23 +23,34 @@ const baseRooms = [
     { key: 'control_room', name: 'Control Room', x: sx + (cellW / 2), z: sz + (cellD / 2), w: cellW, d: cellD },
 ];
 
-// --- NEW: Lockdown room (a secured cell inside the Control Room) ---
+// --- Lockdown room (inside Control Room) ---
 const ctrlCx = sx + (cellW / 2);
 const ctrlCz = sz + (cellD / 2);
 
-// size with sensible clamps
 const LOCK_W = Math.min(6, Math.max(3.2, cellW * 0.55));
 const LOCK_D = Math.min(5, Math.max(2.6, cellD * 0.45));
-const MARGIN = 0.6;          // space from Control Room outer walls
-const DOOR_GAP = 1.2;         // opening on the west wall
+const MARGIN = 0.6;   // gap from Control Room walls
+const DOOR_GAP = 1.2;   // west-side door gap
 
-// place it toward the SE corner of Control Room
 const lockX = ctrlCx + (cellW / 2 - LOCK_W / 2 - MARGIN);
 const lockZ = ctrlCz + (cellD / 2 - LOCK_D / 2 - MARGIN);
+
+// --- NEW: Separate Meeting Room (in OUTSIDE area, near the Station side) ---
+const meetWBase = OUTSIDE_AREA.w * 0.35;
+const meetDBase = OUTSIDE_AREA.d * 0.28;
+const MEET_W = Math.min(8, Math.max(4, meetWBase));
+const MEET_D = Math.min(8, Math.max(4, meetDBase));
+const MEET_MARGIN = 0.8;
+const MEET_DOOR = 1.4; // east-side door (faces Station)
+
+// place it toward the east edge of OUTSIDE, centered vertically
+const meetX = (OUTSIDE_AREA.x + OUTSIDE_AREA.w / 2) - (MEET_W / 2 + MEET_MARGIN);
+const meetZ = OUTSIDE_AREA.z;
 
 export const ROOMS = [
     ...baseRooms,
     { key: 'lockdown', name: 'Lockdown', x: lockX, z: lockZ, w: LOCK_W, d: LOCK_D },
+    { key: 'meeting_room', name: 'Meeting Room', x: meetX, z: meetZ, w: MEET_W, d: MEET_D },
 ];
 
 // --- Walls: outer boundary + station partitions ---
@@ -51,38 +62,56 @@ const baseWalls = [
     { x: FLOOR.w / 2, z: 0, w: WALL_THICKNESS, d: FLOOR.d }, // East
 
     // Station internal partitions (2×2 grid) with central gaps
-    // Vertical through station (gap ~2 units for a door)
-    { x: sx, z: sz - (cellD / 2) - 1.0, w: WALL_THICKNESS, d: cellD - 1.0 }, // upper segment
-    { x: sx, z: sz + (cellD / 2) + 1.0, w: WALL_THICKNESS, d: cellD - 1.0 }, // lower segment
+    // Vertical through station (gap ~2 units)
+    { x: sx, z: sz - (cellD / 2) - 1.0, w: WALL_THICKNESS, d: cellD - 1.0 }, // upper
+    { x: sx, z: sz + (cellD / 2) + 1.0, w: WALL_THICKNESS, d: cellD - 1.0 }, // lower
 
-    // Horizontal through station (gap ~2 units for corridor)
-    { x: sx - (cellW / 2) - 1.0, z: sz, w: cellW - 1.0, d: WALL_THICKNESS }, // left segment
-    { x: sx + (cellW / 2) + 1.0, z: sz, w: cellW - 1.0, d: WALL_THICKNESS }, // right segment
+    // Horizontal through station (gap ~2 units)
+    { x: sx - (cellW / 2) - 1.0, z: sz, w: cellW - 1.0, d: WALL_THICKNESS }, // left
+    { x: sx + (cellW / 2) + 1.0, z: sz, w: cellW - 1.0, d: WALL_THICKNESS }, // right
 ];
 
-// --- NEW: Lockdown room walls (box with a door gap on the west side) ---
+// Lockdown room walls (west door)
 const lockMinZ = lockZ - LOCK_D / 2;
 const lockMaxZ = lockZ + LOCK_D / 2;
 const lockMinX = lockX - LOCK_W / 2;
 const lockMaxX = lockX + LOCK_W / 2;
-
-// split west wall into two segments to leave a door gap
-const segLen = Math.max(0, (LOCK_D - DOOR_GAP) / 2);
-const westLowerZ = lockMinZ + segLen / 2;
-const westUpperZ = lockMaxZ - segLen / 2;
+const lockSeg = Math.max(0, (LOCK_D - DOOR_GAP) / 2);
+const westLowerZ = lockMinZ + lockSeg / 2;
+const westUpperZ = lockMaxZ - lockSeg / 2;
 
 const lockdownWalls = [
-    // North & South walls
+    // North & South
     { x: lockX, z: lockMinZ, w: LOCK_W, d: WALL_THICKNESS },
     { x: lockX, z: lockMaxZ, w: LOCK_W, d: WALL_THICKNESS },
-    // East wall (full)
+    // East (full)
     { x: lockMaxX, z: lockZ, w: WALL_THICKNESS, d: LOCK_D },
-    // West wall split (gap centered)
-    { x: lockMinX, z: westLowerZ, w: WALL_THICKNESS, d: segLen },
-    { x: lockMinX, z: westUpperZ, w: WALL_THICKNESS, d: segLen },
+    // West split (door gap centered)
+    { x: lockMinX, z: westLowerZ, w: WALL_THICKNESS, d: lockSeg },
+    { x: lockMinX, z: westUpperZ, w: WALL_THICKNESS, d: lockSeg },
 ];
 
-export const walls = [...baseWalls, ...lockdownWalls];
+// Meeting Room walls (east door)
+const meetMinZ = meetZ - MEET_D / 2;
+const meetMaxZ = meetZ + MEET_D / 2;
+const meetMinX = meetX - MEET_W / 2;
+const meetMaxX = meetX + MEET_W / 2;
+const meetSeg = Math.max(0, (MEET_D - MEET_DOOR) / 2);
+const eastLowerZ = meetMinZ + meetSeg / 2;
+const eastUpperZ = meetMaxZ - meetSeg / 2;
+
+const meetingWalls = [
+    // North & South
+    { x: meetX, z: meetMinZ, w: MEET_W, d: WALL_THICKNESS },
+    { x: meetX, z: meetMaxZ, w: MEET_W, d: WALL_THICKNESS },
+    // West (full)
+    { x: meetMinX, z: meetZ, w: WALL_THICKNESS, d: MEET_D },
+    // East split (door gap centered, faces Station)
+    { x: meetMaxX, z: eastLowerZ, w: WALL_THICKNESS, d: meetSeg },
+    { x: meetMaxX, z: eastUpperZ, w: WALL_THICKNESS, d: meetSeg },
+];
+
+export const walls = [...baseWalls, ...lockdownWalls, ...meetingWalls];
 
 // Precomputed AABBs for collision
 export const wallAABBs = walls.map(w => ({

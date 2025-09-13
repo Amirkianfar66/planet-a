@@ -18,7 +18,7 @@ import {
     useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
-    useMeetingVoteResolution,
+    // ❌ REMOVE: useMeetingVoteResolution,
     useMetersInitAndDailyDecay
 } from "./game/effects";
 import {
@@ -28,11 +28,24 @@ import {
 } from "./game/timePhaseEffects";
 
 // UI
-import { TopBar, VotePanel, Centered } from "./ui";
+import { TopBar, VotePanel, Centered, VoteResultsPanel } from "./ui";
 import HUD from "./ui/HUD.jsx";
 
 // items state (source of truth for floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
+
+// 👉 read my current position (already used by LocalController)
+import { getMyPos } from "./network/playroom";
+
+// ---- Meeting room bounds (tweak to your real room) ----
+const MEETING_ROOM_AABB = {
+    minX: -5, maxX: 5,
+    minZ: -4, maxZ: 4,
+};
+const insideMeetingRoom = (pos) =>
+    pos && typeof pos.x === "number" && typeof pos.z === "number" &&
+    pos.x >= MEETING_ROOM_AABB.minX && pos.x <= MEETING_ROOM_AABB.maxX &&
+    pos.z >= MEETING_ROOM_AABB.minZ && pos.z <= MEETING_ROOM_AABB.maxZ;
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -65,7 +78,7 @@ export default function App() {
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-    useMeetingVoteResolution({ ready, matchPhase, timer, players, dead, setDead, setEvents });
+    // useMeetingVoteResolution removed to avoid double-resolve
     useMetersInitAndDailyDecay({
         ready,
         inGame,
@@ -86,8 +99,6 @@ export default function App() {
             const fallback = me?.profile?.name || me?.name || (me.id?.slice(0, 6) ?? "Player");
             me.setState?.("name", fallback, true);
         }
-        // IMPORTANT: don't set any default team here.
-        // Let Lobby handle team join/create and url invites.
     }, [ready]);
 
     // (Optional) host-only quick launch
@@ -99,12 +110,11 @@ export default function App() {
 
     // === Item presentation for HUD (updated types) ===
     const TYPE_COLORS = {
-        food: "#22c55e",        // green
-        fuel: "#a855f7",        // purple
-        protection: "#f59e0b",  // orange
-        cure_red: "#ef4444",    // red
-        cure_blue: "#3b82f6",   // blue
-        // legacy (if any remain)
+        food: "#22c55e",
+        fuel: "#a855f7",
+        protection: "#f59e0b",
+        cure_red: "#ef4444",
+        cure_blue: "#3b82f6",
         battery: "#2dd4bf",
         o2can: "#9bd1ff",
         fuel_legacy: "#a78bfa",
@@ -117,7 +127,6 @@ export default function App() {
             case "protection": return "Protection Badge";
             case "cure_red": return "Cure — Red";
             case "cure_blue": return "Cure — Blue";
-            // legacy fallback labels if older items still exist
             case "battery": return "Battery Pack";
             case "o2can": return "O₂ Canister";
             default: return t || "Item";
@@ -131,7 +140,6 @@ export default function App() {
             case "protection": return "🛡️";
             case "cure_red": return "🟥";
             case "cure_blue": return "🟦";
-            // legacy
             case "battery": return "🔋";
             case "o2can": return "🫧";
             default: return "📦";
@@ -141,6 +149,7 @@ export default function App() {
     const { items } = useItemsSync();
     const meP = myPlayer();
     const myId = meP?.id;
+
     const myBackpack = useMemo(() => {
         if (!myId) return [];
         return (items || [])
@@ -165,15 +174,26 @@ export default function App() {
 
     // Hide VotePanel when player has already voted
     const hasVoted = Boolean(meP?.getState?.("vote"));
-    // ⬇️ Also treat locally-flagged dead as dead (extra safety)
+    // Also treat locally-flagged dead as dead (extra safety)
     const amDead = dead.includes(myId) || Boolean(meP?.getState?.("dead"));
 
-    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
+    // 👉 Track if *this player* is physically inside the meeting room
+    const [inMeetingRoom, setInMeetingRoom] = useState(false);
+    useEffect(() => {
+        let raf;
+        const loop = () => {
+            const pos = getMyPos?.() || { x: 0, y: 0, z: 0 };
+            const inside = insideMeetingRoom(pos);
+            setInMeetingRoom((prev) => (prev !== inside ? inside : prev));
+            raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(raf);
+    }, []);
 
-    // Render Lobby while phase is 'lobby'
+    if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
     if (isInLobby) return <Lobby />;
 
-    // HUD-only data/functions (InteractionSystem + ItemsHostLogic live inside the scene)
     const game = {
         meters: {
             energy: Number(power ?? 0),
@@ -189,10 +209,7 @@ export default function App() {
             const t = typeById[id];
             if (!t) return;
             if (t === "food") {
-                // self-use food anywhere
                 requestAction("use", `eat|${id}`);
-            } else {
-                // other items are used at devices via world interaction (press I near device)
             }
         },
         requestAction,
@@ -205,8 +222,17 @@ export default function App() {
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
 
+                {/* Keep TimeDebugPanel on top of everything */}
                 {isHost() && (
-                    <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "auto", zIndex: 10 }}>
+                    <div
+                        style={{
+                            position: "absolute",
+                            top: 10,
+                            right: 10,
+                            pointerEvents: "auto",
+                            zIndex: 1000,
+                        }}
+                    >
                         <TimeDebugPanel />
                     </div>
                 )}
@@ -215,9 +241,22 @@ export default function App() {
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
+
+                {/* Vote results overlay (appears after 21:00, below the debug panel) */}
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "auto",
+                        zIndex: 20,
+                    }}
+                >
+                    <VoteResultsPanel phase={matchPhase} events={events} />
+                </div>
             </div>
 
-            {matchPhase === "meeting" && !amDead && !hasVoted && (
+            {/* 👇 Voting now requires physical presence in the meeting room */}
+            {matchPhase === "meeting" && !amDead && !hasVoted && inMeetingRoom && (
                 <VotePanel dead={dead} />
             )}
         </div>

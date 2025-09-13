@@ -2,8 +2,8 @@
 // Base UI (named exports)
 export { TopBar } from "./TopBar.jsx";
 export { Centered } from "./Centered.jsx";
-export { EventsFeed } from "./EventsFeed.jsx";
 export { VotePanel } from "./VotePanel.jsx";
+export { default as VoteResultsPanel } from "./VoteResultsPanel.jsx";
 
 // Meters (single component now)
 export { MetersPanel } from "./MetersPanel.jsx";

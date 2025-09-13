@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useRef } from "react";
+﻿// src/components/ItemsAndDevices.jsx
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { isHost, myPlayer } from "playroomkit";
@@ -68,7 +69,7 @@ function ItemMesh({ type = "crate" }) {
     const color = TYPE_META[type]?.color ?? "#9ca3af";
 
     switch (type) {
-        case "food": // green lunch box
+        case "food":
             return (
                 <group>
                     <mesh>
@@ -82,7 +83,7 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "fuel": // tall purple rod
+        case "fuel":
             return (
                 <mesh>
                     <boxGeometry args={[0.12, 0.6, 0.12]} />
@@ -90,7 +91,7 @@ function ItemMesh({ type = "crate" }) {
                 </mesh>
             );
 
-        case "protection": // orange icosa “shield core”
+        case "protection":
             return (
                 <mesh>
                     <icosahedronGeometry args={[0.22, 0]} />
@@ -98,7 +99,7 @@ function ItemMesh({ type = "crate" }) {
                 </mesh>
             );
 
-        case "cure_red": // red vial
+        case "cure_red":
             return (
                 <group>
                     <mesh>
@@ -112,7 +113,7 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "cure_blue": // blue vial
+        case "cure_blue":
             return (
                 <group>
                     <mesh>
@@ -155,7 +156,7 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        default: // neutral crate
+        default:
             return (
                 <mesh>
                     <boxGeometry args={[0.3, 0.3, 0.3]} />
@@ -203,36 +204,72 @@ function ItemEntity({ it }) {
     );
 }
 
-/* ---------- Main scene block + TEST SPAWNER ---------- */
+/* ---------- Main scene block + one-shot 3x-per-type filler (host) ---------- */
 export default function ItemsAndDevices() {
     const { items, setItems } = useItemsSync();
     const floorItems = useMemo(() => (items || []).filter(i => !i.holder), [items]);
 
-    // Host-only: ensure at least one of each test item is present
+    // HOST ONLY:
+    // On first mount, ensure there are 3 floor items for each primary type.
+    // If your INITIAL_ITEMS already provide them, this adds nothing.
+    const didInitRef = useRef(false);
     useEffect(() => {
-        if (!isHost()) return;
-        const have = new Set((items || []).map(i => i.type));
-        const needed = ["food", "fuel", "protection", "cure_red", "cure_blue"].filter(t => !have.has(t));
-        if (needed.length === 0) return;
+        if (!isHost() || didInitRef.current) return;
+        didInitRef.current = true;
 
-        const base = { holder: null, vx: 0, vy: 0, vz: 0, y: 0 };
-        const placements = [
-            [-6, -2], [-4, 1], [-1, 5], [2, 3], [5, -1],
-        ];
-
-        const toAdd = needed.map((t, i) => {
-            const [x, z] = placements[i % placements.length];
-            const label = TYPE_META[t]?.label || t;
-            return { id: `test_${t}`, type: t, name: `${label} (Test)`, x, z, ...base };
-        });
+        const TYPES = ["food", "fuel", "protection", "cure_red", "cure_blue"];
+        const NAME = {
+            food: "Ration Pack",
+            fuel: "Fuel Rod",
+            protection: "Shield Badge",
+            cure_red: "Cure — Red",
+            cure_blue: "Cure — Blue",
+        };
+        // pre-picked spots per type (matches what we used in INITIAL_ITEMS)
+        const SPOTS = {
+            food: [[-6, -2], [-4, 1], [-5, -0.5]],
+            fuel: [[-1, 5], [0, 5], [1, 5]],
+            protection: [[2, 3], [3, -2], [4, -2]],
+            cure_red: [[5, -1], [6, -1], [5, 0]],
+            cure_blue: [[3, 2], [6, 2], [7, 2.5]],
+        };
 
         setItems(prev => {
             const existingIds = new Set((prev || []).map(p => p.id));
-            const filtered = toAdd.filter(n => !existingIds.has(n.id));
-            return filtered.length ? [...(prev || []), ...filtered] : prev;
+            // Count floor items by type from current state
+            const countByType = new Map();
+            for (const it of prev || []) {
+                if (!it.holder && TYPES.includes(it.type)) {
+                    countByType.set(it.type, (countByType.get(it.type) || 0) + 1);
+                }
+            }
+
+            const toAdd = [];
+            const base = { holder: null, vx: 0, vy: 0, vz: 0, y: 0 };
+            const mkId = (prefix) => {
+                let i = 1;
+                let id = `${prefix}${i}`;
+                while (existingIds.has(id)) { i += 1; id = `${prefix}${i}`; }
+                existingIds.add(id);
+                return id;
+            };
+
+            for (const t of TYPES) {
+                const have = countByType.get(t) || 0;
+                for (let i = have; i < 3; i += 1) {
+                    const [x, z] = SPOTS[t][i % SPOTS[t].length];
+                    toAdd.push({
+                        id: mkId(`${t}`),
+                        type: t,
+                        name: NAME[t],
+                        x, z,
+                        ...base,
+                    });
+                }
+            }
+            return toAdd.length ? [...(prev || []), ...toAdd] : prev;
         }, true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [items, setItems]);
+    }, [setItems]);
 
     return (
         <group>
