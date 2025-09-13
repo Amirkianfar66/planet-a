@@ -163,8 +163,10 @@ export default function App() {
 
     const aliveCount = players.filter((p) => !dead.includes(p.id)).length;
 
-    // ⬇️ NEW: hide VotePanel for this player after they vote
+    // Hide VotePanel when player has already voted
     const hasVoted = Boolean(meP?.getState?.("vote"));
+    // ⬇️ Also treat locally-flagged dead as dead (extra safety)
+    const amDead = dead.includes(myId) || Boolean(meP?.getState?.("dead"));
 
     if (!ready) return <Centered><h2>Opening lobby…</h2></Centered>;
 
@@ -215,7 +217,7 @@ export default function App() {
                 </div>
             </div>
 
-            {matchPhase === "meeting" && !dead.includes(myId) && !hasVoted && (
+            {matchPhase === "meeting" && !amDead && !hasVoted && (
                 <VotePanel dead={dead} />
             )}
         </div>
