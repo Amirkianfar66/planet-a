@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -170,7 +170,13 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-
+                // ABILITY: arrest (Officer → send target to Lockdown)
+                if (type === "ability" && target === "arrest") {
+                    // host finds a nearby player in front; make sure we pass the players list
+                    hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
+                    processed.current.set(p.id, reqId);
+                    continue;
+                }
                 // PICKUP
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
