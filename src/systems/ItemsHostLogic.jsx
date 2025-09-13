@@ -61,6 +61,31 @@ export default function ItemsHostLogic() {
             console.log("[HOST] Seeded", seeded.length, "items.");
         }
     }, [host, setItems]);
+    // Guarantee there is at least one Food Tank in the world (idempotent)
+    useEffect(() => {
+        if (!host) return;
+        setItems(prev => {
+            const list = Array.isArray(prev) ? prev : [];
+            const hasTank = list.some(it => it.type === "food_tank");
+            if (hasTank) return prev;
+
+            // Use the tank from INITIAL_ITEMS if present; else create a default one
+            const fromInitial = (INITIAL_ITEMS || []).find(it => it.type === "food_tank");
+            const tank = {
+                holder: null, y: 0, vx: 0, vy: 0, vz: 0,
+                ...(fromInitial || {
+                    id: "tank1",
+                    type: "food_tank",
+                    name: "Food Tank",
+                    x: -2, z: -2,
+                    cap: 4, stored: 0,
+                }),
+            };
+
+            console.log("[HOST] Backfilled Food Tank at", tank.x, tank.z);
+            return [...list, tank];
+        }, true);
+    }, [host, setItems]);
 
     // Simple throw physics
     useEffect(() => {
