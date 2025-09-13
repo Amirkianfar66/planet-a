@@ -406,8 +406,8 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
         if (d2 < bestD2) { best = p; bestD2 = d2; }
     }
 
-    // Start cooldown + tiny FX flag
-    biter.setState(cdKey, now + 1500, true);
+    // Start cooldown (4 minutes) + tiny FX flag
+    biter.setState(cdKey, now + 240000, true); // 4 min
     biter.setState("bitingUntil", now + 600, true);
 
     if (!best) return;
@@ -431,6 +431,69 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
     } catch { }
 }
 
+// --- Officer Arrest host handler ---
+const LOCKDOWN_ROOM = { x: 24, y: 0, z: 0 }; // <-- set to your real Lockdown coords
+
+function _frontConeTarget(source, players, range = 2.0, maxAngleDeg = 70) {
+    const sx = Number(source.getState("x") || 0);
+    const sz = Number(source.getState("z") || 0);
+    const ry = Number(source.getState("ry") ?? source.getState("yaw") ?? 0);
+    const fdx = Math.sin(ry), fdz = Math.cos(ry);
+    const dotMin = Math.cos((maxAngleDeg * Math.PI) / 180);
+    let best = null, bestD2 = Infinity;
+
+    for (const p of players) {
+        if (!p?.id || p.id === source.id) continue;
+        if (p.getState?.("dead")) continue;
+
+        const px = Number(p.getState("x") || 0);
+        const pz = Number(p.getState("z") || 0);
+        const dx = px - sx, dz = pz - sz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 > range * range) continue;
+
+        const len = Math.hypot(dx, dz) || 1;
+        const dot = (dx / len) * fdx + (dz / len) * fdz;
+        if (dot < dotMin) continue;
+
+        if (d2 < bestD2) { best = p; bestD2 = d2; }
+    }
+    return best;
+}
+
+export function hostHandleArrest({ officer, players = [], setEvents }) {
+    if (!officer?.id) return;
+
+    // (Optional) enforce Officer role
+    const role = String(officer.getState?.("role") || "");
+    if (role && role !== "Officer") return;
+
+    // one arrest per officer (default 1 if unset)
+    const arrestsLeft = Number(officer.getState("arrestsLeft"));
+    const left = Number.isFinite(arrestsLeft) ? arrestsLeft : 1;
+    if (left <= 0) return;
+
+    const target = _frontConeTarget(officer, players, 2.0, 70);
+    if (!target) return;
+    if (target.getState?.("inLockdown")) return;
+
+    // Teleport & flag
+    target.setState("x", Number(LOCKDOWN_ROOM.x || 0), true);
+    target.setState("y", Number(LOCKDOWN_ROOM.y || 0), true);
+    target.setState("z", Number(LOCKDOWN_ROOM.z || 0), true);
+    target.setState("inLockdown", true, true);
+    target.setState("lockedBy", officer.id, true);
+    target.setState("lockedAt", Date.now(), true);
+
+    officer.setState("arrestsLeft", left - 1, true);
+
+    try {
+        if (typeof hostAppendEvent === "function") {
+            const name = officer.getState?.("name") || "Officer";
+            hostAppendEvent(setEvents, `${name} arrested a crew member (moved to Lockdown).`);
+        }
+    } catch { }
+}
 
 
 /** Extend the host-side router so ItemsHostLogic can just call one function. */
