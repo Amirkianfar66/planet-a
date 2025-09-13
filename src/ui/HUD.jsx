@@ -186,9 +186,28 @@ export default function HUD({ game = {} }) {
 
     const handleUseItem = (id) => {
         if (amDead) return; // dead: no using
+
+        // Look up the clicked item in the backpack to decide behavior
+        const item = (items || []).find((b) => b.id === id);
+
+        if (item?.type === "food_tank") {
+            // Toggle: host tries to load 1 food into the tank (if you have any / not full),
+            // otherwise unloads 1 food back to your backpack.
+            requestAction("container", "food_tank", { containerId: id, op: "toggle" });
+            return;
+        }
+
+        if (item?.type === "food") {
+            // Eat one food from backpack
+            requestAction("use", `eat|${id}`, 0);
+            return;
+        }
+
+        // Fallback for other types (keeps previous behavior you had)
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
+
     const handleDrop = (id) => {
         if (amDead) return; // dead: no dropping
         if (typeof game.onDropItem === "function") return game.onDropItem(id);

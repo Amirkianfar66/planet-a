@@ -1,10 +1,11 @@
-﻿import React, { useEffect, useRef } from "react";
+﻿// src/systems/ItemsHostLogic.jsx
+import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
-import { useGameClock } from "../systems/dayNightClock"; // ⬅️ NEW
+import { useGameClock } from "../systems/dayNightClock";
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -25,11 +26,9 @@ export default function ItemsHostLogic() {
 
     const processed = useRef(new Map());
 
-    // ⬇️ track the day number (kept for compatibility if referenced elsewhere)
+    // Day/phase tracking (energy decay uses this)
     const dayNumber = useGameClock((s) => s.dayNumber);
     const prevDayRef = useRef(dayNumber);
-
-    // ⬇️ NEW: track clock phase for half-day decay ("day" <-> "night")
     const clockPhase = useGameClock((s) => s.phase);
     const prevPhaseRef = useRef(clockPhase);
 
@@ -39,6 +38,15 @@ export default function ItemsHostLogic() {
     };
     const setBackpack = (p, arr) => p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
     const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
+
+    // Helper: update tank’s stored/cap inside backpack entry (so UI can show badge)
+    const refreshBackpackEntry = (pl, item) => {
+        const bp = getBackpack(pl);
+        const next = bp.map(b =>
+            b.id === item.id ? { id: item.id, type: item.type, stored: Number(item.stored || 0), cap: Number(item.cap || 4) } : b
+        );
+        setBackpack(pl, next);
+    };
 
     // Seed initial items once (host only)
     useEffect(() => {
@@ -75,14 +83,13 @@ export default function ItemsHostLogic() {
         return () => clearInterval(h);
     }, [host, setItems]);
 
-    // ✅ ENERGY DECAY: halve personal energy once per new dayNumber
+    // ENERGY DECAY: subtract 25 once per new dayNumber
     useEffect(() => {
         if (!host) return;
 
         const readClock = () =>
             (typeof useGameClock.getState === "function" ? useGameClock.getState() : null);
 
-        // initialize guard with the current day number (it's a value, not a function)
         let lastDay = Number(readClock()?.dayNumber ?? 0);
 
         const applyDecay = (d) => {
@@ -93,17 +100,17 @@ export default function ItemsHostLogic() {
             for (const pl of everyone) {
                 if (pl.getState?.("dead")) continue;
                 const cur = Number(pl.getState?.("energy") ?? 100);
-                const next = Math.max(0, Math.min(100, cur - 25)); // ← subtract 25 per day
-                     pl.setState?.("energy", next, true);
+                const next = Math.max(0, Math.min(100, cur - 25));
+                pl.setState?.("energy", next, true);
             }
-            console.log(`[HOST] Day ${d}: halved personal energy for all alive players.`);
+            console.log(`[HOST] Day ${d}: reduced personal energy by 25 for all alive players.`);
         };
 
         let rafId = 0;
         const tick = () => {
             const s = readClock();
             if (s) {
-                const d = Number(s.dayNumber ?? 0);   // <-- VALUE
+                const d = Number(s.dayNumber ?? 0);
                 if (d !== lastDay) {
                     applyDecay(d);
                     lastDay = d;
@@ -116,9 +123,7 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(rafId);
     }, [host]);
 
-
-
-    // Process client requests (pickup / drop / throw / use / abilities)
+    // Process client requests (pickup / drop / throw / use / abilities / container)
     useEffect(() => {
         if (!host) return;
 
@@ -132,7 +137,7 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
-            // Ensure baseline per-player state (host-side, one-time per player)
+            // Ensure baseline per-player state
             for (const pl of everyone) {
                 const hasLife = pl.getState?.("life");
                 if (hasLife === undefined || hasLife === null) {
@@ -149,6 +154,14 @@ export default function ItemsHostLogic() {
             const list = itemsRef.current || [];
             const findItem = (id) => list.find(i => i.id === id);
 
+            // unique id helper
+            const mkId = (prefix) => {
+                const existing = new Set((itemsRef.current || []).map(i => i.id));
+                let i = 1, id = `${prefix}${i}`;
+                while (existing.has(id)) { i += 1; id = `${prefix}${i}`; }
+                return id;
+            };
+
             for (const p of everyone) {
                 const reqId = Number(p?.getState("reqId") || 0);
                 if (!reqId) continue;
@@ -163,28 +176,102 @@ export default function ItemsHostLogic() {
                 const pz = Number(p.getState("z") || 0);
 
                 // --------- ABILITIES ----------
-                // ABILITY: shoot
                 if (type === "ability" && target === "shoot") {
-                    const payload = readActionPayload(p); // { origin:[x,y,z], dir:[dx,dy,dz] }
-                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone }); // tracer + hit check
+                    const payload = readActionPayload(p);
+                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-
-                // ABILITY: bite (infect)
                 if (type === "ability" && target === "bite") {
                     hostHandleBite({ biter: p, setEvents: undefined, players: everyone });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-
-                // ABILITY: arrest (Officer → send target to Lockdown)
                 if (type === "ability" && target === "arrest") {
                     hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
                 // --------- END ABILITIES ----------
+
+                // CONTAINER (Food Tank)
+                if (type === "container") {
+                    const payload = readActionPayload(p) || {};
+                    const { containerId, op } = payload || {};
+                    const tank = findItem(String(containerId));
+                    if (!tank || tank.type !== "food_tank" || tank.holder !== p.id) {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
+                    const cap = Number(tank.cap || 4);
+                    const stored = Number(tank.stored || 0);
+                    let changed = false;
+
+                    if (op === "load") {
+                        // move 1 food from backpack into tank
+                        if (stored < cap) {
+                            const bp = getBackpack(p);
+                            const foodEntry = bp.find(b => b.type === "food");
+                            if (foodEntry) {
+                                const foodItem = findItem(foodEntry.id);
+                                if (foodItem && foodItem.holder === p.id) {
+                                    // remove the food entity + bp entry
+                                    setItems(prev => prev.map(j =>
+                                        j.id === foodItem.id ? { ...j, holder: "_gone_", y: -999 } : j
+                                    ), true);
+                                    setBackpack(p, bp.filter(b => b.id !== foodEntry.id));
+                                    // increment tank stored
+                                    setItems(prev => prev.map(j =>
+                                        j.id === tank.id ? { ...j, stored: stored + 1 } : j
+                                    ), true);
+                                    changed = true;
+                                }
+                            }
+                        }
+                    } else if (op === "unload") {
+                        // create 1 food back into backpack (if capacity)
+                        if (stored > 0 && hasCapacity(p)) {
+                            const newFoodId = mkId("food");
+                            // create new food item immediately in backpack
+                            setItems(prev => [
+                                ...(prev || []),
+                                { id: newFoodId, type: "food", name: "Ration Pack", holder: p.id, x: px, y: py, z: pz, vx: 0, vy: 0, vz: 0 }
+                            ], true);
+                            setBackpack(p, [...getBackpack(p), { id: newFoodId, type: "food" }]);
+                            // decrement stored
+                            setItems(prev => prev.map(j =>
+                                j.id === tank.id ? { ...j, stored: stored - 1 } : j
+                            ), true);
+                            changed = true;
+                        }
+                    } else if (op === "toggle") {
+                        // try load; else try unload
+                        const bpHasFood = getBackpack(p).some(b => b.type === "food");
+                        if (stored < cap && bpHasFood) {
+                            // re-enqueue as load
+                            p.setState("reqType", "container", true);
+                            p.setState("reqTarget", "food_tank", true);
+                            p.setState("reqJson", JSON.stringify({ containerId, op: "load" }), true);
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        } else if (stored > 0 && hasCapacity(p)) {
+                            p.setState("reqType", "container", true);
+                            p.setState("reqTarget", "food_tank", true);
+                            p.setState("reqJson", JSON.stringify({ containerId, op: "unload" }), true);
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+                    }
+
+                    if (changed) {
+                        const latestTank = (itemsRef.current || []).find(i => i.id === tank.id) || tank;
+                        refreshBackpackEntry(p, latestTank);
+                    }
+
+                    processed.current.set(p.id, reqId);
+                    continue;
+                }
 
                 // PICKUP
                 if (type === "pickup") {
@@ -209,14 +296,21 @@ export default function ItemsHostLogic() {
                     if (!carry) p.setState("carry", it.id, true);
 
                     const bp = getBackpack(p);
-                    if (!bp.find(b => b.id === it.id)) setBackpack(p, [...bp, { id: it.id, type: it.type }]);
+                    if (!bp.find(b => b.id === it.id)) {
+                        // Include stored/cap if it’s a tank, so UI can show badge
+                        if (it.type === "food_tank") {
+                            setBackpack(p, [...bp, { id: it.id, type: it.type, stored: Number(it.stored || 0), cap: Number(it.cap || 4) }]);
+                        } else {
+                            setBackpack(p, [...bp, { id: it.id, type: it.type }]);
+                        }
+                    }
 
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                     processed.current.set(p.id, reqId);
                     continue;
                 }
 
-                // DROP  ⬅️ also remove from backpack
+                // DROP
                 if (type === "drop") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -234,7 +328,7 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // THROW  ⬅️ also remove from backpack
+                // THROW
                 if (type === "throw") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -279,7 +373,7 @@ export default function ItemsHostLogic() {
                         if (dx * dx + dz * dz <= r * r) {
                             const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                             if (eff) {
-                                // (Apply meters in your system if desired)
+                                // Apply effects in your meters system if desired
                                 // Consume item
                                 setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j), true);
                                 setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
@@ -291,7 +385,7 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // Fallback: mark processed
+                // Fallback
                 processed.current.set(p.id, reqId);
             }
 
@@ -301,7 +395,7 @@ export default function ItemsHostLogic() {
 
         loop();
 
-        // proper cleanup
+        // cleanup
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);

@@ -7,6 +7,8 @@ export const ITEM_TYPES = {
     protection: { label: "Protection", color: "#f59e0b" }, // orange
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
     cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
+    // NEW: container item that can hold food
+    food_tank: { label: "Food Tank", color: "#10b981" }, // teal
 };
 
 // Simple starter content (positions are just examples)
@@ -35,6 +37,9 @@ export const INITIAL_ITEMS = [
     { id: "cureB1", type: "cure_blue", name: "Cure — Blue", x: 3, z: 2, color: ITEM_TYPES.cure_blue.color },
     { id: "cureB2", type: "cure_blue", name: "Cure — Blue", x: 6, z: 2, color: ITEM_TYPES.cure_blue.color },
     { id: "cureB3", type: "cure_blue", name: "Cure — Blue", x: 7, z: 2.5, color: ITEM_TYPES.cure_blue.color },
+
+    // --- NEW: Food Tank (container; capacity 4, starts empty) ---
+    { id: "tank1", type: "food_tank", name: "Food Tank", x: -2, z: -2, cap: 4, stored: 0, color: ITEM_TYPES.food_tank.color },
 ];
 
 // World devices you can interact with when pressing "I"
@@ -48,9 +53,10 @@ export const DEVICES = [
 
 // What can be used on what (host consumes item when a mapping exists)
 export const USE_EFFECTS = {
-    fuel: { reactor: ["power", +40] },       // Reactor gains power
-    protection: { shield: ["shield", +1] },        // e.g., add 1 shield stack (hook up later)
-    cure_red: { medbay: ["cure", "cleanse"] },   // cleanse infection
+    fuel: { reactor: ["power", +40] },            // Reactor gains power
+    protection: { shield: ["shield", +1] },       // e.g., add 1 shield stack (hook up later)
+    cure_red: { medbay: ["cure", "cleanse"] },    // cleanse infection
     cure_blue: { medbay: ["cure", "suppress"] },  // suppress infection for a while
-    food: {},                                 // eaten directly (client sends 'eat' if no device nearby)
+    food: {},                                     // eaten directly (client sends 'eat' if no device nearby)
+    // food_tank is a container, not used on devices
 };

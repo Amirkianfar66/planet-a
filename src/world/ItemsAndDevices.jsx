@@ -15,6 +15,9 @@ const TYPE_META = {
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
     cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
 
+    // NEW: container that can hold food
+    food_tank: { label: "Food Tank", color: "#10b981" }, // teal
+
     // legacy/compat (still render nicely if present)
     battery: { label: "Battery", color: "#2dd4bf" },
     o2can: { label: "O₂ Canister", color: "#9bd1ff" },
@@ -127,6 +130,24 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
+        case "food_tank": // NEW: small green barrel with lid
+            return (
+                <group>
+                    <mesh>
+                        <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
+                        <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 0.19, 0]}>
+                        <cylinderGeometry args={[0.23, 0.23, 0.03, 20]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
+                    <mesh position={[0, -0.19, 0]}>
+                        <cylinderGeometry args={[0.21, 0.21, 0.02, 20]} />
+                        <meshStandardMaterial color="#0b1220" />
+                    </mesh>
+                </group>
+            );
+
         /* ----- legacy/compat so older items still show ----- */
         case "battery":
             return (
@@ -176,6 +197,12 @@ function canPickUp(it) {
 }
 
 function prettyLabel(it) {
+    if (it?.type === "food_tank") {
+        const stored = Number(it.stored ?? 0);
+        const cap = Number(it.cap ?? 4);
+        const base = it.name || TYPE_META.food_tank.label || "Food Tank";
+        return `${base} (${stored}/${cap})`;
+    }
     const t = TYPE_META[it.type];
     return it.name || t?.label || it.type || "Item";
 }

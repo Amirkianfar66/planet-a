@@ -4,11 +4,11 @@ import "./ui.css";
 /**
  * BackpackPanel
  * Props:
- *  - items: Array<{ id:string, name:string, qty?:number, icon?:string, kind?:string }>
- *  - capacity?: number (for header chip)
- *  - onUse?: (id) => void           // acts on ONE unit from the stack (uses the first item's id)
- *  - onDrop?: (id) => void          // drops ONE unit from the stack (uses the first item's id)
- *  - onThrow?: (id) => void         // throws ONE unit from the stack (uses the first item's id)
+ *  - items: Array<{ id:string, type?:string, name?:string, qty?:number, icon?:string, kind?:string, stored?:number, cap?:number }>
+ *  - capacity?: number
+ *  - onUse?: (id) => void
+ *  - onDrop?: (id) => void
+ *  - onThrow?: (id) => void
  *  - title?: string
  */
 export default function BackpackPanel({
@@ -19,32 +19,60 @@ export default function BackpackPanel({
     onThrow,
     title = "Backpack",
 }) {
-    // Total used slots counts per-item quantities, not grouped display count
-    const used = items.reduce((a, b) => a + (Number(b.qty) > 0 ? Number(b.qty) : 1), 0);
+    // Slots used: each entry in the underlying backpack occupies a slot
+    const usedSlots = items.length;
 
-    // Group identical items into stacks (same kind/name + same icon)
+    // Do not stack these (each is rendered as its own tile)
+    const NO_STACK = new Set(["food_tank"]);
+
+    // Group identical items into stacks (by type/name/icon), but keep NO_STACK singles
     const stacks = useMemo(() => {
-        const map = new Map();
-        for (const it of items) {
-            const qty = Math.max(1, Number(it.qty) || 1);
-            const key =
-                `${(it.kind || it.name || "").trim().toLowerCase()}|${it.icon || ""}`;
+        const groups = new Map();
+        const singles = [];
 
-            if (!map.has(key)) {
-                map.set(key, {
+        for (const it of items) {
+            const type = String(it.type || it.kind || "").trim().toLowerCase();
+            const qty = Math.max(1, Number(it.qty) || 1);
+
+            // Food Tank (container) stays individual so we can show stored/cap
+            if (NO_STACK.has(type)) {
+                singles.push({
+                    key: it.id,
+                    primaryId: it.id,
+                    type,
+                    name: it.name || "Food Tank",
+                    icon: it.icon,
+                    qty: 1,
+                    ids: [it.id],
+                    stored: Number(it.stored ?? 0),
+                    cap: Number(it.cap ?? 4),
+                });
+                continue;
+            }
+
+            // Group others
+            const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
+            if (!groups.has(key)) {
+                groups.set(key, {
                     key,
-                    name: it.name || it.kind || "Item",
+                    type,
+                    name: it.name || type || "Item",
                     icon: it.icon,
                     qty: 0,
-                    ids: [], // keep underlying ids so actions can target a single unit
+                    ids: [],
                 });
             }
-            const g = map.get(key);
+            const g = groups.get(key);
             g.qty += qty;
-            g.ids.push(it.id); // keep at least one id per original item
+            g.ids.push(it.id);
         }
-        // Pick a primaryId for actions (use the first id in the stack)
-        return Array.from(map.values()).map((g) => ({ ...g, primaryId: g.ids[0] }));
+
+        const grouped = Array.from(groups.values()).map((g) => ({
+            ...g,
+            primaryId: g.ids[0],
+        }));
+
+        return [...grouped, ...singles];
     }, [items]);
 
     return (
@@ -52,7 +80,7 @@ export default function BackpackPanel({
             <header className="ui-panel__header">
                 <span>{title}</span>
                 <span className="ui-chip">
-                    {capacity ? `${used}/${capacity}` : `${used} items`}
+                    {capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}
                 </span>
             </header>
 
@@ -61,51 +89,67 @@ export default function BackpackPanel({
                     <div className="ui-empty">No items.</div>
                 ) : (
                     <div className="inv-grid">
-                        {stacks.map((g) => (
-                            <div
-                                className="inv-slot"
-                                key={g.key}
-                                title={`${g.name} × ${g.qty}${onThrow ? " — right-click to throw one" : ""}`}
-                                onContextMenu={(e) => {
-                                    if (!onThrow) return;
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    onThrow(g.primaryId);
-                                }}
-                            >
-                                <div className="inv-icon">
-                                    {renderIcon({ name: g.name, icon: g.icon })}
-                                    {g.qty > 1 && (
-                                        <div className="inv-qty" aria-label={`Quantity ${g.qty}`}>
-                                            ×{g.qty}
-                                        </div>
-                                    )}
-                                </div>
+                        {stacks.map((g) => {
+                            const isTank = g.type === "food_tank";
+                            const useLabel = isTank ? "Load / Unload" : "Use";
 
-                                <div className="inv-name" aria-label={g.name}>
-                                    {g.name}
-                                </div>
+                            return (
+                                <div
+                                    className="inv-slot"
+                                    key={g.key}
+                                    title={
+                                        isTank
+                                            ? `Food Tank — ${g.stored}/${g.cap}\nLeft-click: Load if you have food, else Unload`
+                                            : `${g.name} × ${g.qty}${onThrow ? " — right-click to throw one" : ""}`
+                                    }
+                                    onContextMenu={(e) => {
+                                        if (!onThrow) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onThrow(g.primaryId);
+                                    }}
+                                >
+                                    <div className="inv-icon">
+                                        {renderIcon({ name: g.name, icon: g.icon, type: g.type })}
+                                        {/* Count badge for stacks */}
+                                        {!isTank && g.qty > 1 && (
+                                            <div className="inv-qty" aria-label={`Quantity ${g.qty}`}>
+                                                ×{g.qty}
+                                            </div>
+                                        )}
+                                        {/* Fill badge for Food Tank */}
+                                        {isTank && (
+                                            <div className="inv-qty" aria-label={`Stored ${g.stored} of ${g.cap}`}>
+                                                {g.stored}/{g.cap}
+                                            </div>
+                                        )}
+                                    </div>
 
-                                <div className="inv-actions">
-                                    {onUse && (
-                                        <button
-                                            className="ui-btn ui-btn--small"
-                                            onClick={() => onUse(g.primaryId)}
-                                        >
-                                            Use
-                                        </button>
-                                    )}
-                                    {onDrop && (
-                                        <button
-                                            className="ui-btn ui-btn--danger ui-btn--small"
-                                            onClick={() => onDrop(g.primaryId)}
-                                        >
-                                            Drop
-                                        </button>
-                                    )}
+                                    <div className="inv-name" aria-label={g.name}>
+                                        {g.name}
+                                    </div>
+
+                                    <div className="inv-actions">
+                                        {onUse && (
+                                            <button
+                                                className="ui-btn ui-btn--small"
+                                                onClick={() => onUse(g.primaryId)}
+                                            >
+                                                {useLabel}
+                                            </button>
+                                        )}
+                                        {onDrop && (
+                                            <button
+                                                className="ui-btn ui-btn--danger ui-btn--small"
+                                                onClick={() => onDrop(g.primaryId)}
+                                            >
+                                                Drop
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -120,7 +164,23 @@ export default function BackpackPanel({
 }
 
 function renderIcon(it) {
+    // Prefer explicit icon prop
     if (it.icon) return <span style={{ fontSize: 18 }}>{it.icon}</span>;
+
+    // Fallback by type
+    const TYPE_ICON = {
+        food: "🍎",
+        fuel: "🔋",
+        protection: "🛡️",
+        cure_red: "🧪",
+        cure_blue: "🧪",
+        food_tank: "🧃", // container
+    };
+    if (it.type && TYPE_ICON[it.type]) {
+        return <span style={{ fontSize: 18 }}>{TYPE_ICON[it.type]}</span>;
+    }
+
+    // Final fallback: first letter
     const ch = (it.name || "?").trim()[0] || "?";
     return <span style={{ fontWeight: 800 }}>{ch.toUpperCase()}</span>;
 }
