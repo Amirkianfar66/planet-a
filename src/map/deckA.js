@@ -30,12 +30,12 @@ const ctrlCz = sz + (cellD / 2);
 const LOCK_W = Math.min(6, Math.max(3.2, cellW * 0.55));
 const LOCK_D = Math.min(5, Math.max(2.6, cellD * 0.45));
 const MARGIN = 0.6;   // gap from Control Room walls
-const DOOR_GAP = 1.2;   // west-side door gap
+const DOOR_GAP = 1.2; // west-side door gap
 
 const lockX = ctrlCx + (cellW / 2 - LOCK_W / 2 - MARGIN);
 const lockZ = ctrlCz + (cellD / 2 - LOCK_D / 2 - MARGIN);
 
-// --- NEW: Separate Meeting Room (in OUTSIDE area, near the Station side) ---
+// --- Meeting Room (in OUTSIDE area, near the Station side) ---
 const meetWBase = OUTSIDE_AREA.w * 0.35;
 const meetDBase = OUTSIDE_AREA.d * 0.28;
 const MEET_W = Math.min(8, Math.max(4, meetWBase));
@@ -120,3 +120,18 @@ export const wallAABBs = walls.map(w => ({
     minZ: w.z - w.d / 2,
     maxZ: w.z + w.d / 2,
 }));
+
+// ---------- NEW: room AABB helpers ----------
+export const roomAABB = (key) => {
+    const r = ROOMS.find(r => r.key === key);
+    if (!r) return null;
+    return {
+        minX: r.x - r.w / 2,
+        maxX: r.x + r.w / 2,
+        minZ: r.z - r.d / 2,
+        maxZ: r.z + r.d / 2,
+    };
+};
+
+// Named AABB for Meeting Room (re-used by UI / logic)
+export const MEETING_ROOM_AABB = roomAABB('meeting_room');

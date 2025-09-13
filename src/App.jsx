@@ -18,7 +18,7 @@ import {
     useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
-    // ❌ REMOVE: useMeetingVoteResolution,
+    // ❌ useMeetingVoteResolution — keep disabled to avoid double-resolve
     useMetersInitAndDailyDecay
 } from "./game/effects";
 import {
@@ -34,18 +34,9 @@ import HUD from "./ui/HUD.jsx";
 // items state (source of truth for floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
 
-// 👉 read my current position (already used by LocalController)
+// 🔹 NEW: meeting room bounds + my position getter
+import { MEETING_ROOM_AABB } from "./map/deckA";
 import { getMyPos } from "./network/playroom";
-
-// ---- Meeting room bounds (tweak to your real room) ----
-const MEETING_ROOM_AABB = {
-    minX: -5, maxX: 5,
-    minZ: -4, maxZ: 4,
-};
-const insideMeetingRoom = (pos) =>
-    pos && typeof pos.x === "number" && typeof pos.z === "number" &&
-    pos.x >= MEETING_ROOM_AABB.minX && pos.x <= MEETING_ROOM_AABB.maxX &&
-    pos.z >= MEETING_ROOM_AABB.minZ && pos.z <= MEETING_ROOM_AABB.maxZ;
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -78,7 +69,7 @@ export default function App() {
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-    // useMeetingVoteResolution removed to avoid double-resolve
+    // useMeetingVoteResolution — intentionally not used here
     useMetersInitAndDailyDecay({
         ready,
         inGame,
@@ -177,14 +168,21 @@ export default function App() {
     // Also treat locally-flagged dead as dead (extra safety)
     const amDead = dead.includes(myId) || Boolean(meP?.getState?.("dead"));
 
-    // 👉 Track if *this player* is physically inside the meeting room
+    // 🔹 NEW: detect whether THIS player is inside the meeting room
     const [inMeetingRoom, setInMeetingRoom] = useState(false);
     useEffect(() => {
         let raf;
+        const a = MEETING_ROOM_AABB;
         const loop = () => {
-            const pos = getMyPos?.() || { x: 0, y: 0, z: 0 };
-            const inside = insideMeetingRoom(pos);
-            setInMeetingRoom((prev) => (prev !== inside ? inside : prev));
+            try {
+                const pos = (typeof getMyPos === "function") ? getMyPos() : null;
+                const inside = !!(a && pos &&
+                    pos.x >= a.minX && pos.x <= a.maxX &&
+                    pos.z >= a.minZ && pos.z <= a.maxZ);
+                setInMeetingRoom(prev => (prev === inside ? prev : inside));
+            } catch {
+                // swallow
+            }
             raf = requestAnimationFrame(loop);
         };
         raf = requestAnimationFrame(loop);
@@ -222,17 +220,8 @@ export default function App() {
             <div style={{ position: "relative" }}>
                 <GameCanvas dead={dead} />
 
-                {/* Keep TimeDebugPanel on top of everything */}
                 {isHost() && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: 10,
-                            right: 10,
-                            pointerEvents: "auto",
-                            zIndex: 1000,
-                        }}
-                    >
+                    <div style={{ position: "absolute", top: 10, right: 10, pointerEvents: "auto", zIndex: 10 }}>
                         <TimeDebugPanel />
                     </div>
                 )}
@@ -241,21 +230,9 @@ export default function App() {
                 <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                     <HUD game={game} />
                 </div>
-
-                {/* Vote results overlay (appears after 21:00, below the debug panel) */}
-                <div
-                    style={{
-                        position: "absolute",
-                        inset: 0,
-                        pointerEvents: "auto",
-                        zIndex: 20,
-                    }}
-                >
-                    <VoteResultsPanel phase={matchPhase} events={events} />
-                </div>
             </div>
 
-            {/* 👇 Voting now requires physical presence in the meeting room */}
+            {/* 🔒 Only show voting UI if: meeting phase, alive, not yet voted, and INSIDE meeting room */}
             {matchPhase === "meeting" && !amDead && !hasVoted && inMeetingRoom && (
                 <VotePanel dead={dead} />
             )}
