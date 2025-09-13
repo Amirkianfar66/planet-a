@@ -305,9 +305,15 @@ export function hostRouteAction(fromPlayer, type, target, setEvents) {
         return true;
     }
     if (type === "ability" && target === "bite") {
-        hostHandleBite({ biter: fromPlayer, setEvents });
+        const players = (window.playroom?.players?.() || []);
+        hostHandleBite({ biter: fromPlayer, players, setEvents });
         return true;
     }
+    if (type === "ability" && target === "arrest") {
+         const players = (window.playroom?.players?.() || []);
+         hostHandleArrest({ officer: fromPlayer, players, setEvents });
+         return true;
+           }
     return false;
 }
 // --- add below existing helpers in src/network/playroom.js ---
