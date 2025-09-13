@@ -132,20 +132,20 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find(p => p.id === self.id)) everyone.push(self);
 
-            // Ensure each player has life + energy meters (host-side, one-time per player)
+            // Ensure baseline per-player state (host-side, one-time per player)
             for (const pl of everyone) {
                 const hasLife = pl.getState?.("life");
-                if (hasLife === undefined || hasLife === null) pl.setState?.("life", 100, true);
-                const hasEnergy = pl.getState?.("energy");
-                if (hasEnergy === undefined || hasEnergy === null) pl.setState?.("energy", 100, true);
-            }
-            // Ensure Officers have an arrest charge (default 1)
-              const role = String(pl.getState?.("role") || "");
-              const arrests = pl.getState?.("arrestsLeft");
-              if (role === "Officer" && (arrests === undefined || arrests === null)) {
+                if (hasLife === undefined || hasLife === null) {
+                    pl.setState?.("life", 100, true);
+                }
+                // Default 1 arrest charge for Officers
+                const role = String(pl.getState?.("role") || "");
+                const arrests = pl.getState?.("arrestsLeft");
+                if (role === "Officer" && (arrests === undefined || arrests === null)) {
                     pl.setState?.("arrestsLeft", 1, true);
-                  }
-        }
+                }
+            }
+
             const list = itemsRef.current || [];
             const findItem = (id) => list.find(i => i.id === id);
 
@@ -162,10 +162,11 @@ export default function ItemsHostLogic() {
                 const py = Number(p.getState("y") || 0);
                 const pz = Number(p.getState("z") || 0);
 
+                // --------- ABILITIES ----------
                 // ABILITY: shoot
                 if (type === "ability" && target === "shoot") {
-                    const payload = readActionPayload(p);
-                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone });
+                    const payload = readActionPayload(p); // { origin:[x,y,z], dir:[dx,dy,dz] }
+                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone }); // tracer + hit check
                     processed.current.set(p.id, reqId);
                     continue;
                 }
@@ -176,95 +177,46 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
+
                 // ABILITY: arrest (Officer → send target to Lockdown)
                 if (type === "ability" && target === "arrest") {
-                    // host finds a nearby player in front; make sure we pass the players list
                     hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
                     processed.current.set(p.id, reqId);
                     continue;
                 }
+                // --------- END ABILITIES ----------
+
                 // PICKUP
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
-                    if (until && nowSec < until) { processed.current.set(p.id, reqId); continue; }
+                    if (until > 1e11) until = Math.floor(until / 1000); // handle ms vs s
+                    if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                     const it = findItem(target);
                     if (!it) { processed.current.set(p.id, reqId); continue; }
-
-                    // already held by someone else?
                     if (it.holder && it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
+                    if (!hasCapacity(p)) { processed.current.set(p.id, reqId); continue; }
 
-                    // bag capacity check (need at least 1 slot to pick the first one)
-                    const cap = Number(BAG_CAPACITY || 8);
-                    const bp = getBackpack(p);
-                    const free = cap - bp.length;
-                    if (free <= 0) { processed.current.set(p.id, reqId); continue; }
-
-                    // in range?
                     const dx = px - it.x, dz = pz - it.z;
                     if (Math.hypot(dx, dz) > PICKUP_RADIUS) { processed.current.set(p.id, reqId); continue; }
 
-                    // --- decide if this role should get a bonus copy (2x) for this item type ---
-                    const roleRaw = String(p.getState("role") || "");
-                    const roleKey = roleRaw.toLowerCase().replace(/\s+/g, ""); // normalize
-                    const t = it.type;
+                    setItems(prev => prev.map(j =>
+                        j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
+                    ), true);
 
-                    const isResearch = (roleKey === "research" || roleKey === "researcher");
-                    const isEngineer = (roleKey === "engineer");
-                    const isFoodSupplier = (roleKey === "foodsupplier" || roleKey === "foodsupplier");
-
-                    const eligible =
-                        (isResearch && (t === "protection" || t === "cure_red" || t === "cure_blue")) ||
-                        (isEngineer && t === "fuel") ||
-                        (isFoodSupplier && t === "food");
-
-                    const canDouble = eligible && free >= 2; // need 2 free slots to grant the bonus
-
-                    // --- apply: mark picked item held; optionally create a bonus copy directly in backpack ---
-                    const bonusId = `${t}_bonus_${p.id.slice(0, 4)}_${(Date.now() % 100000).toString(36)}`;
-
-                    setItems(prev => {
-                        // 1) claim the original
-                        const next = prev.map(j =>
-                            j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j
-                        );
-                        // 2) (optional) add a second copy straight to backpack (never appears on floor)
-                        if (canDouble) {
-                            next.push({
-                                id: bonusId,
-                                type: t,
-                                name: it.name || t,
-                                holder: p.id,
-                                x: it.x, y: FLOOR_Y, z: it.z,
-                                vx: 0, vy: 0, vz: 0
-                            });
-                        }
-                        return next;
-                    }, true);
-
-                    // carry (only needs to reference one of them)
                     const carry = String(p.getState("carry") || "");
                     if (!carry) p.setState("carry", it.id, true);
 
-                    // update backpack state (avoid duping same id)
-                    const bpNow = getBackpack(p);
-                    const toAdd = [{ id: it.id, type: t }];
-                    if (canDouble) toAdd.push({ id: bonusId, type: t });
+                    const bp = getBackpack(p);
+                    if (!bp.find(b => b.id === it.id)) setBackpack(p, [...bp, { id: it.id, type: it.type }]);
 
-                    const merged = [...bpNow];
-                    for (const add of toAdd) {
-                        if (!merged.find(b => b.id === add.id)) merged.push(add);
-                    }
-                    setBackpack(p, merged);
-
-                    // cooldown
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                     processed.current.set(p.id, reqId);
                     continue;
                 }
 
-                // DROP (and remove from backpack)
+                // DROP  ⬅️ also remove from backpack
                 if (type === "drop") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -282,7 +234,7 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // THROW (and remove from backpack)
+                // THROW  ⬅️ also remove from backpack
                 if (type === "throw") {
                     const it = findItem(target);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
@@ -310,12 +262,8 @@ export default function ItemsHostLogic() {
                     const it = findItem(idStr);
                     if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
 
-                    // eat food → refill ENERGY for non-infected only
+                    // eat food
                     if (kind === "eat" && it.type === "food") {
-                        const isInfected = !!p.getState?.("infected");
-                        if (!isInfected) {
-                            p.setState?.("energy", 100, true);
-                        }
                         setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j), true);
                         setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                         if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
@@ -331,7 +279,8 @@ export default function ItemsHostLogic() {
                         if (dx * dx + dz * dz <= r * r) {
                             const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                             if (eff) {
-                                // apply any station/room effects here if desired
+                                // (Apply meters in your system if desired)
+                                // Consume item
                                 setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j), true);
                                 setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
                                 if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
@@ -342,9 +291,9 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // default: mark processed so we don't loop on it
+                // Fallback: mark processed
                 processed.current.set(p.id, reqId);
-            };
+            }
 
             // schedule next tick
             timerId = setTimeout(loop, 50);
@@ -352,6 +301,7 @@ export default function ItemsHostLogic() {
 
         loop();
 
+        // proper cleanup
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);
