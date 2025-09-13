@@ -130,9 +130,9 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "food_tank":
+        case "food_tank": // 5x bigger
             return (
-                <group>
+                <group scale={[5, 5, 5]}>
                     <mesh>
                         <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
                         <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
@@ -147,6 +147,7 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
+
 
         /* legacy */
         case "battery":
