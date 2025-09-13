@@ -1,8 +1,8 @@
 ﻿// src/components/ItemsAndDevices.jsx
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
-import { isHost, myPlayer } from "playroomkit";
+import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
@@ -15,10 +15,10 @@ const TYPE_META = {
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
     cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
 
-    // NEW: container that can hold food
+    // container that can hold food
     food_tank: { label: "Food Tank", color: "#10b981" }, // teal
 
-    // legacy/compat (still render nicely if present)
+    // legacy/compat
     battery: { label: "Battery", color: "#2dd4bf" },
     o2can: { label: "O₂ Canister", color: "#9bd1ff" },
 };
@@ -130,7 +130,7 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "food_tank": // NEW: small green barrel with lid
+        case "food_tank":
             return (
                 <group>
                     <mesh>
@@ -148,7 +148,7 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        /* ----- legacy/compat so older items still show ----- */
+        /* legacy */
         case "battery":
             return (
                 <group>
@@ -231,72 +231,10 @@ function ItemEntity({ it }) {
     );
 }
 
-/* ---------- Main scene block + one-shot 3x-per-type filler (host) ---------- */
+/* ---------- Main scene block (render-only) ---------- */
 export default function ItemsAndDevices() {
-    const { items, setItems } = useItemsSync();
+    const { items } = useItemsSync();
     const floorItems = useMemo(() => (items || []).filter(i => !i.holder), [items]);
-
-    // HOST ONLY:
-    // On first mount, ensure there are 3 floor items for each primary type.
-    // If your INITIAL_ITEMS already provide them, this adds nothing.
-    const didInitRef = useRef(false);
-    useEffect(() => {
-        if (!isHost() || didInitRef.current) return;
-        didInitRef.current = true;
-
-        const TYPES = ["food", "fuel", "protection", "cure_red", "cure_blue"];
-        const NAME = {
-            food: "Ration Pack",
-            fuel: "Fuel Rod",
-            protection: "Shield Badge",
-            cure_red: "Cure — Red",
-            cure_blue: "Cure — Blue",
-        };
-        // pre-picked spots per type (matches what we used in INITIAL_ITEMS)
-        const SPOTS = {
-            food: [[-6, -2], [-4, 1], [-5, -0.5]],
-            fuel: [[-1, 5], [0, 5], [1, 5]],
-            protection: [[2, 3], [3, -2], [4, -2]],
-            cure_red: [[5, -1], [6, -1], [5, 0]],
-            cure_blue: [[3, 2], [6, 2], [7, 2.5]],
-        };
-
-        setItems(prev => {
-            const existingIds = new Set((prev || []).map(p => p.id));
-            // Count floor items by type from current state
-            const countByType = new Map();
-            for (const it of prev || []) {
-                if (!it.holder && TYPES.includes(it.type)) {
-                    countByType.set(it.type, (countByType.get(it.type) || 0) + 1);
-                }
-            }
-
-            const toAdd = [];
-            const base = { holder: null, vx: 0, vy: 0, vz: 0, y: 0 };
-            const mkId = (prefix) => {
-                let i = 1;
-                let id = `${prefix}${i}`;
-                while (existingIds.has(id)) { i += 1; id = `${prefix}${i}`; }
-                existingIds.add(id);
-                return id;
-            };
-
-            for (const t of TYPES) {
-                const have = countByType.get(t) || 0;
-                for (let i = have; i < 3; i += 1) {
-                    const [x, z] = SPOTS[t][i % SPOTS[t].length];
-                    toAdd.push({
-                        id: mkId(`${t}`),
-                        type: t,
-                        name: NAME[t],
-                        x, z,
-                        ...base,
-                    });
-                }
-            }
-            return toAdd.length ? [...(prev || []), ...toAdd] : prev;
-        }, true);
-    }, [setItems]);
 
     return (
         <group>
