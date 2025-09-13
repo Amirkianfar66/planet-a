@@ -48,7 +48,7 @@ export default function ItemsHostLogic() {
         setBackpack(pl, next);
     };
 
-    // Seed initial items once (host only)
+    // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
         if (!host) return;
         const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
@@ -60,31 +60,6 @@ export default function ItemsHostLogic() {
             setItems(seeded, true);
             console.log("[HOST] Seeded", seeded.length, "items.");
         }
-    }, [host, setItems]);
-    // Guarantee there is at least one Food Tank in the world (idempotent)
-    useEffect(() => {
-        if (!host) return;
-        setItems(prev => {
-            const list = Array.isArray(prev) ? prev : [];
-            const hasTank = list.some(it => it.type === "food_tank");
-            if (hasTank) return prev;
-
-            // Use the tank from INITIAL_ITEMS if present; else create a default one
-            const fromInitial = (INITIAL_ITEMS || []).find(it => it.type === "food_tank");
-            const tank = {
-                holder: null, y: 0, vx: 0, vy: 0, vz: 0,
-                ...(fromInitial || {
-                    id: "tank1",
-                    type: "food_tank",
-                    name: "Food Tank",
-                    x: -2, z: -2,
-                    cap: 4, stored: 0,
-                }),
-            };
-
-            console.log("[HOST] Backfilled Food Tank at", tank.x, tank.z);
-            return [...list, tank];
-        }, true);
     }, [host, setItems]);
 
     // Simple throw physics
@@ -234,19 +209,16 @@ export default function ItemsHostLogic() {
                     let changed = false;
 
                     if (op === "load") {
-                        // move 1 food from backpack into tank
                         if (stored < cap) {
                             const bp = getBackpack(p);
                             const foodEntry = bp.find(b => b.type === "food");
                             if (foodEntry) {
                                 const foodItem = findItem(foodEntry.id);
                                 if (foodItem && foodItem.holder === p.id) {
-                                    // remove the food entity + bp entry
                                     setItems(prev => prev.map(j =>
                                         j.id === foodItem.id ? { ...j, holder: "_gone_", y: -999 } : j
                                     ), true);
                                     setBackpack(p, bp.filter(b => b.id !== foodEntry.id));
-                                    // increment tank stored
                                     setItems(prev => prev.map(j =>
                                         j.id === tank.id ? { ...j, stored: stored + 1 } : j
                                     ), true);
@@ -255,26 +227,21 @@ export default function ItemsHostLogic() {
                             }
                         }
                     } else if (op === "unload") {
-                        // create 1 food back into backpack (if capacity)
                         if (stored > 0 && hasCapacity(p)) {
                             const newFoodId = mkId("food");
-                            // create new food item immediately in backpack
                             setItems(prev => [
                                 ...(prev || []),
                                 { id: newFoodId, type: "food", name: "Ration Pack", holder: p.id, x: px, y: py, z: pz, vx: 0, vy: 0, vz: 0 }
                             ], true);
                             setBackpack(p, [...getBackpack(p), { id: newFoodId, type: "food" }]);
-                            // decrement stored
                             setItems(prev => prev.map(j =>
                                 j.id === tank.id ? { ...j, stored: stored - 1 } : j
                             ), true);
                             changed = true;
                         }
                     } else if (op === "toggle") {
-                        // try load; else try unload
                         const bpHasFood = getBackpack(p).some(b => b.type === "food");
                         if (stored < cap && bpHasFood) {
-                            // re-enqueue as load
                             p.setState("reqType", "container", true);
                             p.setState("reqTarget", "food_tank", true);
                             p.setState("reqJson", JSON.stringify({ containerId, op: "load" }), true);
@@ -302,7 +269,7 @@ export default function ItemsHostLogic() {
                 if (type === "pickup") {
                     const nowSec = Math.floor(Date.now() / 1000);
                     let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000); // handle ms vs s
+                    if (until > 1e11) until = Math.floor(until / 1000);
                     if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                     const it = findItem(target);
@@ -322,7 +289,6 @@ export default function ItemsHostLogic() {
 
                     const bp = getBackpack(p);
                     if (!bp.find(b => b.id === it.id)) {
-                        // Include stored/cap if it’s a tank, so UI can show badge
                         if (it.type === "food_tank") {
                             setBackpack(p, [...bp, { id: it.id, type: it.type, stored: Number(it.stored || 0), cap: Number(it.cap || 4) }]);
                         } else {
