@@ -39,15 +39,6 @@ export default function ItemsHostLogic() {
     const setBackpack = (p, arr) => p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
     const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
 
-    // Helper: update tank’s stored/cap inside backpack entry (so UI can show badge)
-    const refreshBackpackEntry = (pl, item) => {
-        const bp = getBackpack(pl);
-        const next = bp.map(b =>
-            b.id === item.id ? { id: item.id, type: item.type, stored: Number(item.stored || 0), cap: Number(item.cap || 4) } : b
-        );
-        setBackpack(pl, next);
-    };
-
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
         if (!host) return;
@@ -194,12 +185,19 @@ export default function ItemsHostLogic() {
                 }
                 // --------- END ABILITIES ----------
 
-                // CONTAINER (Food Tank)
+                // CONTAINER (Food Tank) — stationary, load-only, must be near
                 if (type === "container") {
                     const payload = readActionPayload(p) || {};
                     const { containerId, op } = payload || {};
                     const tank = findItem(String(containerId));
-                    if (!tank || tank.type !== "food_tank" || tank.holder !== p.id) {
+                    if (!tank || tank.type !== "food_tank") {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
+                    // must be close to the stationary tank
+                    const dx = px - tank.x, dz = pz - tank.z;
+                    if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
@@ -208,17 +206,19 @@ export default function ItemsHostLogic() {
                     const stored = Number(tank.stored || 0);
                     let changed = false;
 
-                    if (op === "load") {
+                    if (op === "load" || op === "toggle") {
                         if (stored < cap) {
                             const bp = getBackpack(p);
                             const foodEntry = bp.find(b => b.type === "food");
                             if (foodEntry) {
                                 const foodItem = findItem(foodEntry.id);
                                 if (foodItem && foodItem.holder === p.id) {
+                                    // consume one food from player
                                     setItems(prev => prev.map(j =>
                                         j.id === foodItem.id ? { ...j, holder: "_gone_", y: -999 } : j
                                     ), true);
                                     setBackpack(p, bp.filter(b => b.id !== foodEntry.id));
+                                    // increase tank fill
                                     setItems(prev => prev.map(j =>
                                         j.id === tank.id ? { ...j, stored: stored + 1 } : j
                                     ), true);
@@ -226,39 +226,11 @@ export default function ItemsHostLogic() {
                                 }
                             }
                         }
-                    } else if (op === "unload") {
-                        if (stored > 0 && hasCapacity(p)) {
-                            const newFoodId = mkId("food");
-                            setItems(prev => [
-                                ...(prev || []),
-                                { id: newFoodId, type: "food", name: "Ration Pack", holder: p.id, x: px, y: py, z: pz, vx: 0, vy: 0, vz: 0 }
-                            ], true);
-                            setBackpack(p, [...getBackpack(p), { id: newFoodId, type: "food" }]);
-                            setItems(prev => prev.map(j =>
-                                j.id === tank.id ? { ...j, stored: stored - 1 } : j
-                            ), true);
-                            changed = true;
-                        }
-                    } else if (op === "toggle") {
-                        const bpHasFood = getBackpack(p).some(b => b.type === "food");
-                        if (stored < cap && bpHasFood) {
-                            p.setState("reqType", "container", true);
-                            p.setState("reqTarget", "food_tank", true);
-                            p.setState("reqJson", JSON.stringify({ containerId, op: "load" }), true);
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        } else if (stored > 0 && hasCapacity(p)) {
-                            p.setState("reqType", "container", true);
-                            p.setState("reqTarget", "food_tank", true);
-                            p.setState("reqJson", JSON.stringify({ containerId, op: "unload" }), true);
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
                     }
+                    // unload disabled on purpose (fill-only tank)
 
                     if (changed) {
-                        const latestTank = (itemsRef.current || []).find(i => i.id === tank.id) || tank;
-                        refreshBackpackEntry(p, latestTank);
+                        // no backpack entry to refresh — tank is never held
                     }
 
                     processed.current.set(p.id, reqId);
@@ -274,6 +246,36 @@ export default function ItemsHostLogic() {
 
                     const it = findItem(target);
                     if (!it) { processed.current.set(p.id, reqId); continue; }
+
+                    // 🚫 Food Tank is NOT pickable — treat P near it as "load one food"
+                    if (it.type === "food_tank") {
+                        const dx = px - it.x, dz = pz - it.z;
+                        if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                            const cap = Number(it.cap || 4);
+                            const stored = Number(it.stored || 0);
+                            if (stored < cap) {
+                                const bp = getBackpack(p);
+                                const foodEntry = bp.find(b => b.type === "food");
+                                if (foodEntry) {
+                                    const foodItem = findItem(foodEntry.id);
+                                    if (foodItem && foodItem.holder === p.id) {
+                                        setItems(prev => prev.map(j =>
+                                            j.id === foodItem.id ? { ...j, holder: "_gone_", y: -999 } : j
+                                        ), true);
+                                        setBackpack(p, bp.filter(b => b.id !== foodEntry.id));
+                                        setItems(prev => prev.map(j =>
+                                            j.id === it.id ? { ...j, stored: stored + 1 } : j
+                                        ), true);
+                                        // apply pickup cooldown only on success
+                                        p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
+                                    }
+                                }
+                            }
+                        }
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
                     if (it.holder && it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
                     if (!hasCapacity(p)) { processed.current.set(p.id, reqId); continue; }
 
@@ -289,11 +291,8 @@ export default function ItemsHostLogic() {
 
                     const bp = getBackpack(p);
                     if (!bp.find(b => b.id === it.id)) {
-                        if (it.type === "food_tank") {
-                            setBackpack(p, [...bp, { id: it.id, type: it.type, stored: Number(it.stored || 0), cap: Number(it.cap || 4) }]);
-                        } else {
-                            setBackpack(p, [...bp, { id: it.id, type: it.type }]);
-                        }
+                        // normal items enter backpack; tank never does
+                        setBackpack(p, [...bp, { id: it.id, type: it.type }]);
                     }
 
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);

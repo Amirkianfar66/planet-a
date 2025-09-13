@@ -130,9 +130,9 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "food_tank": // 5x bigger
+        case "food_tank": // 4x bigger
             return (
-                <group scale={[5, 5, 5]}>
+                <group scale={[4, 4, 4]}>
                     <mesh>
                         <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
                         <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
@@ -209,24 +209,58 @@ function prettyLabel(it) {
 }
 
 /* ---------- Single floor item ---------- */
+/* ---------- Single floor item ---------- */
 function ItemEntity({ it }) {
     if (!it || it.holder) return null;
+
+    // Near check (distance only)
     const actionable = canPickUp(it);
     const label = prettyLabel(it);
+
+    // Special UX for the Food Tank
+    let prompt = actionable ? `Press P to pick up ${label}` : label;
+    let ringColor = actionable ? "#86efac" : "#64748b";
+    let ringScale = 1;
+    let billboardY = 0.85;
+
+    if (it.type === "food_tank") {
+        const me = myPlayer?.();
+        const bp = (me?.getState?.("backpack") || []);
+        const hasFood = bp.some(b => b.type === "food");
+
+        const stored = Number(it.stored ?? 0);
+        const cap = Number(it.cap ?? 4);
+        const full = stored >= cap;
+
+        // Only green when player is close AND can actually add food
+        const canLoad = actionable && hasFood && !full;
+
+        prompt =
+            !actionable ? label :
+                full ? "Tank full" :
+                    !hasFood ? "No food in backpack" :
+                        "Press P to add food";
+
+        ringColor = canLoad ? "#86efac" : "#64748b";
+        ringScale = 4;          // match the 4x tank scale
+        billboardY = 1.7;       // lift the label above the taller tank
+    }
 
     return (
         <group position={[it.x, (it.y || 0) + 0.25, it.z]}>
             <ItemMesh type={it.type} />
-            <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[0.35, 0.42, 24]} />
-                <meshBasicMaterial
-                    color={actionable ? "#86efac" : "#64748b"}
-                    transparent
-                    opacity={actionable ? 0.85 : 0.4}
-                />
-            </mesh>
-            <Billboard position={[0, 0.85, 0]}>
-                <TextSprite text={actionable ? `Press P to pick up ${label}` : label} />
+
+            {/* Ground ring (scaled for tank) */}
+            <group scale={[ringScale, 1, ringScale]}>
+                <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[0.35, 0.42, 24]} />
+                    <meshBasicMaterial color={ringColor} transparent opacity={actionable ? 0.85 : 0.4} />
+                </mesh>
+            </group>
+
+            {/* Floating prompt */}
+            <Billboard position={[0, billboardY, 0]}>
+                <TextSprite text={prompt} />
             </Billboard>
         </group>
     );
