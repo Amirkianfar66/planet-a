@@ -171,12 +171,36 @@ export default function HUD({ game = {} }) {
         }, 150);
         return () => clearInterval(iv);
     }, []);
+    // ✅ NEW: keep a live snapshot of the backpack so stacking/counts update immediately
+    const [bpSnapshot, setBpSnapshot] = useState(() => me?.getState?.("backpack") || []);
+    useEffect(() => {
+           let mounted = true;
+              const iv = setInterval(() => {
+                      const next = myPlayer()?.getState?.("backpack") || [];
+                      // cheap shallow-ish compare (length + ids/types/qty)
+                      const prev = bpSnapshot;
+                       if (next.length !== prev.length) {
+                               if (mounted) setBpSnapshot(next);
+                              return;
+                           }
+                       for (let i = 0; i < next.length; i++) {
+                               const a = next[i], b = prev[i];
+                               if (a?.id !== b?.id || a?.type !== b?.type || (a?.qty || 0) !== (b?.qty || 0)) {
+                                        if (mounted) setBpSnapshot(next);
+                                        return;
+                                    }
+                            }
+                   }, 120);
+              return () => { mounted = false; clearInterval(iv); };
+    }, [bpSnapshot]);
+
     // Prefer data passed in via `game`; fall back to myPlayer() state
     const meProp = game?.me || {};
-    const bpFromPlayer = me?.getState?.("backpack") || [];
+    const bpFromPlayer = bpSnapshot; // live, host-driven snapshot
     const capFromPlayer = Number(me?.getState?.("capacity")) || 8;
-
-    const items = Array.isArray(meProp.backpack) ? meProp.backpack : bpFromPlayer;
+ 
+   // Always prefer the live snapshot so backpack reflects host changes instantly
+    const items = bpFromPlayer;
     const capacity = Number(meProp.capacity ?? capFromPlayer);
 
     const requestAction =
