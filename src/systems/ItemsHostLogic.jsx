@@ -38,6 +38,35 @@ const removeOneByType = (bp, type, idToRemove) => {
     }
     return bp.slice(0, idx).concat(bp.slice(idx + 1));
 };
+// normalize type match (case-insensitive)
+const isType = (v, t) => String(v || "").toLowerCase() === String(t || "").toLowerCase();
+
+// Find an actual world item of a given type held by player p
+const findHeldItemByType = (type, p, itemsList) =>
+    (itemsList || []).find(i => isType(i.type, type) && i.holder === p.id);
+
+// Remove exactly ONE unit from the backpack.
+// Works for {id,type} entries and stacked {type, qty:n} entries.
+const removeOneByType = (bp, type, idToRemove) => {
+    if (!Array.isArray(bp)) return [];
+    // Prefer exact id if available
+    if (idToRemove) {
+        const idx = bp.findIndex(b => b.id === idToRemove);
+        if (idx !== -1) return bp.slice(0, idx).concat(bp.slice(idx + 1));
+    }
+    // Otherwise, remove/decrement the first matching type (case-insensitive)
+    const idx = bp.findIndex(b => isType(b.type, type));
+    if (idx === -1) return bp;
+    const entry = bp[idx];
+    const qty = Number(entry?.qty || 1);
+    if (qty > 1) {
+        const copy = [...bp];
+        copy[idx] = { ...entry, qty: qty - 1 };
+        return copy;
+    }
+    return bp.slice(0, idx).concat(bp.slice(idx + 1));
+};
+
 /* --- END HELPERS --- */
 
 export default function ItemsHostLogic() {
@@ -237,19 +266,35 @@ export default function ItemsHostLogic() {
                     if (op === "load" || op === "toggle") {
                         if (stored < cap) {
                             const bp = getBackpack(p);
-                            const foodEntry = bp.find(b => b.type === "food");
+                            const foodEntry = bp.find(b => isType(b.type, "food"));
                             const foodEntity =
                                 (foodEntry?.id ? findItem(foodEntry.id) : null) ||
                                 findHeldItemByType("food", p, list);
+
+                            let removed = false;
+                            let nextBp = bp;
 
                             if (foodEntity && foodEntity.holder === p.id) {
                                 // remove the world entity
                                 setItems(prev => prev.map(j =>
                                     j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
                                 ), true);
-                                // remove ONE unit from backpack (id-aware or qty-aware)
-                                setBackpack(p, removeOneByType(bp, "food", foodEntry?.id));
-                                // increase tank fill
+                                removed = true;
+                                nextBp = removeOneByType(bp, "food", foodEntry?.id);
+
+                                // clear carry if it pointed at the consumed item
+                                if (String(p.getState("carry") || "") === foodEntity.id) {
+                                    p.setState("carry", "", true);
+                                }
+                            } else if (foodEntry) {
+                                // fallback: decrement backpack even if entity couldn't be found
+                                const after = removeOneByType(bp, "food", foodEntry?.id);
+                                removed = after !== bp;
+                                nextBp = after;
+                            }
+
+                            if (removed) {
+                                setBackpack(p, nextBp);
                                 setItems(prev => prev.map(j =>
                                     j.id === tank.id ? { ...j, stored: stored + 1 } : j
                                 ), true);
@@ -257,6 +302,7 @@ export default function ItemsHostLogic() {
                             }
                         }
                     }
+
                     // unload disabled on purpose (fill-only tank)
 
                     if (changed) {
@@ -285,23 +331,39 @@ export default function ItemsHostLogic() {
                             const stored = Number(it.stored || 0);
                             if (stored < cap) {
                                 const bp = getBackpack(p);
-                                const foodEntry = bp.find(b => b.type === "food");
+                                const foodEntry = bp.find(b => isType(b.type, "food"));
                                 const foodEntity =
                                     (foodEntry?.id ? findItem(foodEntry.id) : null) ||
                                     findHeldItemByType("food", p, list);
+
+                                let removed = false;
+                                let nextBp = bp;
 
                                 if (foodEntity && foodEntity.holder === p.id) {
                                     setItems(prev => prev.map(j =>
                                         j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
                                     ), true);
-                                    setBackpack(p, removeOneByType(bp, "food", foodEntry?.id));
+                                    removed = true;
+                                    nextBp = removeOneByType(bp, "food", foodEntry?.id);
+
+                                    if (String(p.getState("carry") || "") === foodEntity.id) {
+                                        p.setState("carry", "", true);
+                                    }
+                                } else if (foodEntry) {
+                                    const after = removeOneByType(bp, "food", foodEntry?.id);
+                                    removed = after !== bp;
+                                    nextBp = after;
+                                }
+
+                                if (removed) {
+                                    setBackpack(p, nextBp);
                                     setItems(prev => prev.map(j =>
                                         j.id === it.id ? { ...j, stored: stored + 1 } : j
                                     ), true);
-                                    // apply pickup cooldown only on success
                                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                                 }
                             }
+
                         }
                         processed.current.set(p.id, reqId);
                         continue;
