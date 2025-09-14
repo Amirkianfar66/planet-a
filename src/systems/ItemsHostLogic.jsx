@@ -12,32 +12,8 @@ const GRAV = 16;
 const DT = 0.05;
 const THROW_SPEED = 8;
 
-/* --- NEW HELPERS (minimal, pure) --- */
-// Find an actual world item of a given type held by player p
-const findHeldItemByType = (type, p, itemsList) =>
-    (itemsList || []).find(i => i.type === type && i.holder === p.id);
+/* --- HELPERS (single, case-insensitive) --- */
 
-// Remove exactly ONE unit from the backpack.
-// Works for {id,type} entries and stacked {type, qty:n} entries.
-const removeOneByType = (bp, type, idToRemove) => {
-    if (!Array.isArray(bp)) return [];
-    // Prefer exact id if available
-    if (idToRemove) {
-        const idx = bp.findIndex(b => b.id === idToRemove);
-        if (idx !== -1) return bp.slice(0, idx).concat(bp.slice(idx + 1));
-    }
-    // Otherwise, remove/decrement the first matching type
-    const idx = bp.findIndex(b => b.type === type);
-    if (idx === -1) return bp;
-    const entry = bp[idx];
-    const qty = Number(entry?.qty || 1);
-    if (qty > 1) {
-        const copy = [...bp];
-        copy[idx] = { ...entry, qty: qty - 1 };
-        return copy;
-    }
-    return bp.slice(0, idx).concat(bp.slice(idx + 1));
-};
 // normalize type match (case-insensitive)
 const isType = (v, t) => String(v || "").toLowerCase() === String(t || "").toLowerCase();
 
@@ -66,7 +42,6 @@ const removeOneByType = (bp, type, idToRemove) => {
     }
     return bp.slice(0, idx).concat(bp.slice(idx + 1));
 };
-
 /* --- END HELPERS --- */
 
 export default function ItemsHostLogic() {
