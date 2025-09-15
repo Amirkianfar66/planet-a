@@ -1,17 +1,16 @@
-﻿import React, { useMemo } from "react";
+﻿// src/world/GameCanvas.jsx
+import React, { useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
-import { isHost as prIsHost } from "playroomkit";
 
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
-    FLOOR, WALL_HEIGHT, walls
+    FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
 } from "../map/deckA";
 
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
-
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 import ItemsHostLogic from "../systems/ItemsHostLogic.jsx";
 import InteractionSystem from "../systems/InteractionSystem.jsx";
@@ -59,14 +58,17 @@ function TextLabel({
 
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
+    const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map(r => [r.key, r])), [ROOMS]);
 
     return (
         <group>
+            {/* Global ground */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
             </mesh>
 
+            {/* Area tints */}
             <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
                 <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
@@ -76,24 +78,48 @@ function FloorAndWalls() {
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
+            {/* Wire grid */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
             </mesh>
 
-            {walls.map((w, i) => (
-                <mesh {...noRay} key={i} position={[w.x, WALL_HEIGHT / 2, w.z]}>
-                    <boxGeometry args={[w.w, WALL_HEIGHT, w.d]} />
-                    <meshStandardMaterial color="#3b4a61" />
+            {/* Per-room floors (if provided by deckA/map JSON) */}
+            {FLOORS?.map((f, i) => (
+                <mesh {...noRay} key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
+                    <boxGeometry args={[f.w, f.t, f.d]} />
+                    <meshStandardMaterial color="#212833" />
                 </mesh>
             ))}
 
+            {/* Walls: respect per-wall height (w.h) and room floorY offset */}
+            {walls.map((w, i) => {
+                const r = roomByKey[w.room];
+                const baseY = r?.floorY ?? 0;        // elevate walls if the room floor is raised
+                const h = w.h ?? WALL_HEIGHT;        // wall height from JSON or default
+                return (
+                    <mesh {...noRay} key={`wall_${i}`} position={[w.x, baseY + h / 2, w.z]}>
+                        <boxGeometry args={[w.w, h, w.d]} />
+                        <meshStandardMaterial color="#3b4a61" />
+                    </mesh>
+                );
+            })}
+
+            {/* Per-room roofs (if provided) */}
+            {ROOFS?.map((r, i) => (
+                <mesh {...noRay} key={`roof_${i}`} position={[r.x, r.y, r.z]}>
+                    <boxGeometry args={[r.w, r.t, r.d]} />
+                    <meshStandardMaterial color="#1a2029" />
+                </mesh>
+            ))}
+
+            {/* Labels */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
             {ROOMS.map((r) => (
                 <TextLabel
                     key={r.key}
                     text={r.name}
-                    position={[r.x, 0.01, r.z]}
+                    position={[r.x, (r.floorY ?? 0) + 0.01, r.z]}
                     width={Math.min(r.w * 0.9, 8)}
                     color="#d6eaff"
                 />
@@ -138,7 +164,7 @@ export default function GameCanvas({ dead = [] }) {
             {/* Host-only logic */}
             <ItemsHostLogic />
 
-            {/* Death logic (meters → dead) */}
+            {/* Death logic */}
             <DeathSystem />
         </div>
     );
