@@ -39,7 +39,7 @@ export const INITIAL_ITEMS = [
     { id: "cureB3", type: "cure_blue", name: "Cure — Blue", x: 7, z: 2.5, color: ITEM_TYPES.cure_blue.color },
 
     // --- NEW: Food Tank (container; capacity 4, starts empty) ---
-    { id: "tank1", type: "food_tank", name: "Food Tank", x: 8, z: -6, cap: 4, stored: 0, color: ITEM_TYPES.food_tank.color },
+    { id: "tank1", type: "food_tank", name: "Food Tank", x: 8, z: -6, cap: 6, stored: 0, color: ITEM_TYPES.food_tank.color },
 ];
 
 // World devices you can interact with when pressing "I"

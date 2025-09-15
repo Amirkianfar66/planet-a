@@ -11,6 +11,8 @@ const FLOOR_Y = 0;
 const GRAV = 16;
 const DT = 0.05;
 const THROW_SPEED = 8;
+const TANK_CAP_DEFAULT = 6;
+const UNITS_PER_LOAD = 2;
 
 /* --- HELPERS (single, case-insensitive) --- */
 
@@ -234,12 +236,15 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    const cap = Number(tank.cap || 4);
+                    const cap = Number(tank.cap ?? TANK_CAP_DEFAULT);
                     const stored = Number(tank.stored || 0);
                     let changed = false;
 
                     if (op === "load" || op === "toggle") {
                         if (stored < cap) {
+                            const free = cap - stored;
+                            const addUnits = Math.min(UNITS_PER_LOAD, free); // add 2, cap at remaining space
+                            if (addUnits <= 0) { processed.current.set(p.id, reqId); continue; }
                             const bp = getBackpack(p);
                             const foodEntry = bp.find(b => isType(b.type, "food"));
                             const foodEntity =
@@ -250,7 +255,7 @@ export default function ItemsHostLogic() {
                             let nextBp = bp;
 
                             if (foodEntity && foodEntity.holder === p.id) {
-                                // remove the world entity
+                                // consume the world food entity
                                 setItems(prev => prev.map(j =>
                                     j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
                                 ), true);
@@ -270,8 +275,11 @@ export default function ItemsHostLogic() {
 
                             if (removed) {
                                 setBackpack(p, nextBp);
+                                // increment using live j.stored and clamp to capacity
                                 setItems(prev => prev.map(j =>
-                                    j.id === tank.id ? { ...j, stored: stored + 1 } : j
+                                    j.id === tank.id
+                                        ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
+                                        : j
                                 ), true);
                                 changed = true;
                             }
@@ -302,43 +310,49 @@ export default function ItemsHostLogic() {
                     if (it.type === "food_tank") {
                         const dx = px - it.x, dz = pz - it.z;
                         if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
-                            const cap = Number(it.cap || 4);
+                            const cap = Number(it.cap ?? TANK_CAP_DEFAULT);
                             const stored = Number(it.stored || 0);
                             if (stored < cap) {
-                                const bp = getBackpack(p);
-                                const foodEntry = bp.find(b => isType(b.type, "food"));
-                                const foodEntity =
-                                    (foodEntry?.id ? findItem(foodEntry.id) : null) ||
-                                    findHeldItemByType("food", p, list);
+                                const free = cap - stored;
+                                const addUnits = Math.min(UNITS_PER_LOAD, free);
+                                if (addUnits > 0) {
+                                    const bp = getBackpack(p);
+                                    const foodEntry = bp.find(b => isType(b.type, "food"));
+                                    const foodEntity =
+                                        (foodEntry?.id ? findItem(foodEntry.id) : null) ||
+                                        findHeldItemByType("food", p, list);
 
-                                let removed = false;
-                                let nextBp = bp;
+                                    let removed = false;
+                                    let nextBp = bp;
 
-                                if (foodEntity && foodEntity.holder === p.id) {
-                                    setItems(prev => prev.map(j =>
-                                        j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
-                                    ), true);
-                                    removed = true;
-                                    nextBp = removeOneByType(bp, "food", foodEntry?.id);
+                                    if (foodEntity && foodEntity.holder === p.id) {
+                                        setItems(prev => prev.map(j =>
+                                            j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
+                                        ), true);
+                                        removed = true;
+                                        nextBp = removeOneByType(bp, "food", foodEntry?.id);
 
-                                    if (String(p.getState("carry") || "") === foodEntity.id) {
-                                        p.setState("carry", "", true);
+                                        if (String(p.getState("carry") || "") === foodEntity.id) {
+                                            p.setState("carry", "", true);
+                                        }
+                                    } else if (foodEntry) {
+                                        const after = removeOneByType(bp, "food", foodEntry?.id);
+                                        removed = after !== bp;
+                                        nextBp = after;
                                     }
-                                } else if (foodEntry) {
-                                    const after = removeOneByType(bp, "food", foodEntry?.id);
-                                    removed = after !== bp;
-                                    nextBp = after;
-                                }
 
-                                if (removed) {
-                                    setBackpack(p, nextBp);
-                                    setItems(prev => prev.map(j =>
-                                        j.id === it.id ? { ...j, stored: stored + 1 } : j
-                                    ), true);
-                                    p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
+                                    if (removed) {
+                                        setBackpack(p, nextBp);
+                                        // increment using live j.stored and clamp to capacity
+                                        setItems(prev => prev.map(j =>
+                                            j.id === it.id
+                                                ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
+                                                : j
+                                        ), true);
+                                        p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
+                                    }
                                 }
                             }
-
                         }
                         processed.current.set(p.id, reqId);
                         continue;

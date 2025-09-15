@@ -200,7 +200,7 @@ function canPickUp(it) {
 function prettyLabel(it) {
     if (it?.type === "food_tank") {
         const stored = Number(it.stored ?? 0);
-        const cap = Number(it.cap ?? 4);
+        const cap = Number(it.cap ?? 6);
         const base = it.name || TYPE_META.food_tank.label || "Food Tank";
         return `${base} (${stored}/${cap})`;
     }
