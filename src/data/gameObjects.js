@@ -7,8 +7,10 @@ export const ITEM_TYPES = {
     protection: { label: "Protection", color: "#f59e0b" }, // orange
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
     cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
-    // NEW: container item that can hold food
+    // containers
     food_tank: { label: "Food Tank", color: "#10b981" }, // teal
+    fuel_tank: { label: "Fuel Tank", color: "#a855f7" }, // purple (match fuel)
+    protection_tank: { label: "Protection Tank", color: "#f59e0b" }, // orange (match protection)
 };
 
 // Simple starter content (positions are just examples)
@@ -38,8 +40,11 @@ export const INITIAL_ITEMS = [
     { id: "cureB2", type: "cure_blue", name: "Cure — Blue", x: 6, z: 2, color: ITEM_TYPES.cure_blue.color },
     { id: "cureB3", type: "cure_blue", name: "Cure — Blue", x: 7, z: 2.5, color: ITEM_TYPES.cure_blue.color },
 
-    // --- NEW: Food Tank (container; capacity 4, starts empty) ---
-    { id: "tank1", type: "food_tank", name: "Food Tank", x: 8, z: -6, cap: 6, stored: 0, color: ITEM_TYPES.food_tank.color },
+    // --- CONTAINERS (capacity 6, start empty) ---
+    // Move positions to your “rooms” as needed
+    { id: "tank_food_1", type: "food_tank", name: "Food Tank", x: 8, z: -3, cap: 6, stored: 0, color: ITEM_TYPES.food_tank.color },
+    { id: "tank_fuel_1", type: "fuel_tank", name: "Fuel Tank", x: -8, z: 2, cap: 6, stored: 0, color: ITEM_TYPES.fuel_tank.color },
+    { id: "tank_prot_1", type: "protection_tank", name: "Protection Tank", x: -6, z: -4, cap: 6, stored: 0, color: ITEM_TYPES.protection_tank.color },
 ];
 
 // World devices you can interact with when pressing "I"
@@ -47,16 +52,15 @@ export const DEVICES = [
     { id: "reactor", type: "reactor", x: 0, z: 0, radius: 2.8, label: "Reactor" },
     { id: "medbay", type: "medbay", x: 4, z: 2, radius: 2.4, label: "MedBay" },
     { id: "shield", type: "shield", x: -2, z: 4, radius: 2.2, label: "Shield Station" },
-    // Keep CCTV if other systems still reference it:
     { id: "cctv", type: "cctv", x: -3.5, z: -3, radius: 2.0, label: "CCTV Terminal" },
 ];
 
-// What can be used on what (host consumes item when a mapping exists)
+// What can be used on what
 export const USE_EFFECTS = {
-    fuel: { reactor: ["power", +40] },            // Reactor gains power
-    protection: { shield: ["shield", +1] },       // e.g., add 1 shield stack (hook up later)
-    cure_red: { medbay: ["cure", "cleanse"] },    // cleanse infection
-    cure_blue: { medbay: ["cure", "suppress"] },  // suppress infection for a while
-    food: {},                                     // eaten directly (client sends 'eat' if no device nearby)
-    // food_tank is a container, not used on devices
+    fuel: { reactor: ["power", +40] },
+    protection: { shield: ["shield", +1] },
+    cure_red: { medbay: ["cure", "cleanse"] },
+    cure_blue: { medbay: ["cure", "suppress"] },
+    food: {}, // eaten directly
+    // *_tank are containers, not used on devices
 };

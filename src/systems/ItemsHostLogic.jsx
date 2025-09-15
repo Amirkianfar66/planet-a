@@ -19,6 +19,14 @@ const UNITS_PER_LOAD = 2;
 // normalize type match (case-insensitive)
 const isType = (v, t) => String(v || "").toLowerCase() === String(t || "").toLowerCase();
 
+// Tank helpers
+const TANK_ACCEPTS = {
+    food_tank: "food",
+    fuel_tank: "fuel",
+    protection_tank: "protection",
+};
+const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+
 // Find an actual world item of a given type held by player p
 const findHeldItemByType = (type, p, itemsList) =>
     (itemsList || []).find(i => isType(i.type, type) && i.holder === p.id);
@@ -43,6 +51,66 @@ const removeOneByType = (bp, type, idToRemove) => {
         return copy;
     }
     return bp.slice(0, idx).concat(bp.slice(idx + 1));
+};
+
+/**
+ * Try to load one matching item from player's backpack into the given tank.
+ * Adds UNITS_PER_LOAD to tank (clamped to cap) and removes one matching item from backpack.
+ * Returns true if a load happened.
+ */
+const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack, setItems }) => {
+    const cap = Number(tank.cap ?? TANK_CAP_DEFAULT);
+    const stored = Number(tank.stored || 0);
+    if (stored >= cap) return false;
+
+    const free = cap - stored;
+    const addUnits = Math.min(UNITS_PER_LOAD, free);
+    if (addUnits <= 0) return false;
+
+    const want = TANK_ACCEPTS[tank.type];
+    if (!want) return false;
+
+    const bp = getBackpack(p);
+    const entry = bp.find(b => isType(b.type, want));
+    if (!entry) return false;
+
+    const entity =
+        (entry?.id ? (itemsList || []).find(i => i.id === entry.id) : null) ||
+        findHeldItemByType(want, p, itemsList);
+
+    let removed = false;
+    let nextBp = bp;
+
+    if (entity && entity.holder === p.id) {
+        // consume the world entity
+        setItems(prev => prev.map(j =>
+            j.id === entity.id ? { ...j, holder: "_gone_", y: -999 } : j
+        ), true);
+        removed = true;
+        nextBp = removeOneByType(bp, want, entry?.id);
+
+        // clear carry if it pointed at the consumed item
+        if (String(p.getState("carry") || "") === entity.id) {
+            p.setState("carry", "", true);
+        }
+    } else {
+        // fallback: decrement backpack even if entity couldn't be found
+        const after = removeOneByType(bp, want, entry?.id);
+        removed = after !== bp;
+        nextBp = after;
+    }
+
+    if (!removed) return false;
+
+    setBackpack(p, nextBp);
+    // increment using live j.stored and clamp to capacity
+    setItems(prev => prev.map(j =>
+        j.id === tank.id
+            ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
+            : j
+    ), true);
+
+    return true;
 };
 /* --- END HELPERS --- */
 
@@ -179,7 +247,7 @@ export default function ItemsHostLogic() {
             const list = itemsRef.current || [];
             const findItem = (id) => list.find(i => i.id === id);
 
-            // unique id helper
+            // unique id helper (kept)
             const mkId = (prefix) => {
                 const existing = new Set((itemsRef.current || []).map(i => i.id));
                 let i = 1, id = `${prefix}${i}`;
@@ -219,12 +287,12 @@ export default function ItemsHostLogic() {
                 }
                 // --------- END ABILITIES ----------
 
-                // CONTAINER (Food Tank) — stationary, load-only, must be near
+                // CONTAINER (any Tank) — stationary, load-only, must be near
                 if (type === "container") {
                     const payload = readActionPayload(p) || {};
                     const { containerId, op } = payload || {};
                     const tank = findItem(String(containerId));
-                    if (!tank || tank.type !== "food_tank") {
+                    if (!tank || !isTankType(tank.type)) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
@@ -236,60 +304,15 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    const cap = Number(tank.cap ?? TANK_CAP_DEFAULT);
-                    const stored = Number(tank.stored || 0);
                     let changed = false;
-
                     if (op === "load" || op === "toggle") {
-                        if (stored < cap) {
-                            const free = cap - stored;
-                            const addUnits = Math.min(UNITS_PER_LOAD, free); // add 2, cap at remaining space
-                            if (addUnits <= 0) { processed.current.set(p.id, reqId); continue; }
-                            const bp = getBackpack(p);
-                            const foodEntry = bp.find(b => isType(b.type, "food"));
-                            const foodEntity =
-                                (foodEntry?.id ? findItem(foodEntry.id) : null) ||
-                                findHeldItemByType("food", p, list);
-
-                            let removed = false;
-                            let nextBp = bp;
-
-                            if (foodEntity && foodEntity.holder === p.id) {
-                                // consume the world food entity
-                                setItems(prev => prev.map(j =>
-                                    j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
-                                ), true);
-                                removed = true;
-                                nextBp = removeOneByType(bp, "food", foodEntry?.id);
-
-                                // clear carry if it pointed at the consumed item
-                                if (String(p.getState("carry") || "") === foodEntity.id) {
-                                    p.setState("carry", "", true);
-                                }
-                            } else if (foodEntry) {
-                                // fallback: decrement backpack even if entity couldn't be found
-                                const after = removeOneByType(bp, "food", foodEntry?.id);
-                                removed = after !== bp;
-                                nextBp = after;
-                            }
-
-                            if (removed) {
-                                setBackpack(p, nextBp);
-                                // increment using live j.stored and clamp to capacity
-                                setItems(prev => prev.map(j =>
-                                    j.id === tank.id
-                                        ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
-                                        : j
-                                ), true);
-                                changed = true;
-                            }
-                        }
+                        changed = tryLoadIntoTank({
+                            player: p, tank, itemsList: list, getBackpack, setBackpack, setItems
+                        });
                     }
 
-                    // unload disabled on purpose (fill-only tank)
-
                     if (changed) {
-                        // no backpack entry to refresh — tank is never held
+                        // no backpack entry to refresh — tanks are never held
                     }
 
                     processed.current.set(p.id, reqId);
@@ -306,52 +329,15 @@ export default function ItemsHostLogic() {
                     const it = findItem(target);
                     if (!it) { processed.current.set(p.id, reqId); continue; }
 
-                    // 🚫 Food Tank is NOT pickable — treat P near it as "load one food"
-                    if (it.type === "food_tank") {
+                    // 🚫 Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                    if (isTankType(it.type)) {
                         const dx = px - it.x, dz = pz - it.z;
                         if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
-                            const cap = Number(it.cap ?? TANK_CAP_DEFAULT);
-                            const stored = Number(it.stored || 0);
-                            if (stored < cap) {
-                                const free = cap - stored;
-                                const addUnits = Math.min(UNITS_PER_LOAD, free);
-                                if (addUnits > 0) {
-                                    const bp = getBackpack(p);
-                                    const foodEntry = bp.find(b => isType(b.type, "food"));
-                                    const foodEntity =
-                                        (foodEntry?.id ? findItem(foodEntry.id) : null) ||
-                                        findHeldItemByType("food", p, list);
-
-                                    let removed = false;
-                                    let nextBp = bp;
-
-                                    if (foodEntity && foodEntity.holder === p.id) {
-                                        setItems(prev => prev.map(j =>
-                                            j.id === foodEntity.id ? { ...j, holder: "_gone_", y: -999 } : j
-                                        ), true);
-                                        removed = true;
-                                        nextBp = removeOneByType(bp, "food", foodEntry?.id);
-
-                                        if (String(p.getState("carry") || "") === foodEntity.id) {
-                                            p.setState("carry", "", true);
-                                        }
-                                    } else if (foodEntry) {
-                                        const after = removeOneByType(bp, "food", foodEntry?.id);
-                                        removed = after !== bp;
-                                        nextBp = after;
-                                    }
-
-                                    if (removed) {
-                                        setBackpack(p, nextBp);
-                                        // increment using live j.stored and clamp to capacity
-                                        setItems(prev => prev.map(j =>
-                                            j.id === it.id
-                                                ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
-                                                : j
-                                        ), true);
-                                        p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                                    }
-                                }
+                            const ok = tryLoadIntoTank({
+                                player: p, tank: it, itemsList: list, getBackpack, setBackpack, setItems
+                            });
+                            if (ok) {
+                                p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                             }
                         }
                         processed.current.set(p.id, reqId);
@@ -373,7 +359,7 @@ export default function ItemsHostLogic() {
 
                     const bp = getBackpack(p);
                     if (!bp.find(b => b.id === it.id)) {
-                        // normal items enter backpack; tank never does
+                        // normal items enter backpack; tanks never do
                         setBackpack(p, [...bp, { id: it.id, type: it.type }]);
                     }
 

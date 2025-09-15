@@ -15,13 +15,22 @@ const TYPE_META = {
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
     cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
 
-    // container that can hold food
-    food_tank: { label: "Food Tank", color: "#10b981" }, // teal
+    // containers (non-pickable)
+    food_tank: { label: "Food Tank", color: "#10b981" },          // teal
+    fuel_tank: { label: "Fuel Tank", color: "#a855f7" },          // purple
+    protection_tank: { label: "Protection Tank", color: "#f59e0b" }, // orange
 
     // legacy/compat
     battery: { label: "Battery", color: "#2dd4bf" },
     o2can: { label: "O₂ Canister", color: "#9bd1ff" },
 };
+
+const TANK_ACCEPTS = {
+    food_tank: "food",
+    fuel_tank: "fuel",
+    protection_tank: "protection",
+};
+const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
 
 /* ---------- Billboard / Text sprite ---------- */
 function Billboard({ children, position = [0, 0, 0] }) {
@@ -103,19 +112,6 @@ function ItemMesh({ type = "crate" }) {
             );
 
         case "cure_red":
-            return (
-                <group>
-                    <mesh>
-                        <cylinderGeometry args={[0.12, 0.12, 0.34, 18]} />
-                        <meshStandardMaterial color={color} />
-                    </mesh>
-                    <mesh position={[0, 0.20, 0]}>
-                        <cylinderGeometry args={[0.06, 0.06, 0.12, 18]} />
-                        <meshStandardMaterial color="#0f172a" />
-                    </mesh>
-                </group>
-            );
-
         case "cure_blue":
             return (
                 <group>
@@ -130,7 +126,10 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        case "food_tank": // 4x bigger
+        // Tanks: same big barrel mesh for all three tank types
+        case "food_tank":
+        case "fuel_tank":
+        case "protection_tank":
             return (
                 <group scale={[4, 4, 4]}>
                     <mesh>
@@ -147,7 +146,6 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
-
 
         /* legacy */
         case "battery":
@@ -198,10 +196,10 @@ function canPickUp(it) {
 }
 
 function prettyLabel(it) {
-    if (it?.type === "food_tank") {
+    if (isTankType(it?.type)) {
         const stored = Number(it.stored ?? 0);
         const cap = Number(it.cap ?? 6);
-        const base = it.name || TYPE_META.food_tank.label || "Food Tank";
+        const base = it.name || TYPE_META[it.type]?.label || "Tank";
         return `${base} (${stored}/${cap})`;
     }
     const t = TYPE_META[it.type];
@@ -209,48 +207,48 @@ function prettyLabel(it) {
 }
 
 /* ---------- Single floor item ---------- */
-/* ---------- Single floor item ---------- */
 function ItemEntity({ it }) {
     if (!it || it.holder) return null;
 
-    // Near check (distance only)
     const actionable = canPickUp(it);
     const label = prettyLabel(it);
 
-    // Special UX for the Food Tank
+    // Defaults for ordinary items
     let prompt = actionable ? `Press P to pick up ${label}` : label;
     let ringColor = actionable ? "#86efac" : "#64748b";
     let ringScale = 1;
     let billboardY = 0.85;
 
-    if (it.type === "food_tank") {
+    // Special UX for tanks (non-pickable; press P to add matching item)
+    if (isTankType(it.type)) {
         const me = myPlayer?.();
         const bp = (me?.getState?.("backpack") || []);
-        const hasFood = bp.some(b => b.type === "food");
+        const want = TANK_ACCEPTS[it.type]; // "food" | "fuel" | "protection"
+        const hasWanted = bp.some(b => String(b.type).toLowerCase() === want);
 
         const stored = Number(it.stored ?? 0);
-        const cap = Number(it.cap ?? 4);
+        const cap = Number(it.cap ?? 6);
         const full = stored >= cap;
 
-        // Only green when player is close AND can actually add food
-        const canLoad = actionable && hasFood && !full;
+        const labelWanted = (TYPE_META[want]?.label || want).toLowerCase();
+        const canLoad = actionable && hasWanted && !full;
 
         prompt =
             !actionable ? label :
                 full ? "Tank full" :
-                    !hasFood ? "No food in backpack" :
-                        "Press P to add food";
+                    !hasWanted ? `No ${labelWanted} in backpack` :
+                        `Press P to add ${TYPE_META[want]?.label || want}`;
 
         ringColor = canLoad ? "#86efac" : "#64748b";
-        ringScale = 4;          // match the 4x tank scale
-        billboardY = 1.7;       // lift the label above the taller tank
+        ringScale = 4;     // match the 4x tank scale
+        billboardY = 1.7;  // lift the label above the tall tank
     }
 
     return (
         <group position={[it.x, (it.y || 0) + 0.25, it.z]}>
             <ItemMesh type={it.type} />
 
-            {/* Ground ring (scaled for tank) */}
+            {/* Ground ring (scaled for tanks) */}
             <group scale={[ringScale, 1, ringScale]}>
                 <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                     <ringGeometry args={[0.35, 0.42, 24]} />
