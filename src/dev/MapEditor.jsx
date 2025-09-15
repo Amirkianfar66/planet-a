@@ -1,7 +1,7 @@
 // src/dev/MapEditor.jsx
 // Draw-rect editor with: rooms, per-edge doors/heights, rotation,
-// per-room floor/roof toggles, FREE floor slabs (outside), and JSON export
-// that contains rooms, walls, wallAABBs, floors, roofs.
+// per-room floor/roof toggles, FREE floor slabs (outside), colors/materials,
+// and JSON export that contains rooms, walls, wallAABBs, floors, roofs.
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -46,10 +46,7 @@ function loadDraftV3() {
 
 function saveDraftV3(rooms, floors) {
     try {
-        localStorage.setItem(
-            LS_KEY_V3,
-            JSON.stringify({ rooms, floors }, null, 2)
-        );
+        localStorage.setItem(LS_KEY_V3, JSON.stringify({ rooms, floors }, null, 2));
     } catch { }
 }
 
@@ -121,11 +118,22 @@ export function MapEditor3D() {
 
     const matRoom = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x4ea1ff, transparent: true, opacity: 0.18 }), []);
     const matRoomSel = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc14e, transparent: true, opacity: 0.28 }), []);
-    const matWall = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x9aa4b2 }), []);
     const matSelEdge = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xff6767 }), []);
     const matDraw = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x22cc88, transparent: true, opacity: 0.25 }), []);
-    const matFloor = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x30363d, roughness: 0.9, metalness: 0.0 }), []);
-    const matRoof = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x232a31, roughness: 0.85, metalness: 0.0 }), []);
+
+    // helpers to preview colors from data
+    const colorOf = (hex, fallback) => {
+        if (!hex) return fallback;
+        try { return new THREE.Color(hex); } catch { return fallback; }
+    };
+
+    const wallColorOf = (room, side) => {
+        const edge = room.edges?.find(e => e.side === side);
+        const c = edge?.mat?.color || room.wallMat?.color;
+        return colorOf(c, new THREE.Color("#9aa4b2"));
+    };
+    const floorColorOf = (room) => colorOf(room.floorMat?.color, new THREE.Color("#30363d"));
+    const roofColorOf = (room) => colorOf(room.roofMat?.color, new THREE.Color("#232a31"));
 
     // ground draw interactions
     const onGroundDown = (e) => {
@@ -155,6 +163,9 @@ export function MapEditor3D() {
                     floorY: 0, roofT: DEFAULT_SLAB_THICKNESS,
                     hasFloor: true, hasRoof: true,
                     exported: true,
+                    wallMat: { color: "#9aa4b2" },
+                    floorMat: { color: "#30363d" },
+                    roofMat: { color: "#232a31" },
                 });
                 setRooms((prev) => [...prev, room]);
                 setSelected(rooms.length);
@@ -168,6 +179,7 @@ export function MapEditor3D() {
                     y: 0 + DEFAULT_SLAB_THICKNESS / 2,
                     t: DEFAULT_SLAB_THICKNESS,
                     exported: true,
+                    mat: { color: "#30363d" },
                 });
                 setFloors((prev) => [...prev, slab]);
                 setSelFloor(floors.length);
@@ -225,7 +237,7 @@ export function MapEditor3D() {
                     onPointerDown={(e) => { e.stopPropagation(); setSelFloor(i); setSelected(null); setSelectedEdge(null); }}>
                     <mesh position={[0, (f.t ?? DEFAULT_SLAB_THICKNESS) / 2 + (f.y ?? 0) - (DEFAULT_SLAB_THICKNESS / 2), 0]}>
                         <boxGeometry args={[f.w, f.t ?? DEFAULT_SLAB_THICKNESS, f.d]} />
-                        <primitive attach="material" object={matFloor} />
+                        <meshStandardMaterial color={colorOf(f.mat?.color, new THREE.Color("#30363d"))} roughness={0.9} metalness={0.0} />
                     </mesh>
                 </group>
             ))}
@@ -248,7 +260,7 @@ export function MapEditor3D() {
                             <mesh position={[0, floorYCenter, 0]}
                                 onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
-                                <primitive attach="material" object={matFloor} />
+                                <meshStandardMaterial color={floorColorOf(r)} roughness={0.9} metalness={0.0} />
                             </mesh>
                         )}
 
@@ -270,10 +282,7 @@ export function MapEditor3D() {
                                     setSelectedEdge({ roomIndex: i, side: w.side });
                                 }}>
                                 <boxGeometry args={[w.w, w.h || DEFAULT_WALL_HEIGHT, w.d]} />
-                                <primitive
-                                    attach="material"
-                                    object={(selectedEdge && selectedEdge.roomIndex === i && selectedEdge.side === w.side) ? matSelEdge : matWall}
-                                />
+                                <meshStandardMaterial color={wallColorOf(r, w.side)} roughness={0.9} metalness={0.0} />
                             </mesh>
                         ))}
 
@@ -282,7 +291,7 @@ export function MapEditor3D() {
                             <mesh position={[0, roofYCenter, 0]}
                                 onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
-                                <primitive attach="material" object={matRoof} />
+                                <meshStandardMaterial color={roofColorOf(r)} roughness={0.85} metalness={0.0} />
                             </mesh>
                         )}
                     </group>
@@ -313,10 +322,10 @@ function GizmoTranslate({ position, onChange }) {
 }
 
 // util for free floor slabs
-function makeSlab({ name = "Floor", x = 0, z = 0, w = 4, d = 3, t = DEFAULT_SLAB_THICKNESS, y = 0, exported = true } = {}) {
+function makeSlab({ name = "Floor", x = 0, z = 0, w = 4, d = 3, t = DEFAULT_SLAB_THICKNESS, y = 0, exported = true, mat = null } = {}) {
     return {
         id: `slab_${Math.random().toString(36).slice(2, 8)}`,
-        name, x, z, w, d, t, y, exported,
+        name, x, z, w, d, t, y, exported, mat,
     };
 }
 
@@ -364,6 +373,9 @@ export function MapEditorUI() {
         exported: true,
         hasFloor: true, hasRoof: true,
         x, z, w: 4.5, d: 3.0, h: 2.4,
+        wallMat: { color: "#9aa4b2" },
+        floorMat: { color: "#30363d" },
+        roofMat: { color: "#232a31" },
         edges: [
             { side: "N", present: true, door: null },
             { side: "E", present: true, door: null },
@@ -379,6 +391,9 @@ export function MapEditorUI() {
         exported: true,
         hasFloor: true, hasRoof: true,
         x, z, w: 6.0, d: 4.0, h: 2.4,
+        wallMat: { color: "#9aa4b2" },
+        floorMat: { color: "#30363d" },
+        roofMat: { color: "#232a31" },
         edges: [
             { side: "N", present: true, door: null },
             { side: "E", present: true, door: { width: 1.6, offset: 0 } },
@@ -390,7 +405,11 @@ export function MapEditorUI() {
     // room actions
     const addRoom = () => {
         const idx = rooms.length;
-        setRooms((prev) => [...prev, makeRoom({ key: `room_${idx}`, name: `Room ${idx + 1}`, x: 0, z: 0, w: 4, d: 3, exported: true, hasFloor: true, hasRoof: true })]);
+        setRooms((prev) => [...prev, makeRoom({
+            key: `room_${idx}`, name: `Room ${idx + 1}`, x: 0, z: 0, w: 4, d: 3,
+            exported: true, hasFloor: true, hasRoof: true,
+            wallMat: { color: "#9aa4b2" }, floorMat: { color: "#30363d" }, roofMat: { color: "#232a31" }
+        })]);
         setSelected(idx);
         setSelFloor(null);
         setSelectedEdge(null);
@@ -435,7 +454,7 @@ export function MapEditorUI() {
     // floor slab actions
     const addFloor = () => {
         const idx = floors.length;
-        setFloors((prev) => [...prev, makeSlab({ name: `Floor ${idx + 1}`, x: 0, z: 0, w: 6, d: 6, t: DEFAULT_SLAB_THICKNESS, y: 0, exported: true })]);
+        setFloors((prev) => [...prev, makeSlab({ name: `Floor ${idx + 1}`, x: 0, z: 0, w: 6, d: 6, t: DEFAULT_SLAB_THICKNESS, y: 0, exported: true, mat: { color: "#30363d" } })]);
         setSelFloor(idx);
         setSelected(null);
         setSelectedEdge(null);
@@ -456,7 +475,7 @@ export function MapEditorUI() {
 
     // Save / Export
     const saveDraft = () => {
-        saveDraftV3(rooms, floors);         // our combined draft
+        saveDraftV3(rooms, floors);         // combined draft
         legacySaveDraftRooms?.(rooms);      // keep legacy save updated (optional)
     };
 
@@ -468,14 +487,12 @@ export function MapEditorUI() {
         const packed = packMap ? packMap(exportRooms) : { rooms: exportRooms, walls: [], wallAABBs: [] };
 
         // Build floors/roofs:
-        // - Per-room slabs if room.hasFloor/hasRoof !== false
-        // - Free slabs included if exported !== false
         const floorsFromRooms = exportRooms
             .filter((rm) => rm.hasFloor !== false)
             .map((rm) => {
                 const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
                 const yCenter = (rm.floorY ?? 0) + t / 2;
-                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t };
+                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t, mat: rm.floorMat || null };
             });
 
         const roofsFromRooms = exportRooms
@@ -484,12 +501,12 @@ export function MapEditorUI() {
                 const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
                 const h = rm.h ?? DEFAULT_WALL_HEIGHT;
                 const yCenter = (rm.floorY ?? 0) + h - t / 2;
-                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t };
+                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t, mat: rm.roofMat || null };
             });
 
-        const freeFloors = floors.filter((s) => s.exported !== false).map((s) => ({
-            x: s.x, y: s.y ?? 0, z: s.z, w: s.w, d: s.d, t: s.t ?? DEFAULT_SLAB_THICKNESS, name: s.name,
-        }));
+        const freeFloors = floors
+            .filter((s) => s.exported !== false)
+            .map((s) => ({ x: s.x, y: s.y ?? 0, z: s.z, w: s.w, d: s.d, t: s.t ?? DEFAULT_SLAB_THICKNESS, name: s.name, mat: s.mat || null }));
 
         const data = {
             rooms: exportRooms,
@@ -637,6 +654,25 @@ export function MapEditorUI() {
 
                         <label>Roof/Floor Thickness</label>
                         <input type="number" min={0.01} step={0.01} value={r.roofT ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => updateRoom({ roofT: Math.max(0.01, Number(e.target.value)) })} />
+
+                        {/* colors */}
+                        <label>Wall Color</label>
+                        <input type="color"
+                            value={(r.wallMat?.color) || "#9aa4b2"}
+                            onChange={(e) => updateRoom({ wallMat: { ...(r.wallMat || {}), color: e.target.value } })}
+                        />
+
+                        <label>Floor Color</label>
+                        <input type="color"
+                            value={(r.floorMat?.color) || "#30363d"}
+                            onChange={(e) => updateRoom({ floorMat: { ...(r.floorMat || {}), color: e.target.value } })}
+                        />
+
+                        <label>Roof Color</label>
+                        <input type="color"
+                            value={(r.roofMat?.color) || "#232a31"}
+                            onChange={(e) => updateRoom({ roofMat: { ...(r.roofMat || {}), color: e.target.value } })}
+                        />
                     </div>
 
                     {/* Edges */}
@@ -680,6 +716,12 @@ export function MapEditorUI() {
                                     <label>Edge Height</label>
                                     <input type="number" min={0.5} step={0.1} value={e.h || r.h || DEFAULT_WALL_HEIGHT} onChange={(ev) => setE({ h: Math.max(0.5, Number(ev.target.value)) })} />
 
+                                    <label>Edge Color</label>
+                                    <input type="color"
+                                        value={(e.mat?.color) || (r.wallMat?.color) || "#9aa4b2"}
+                                        onChange={(ev) => setE({ mat: { ...(e.mat || {}), color: ev.target.value } })}
+                                    />
+
                                     <div style={{ gridColumn: "1 / span 2", display: "flex", gap: 8, marginTop: 6 }}>
                                         <button onClick={() => setE({ present: false })}>Delete Edge</button>
                                         <button onClick={() => setE({ present: true })}>Restore Edge</button>
@@ -718,6 +760,12 @@ export function MapEditorUI() {
 
                         <label>Y center</label>
                         <input type="number" step={0.05} value={f.y ?? 0} onChange={(e) => updateFloor({ y: Number(e.target.value) })} />
+
+                        <label>Color</label>
+                        <input type="color"
+                            value={(f.mat?.color) || "#30363d"}
+                            onChange={(e) => updateFloor({ mat: { ...(f.mat || {}), color: e.target.value } })}
+                        />
                     </div>
                 </>
             )}

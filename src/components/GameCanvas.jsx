@@ -18,6 +18,7 @@ import NetworkGunTracers from "../world/NetworkGunTracers.jsx";
 import BeamLasers from "../world/BeamLasers.jsx";
 import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
+import { getMaterial } from "../map/materials";
 
 function TextLabel({
     text,
@@ -85,33 +86,40 @@ function FloorAndWalls() {
             </mesh>
 
             {/* Per-room floors (if provided by deckA/map JSON) */}
-            {FLOORS?.map((f, i) => (
-                <mesh {...noRay} key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
-                    <boxGeometry args={[f.w, f.t, f.d]} />
-                    <meshStandardMaterial color="#212833" />
-                </mesh>
-            ))}
+            {FLOORS?.map((f, i) => {
+                  const mat = getMaterial("floor", f.mat);
+                  return (
+                        <mesh key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
+                              <boxGeometry args={[f.w, f.t, f.d]} />
+                              <primitive object={mat} attach="material" />
+                            </mesh>
+                      );
+                })}
 
             {/* Walls: respect per-wall height (w.h) and room floorY offset */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
                 const baseY = r?.floorY ?? 0;        // elevate walls if the room floor is raised
                 const h = w.h ?? WALL_HEIGHT;        // wall height from JSON or default
+                const mat = getMaterial("wall", w.mat || r?.wallMat);
                 return (
                     <mesh {...noRay} key={`wall_${i}`} position={[w.x, baseY + h / 2, w.z]}>
                         <boxGeometry args={[w.w, h, w.d]} />
-                        <meshStandardMaterial color="#3b4a61" />
+                        <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
             {/* Per-room roofs (if provided) */}
-            {ROOFS?.map((r, i) => (
-                <mesh {...noRay} key={`roof_${i}`} position={[r.x, r.y, r.z]}>
-                    <boxGeometry args={[r.w, r.t, r.d]} />
-                    <meshStandardMaterial color="#1a2029" />
-                </mesh>
-            ))}
+            {ROOFS?.map((rf, i) => {
+                  const mat = getMaterial("roof", rf.mat);
+                  return (
+                        <mesh key={`roof_${i}`} position={[rf.x, rf.y, rf.z]}>
+                              <boxGeometry args={[rf.w, rf.t, rf.d]} />
+                              <primitive object={mat} attach="material" />
+                            </mesh>
+                      );
+                })}
 
             {/* Labels */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
