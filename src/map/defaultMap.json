@@ -3,7 +3,7 @@
     {
       "key": "team_alpha",
       "name": "Base – Team Alpha",
-      "type": "team_alpha",
+      "type": "",
       "x": 8,
       "z": -7,
       "w": 6,
@@ -14,14 +14,22 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#596779" },
-      "floorMat": { "color": "#243040" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_alpha_N_0"
         },
         {
           "side": "E",
@@ -29,24 +37,27 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "team_alpha_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_alpha_S_2"
         },
         {
           "side": "W",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_alpha_W_3"
         }
       ]
     },
     {
       "key": "team_beta",
       "name": "Base – Team Beta",
-      "type": "team_beta",
+      "type": "",
       "x": 16,
       "z": -7,
       "w": 6,
@@ -57,24 +68,34 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#596779" },
-      "floorMat": { "color": "#243040" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_beta_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_beta_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_beta_S_2"
         },
         {
           "side": "W",
@@ -82,14 +103,15 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "team_beta_W_3"
         }
       ]
     },
     {
       "key": "team_gamma",
       "name": "Base – Team Gamma",
-      "type": "team_gamma",
+      "type": "",
       "x": 8,
       "z": 1,
       "w": 6,
@@ -100,14 +122,22 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#596779" },
-      "floorMat": { "color": "#243040" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_gamma_N_0"
         },
         {
           "side": "E",
@@ -115,24 +145,27 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "team_gamma_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_gamma_S_2"
         },
         {
           "side": "W",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_gamma_W_3"
         }
       ]
     },
     {
       "key": "team_delta",
       "name": "Base – Team Delta",
-      "type": "team_delta",
+      "type": "",
       "x": 16,
       "z": 1,
       "w": 6,
@@ -143,24 +176,34 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#596779" },
-      "floorMat": { "color": "#243040" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_delta_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_delta_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "team_delta_S_2"
         },
         {
           "side": "W",
@@ -168,14 +211,15 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "team_delta_W_3"
         }
       ]
     },
     {
       "key": "kitchen",
       "name": "Kitchen",
-      "type": "kitchen",
+      "type": "",
       "x": 12,
       "z": -10.5,
       "w": 8,
@@ -186,9 +230,16 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#6b7c91" },
-      "floorMat": { "color": "#2b3646" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
@@ -196,29 +247,33 @@
           "door": {
             "width": 1.4,
             "offset": 0
-          }
+          },
+          "id": "kitchen_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "kitchen_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "kitchen_S_2"
         },
         {
           "side": "W",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "kitchen_W_3"
         }
       ]
     },
     {
       "key": "lab",
       "name": "Lab",
-      "type": "lab",
+      "type": "",
       "x": 12,
       "z": 6.5,
       "w": 10,
@@ -229,19 +284,28 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#7a8ca3" },
-      "floorMat": { "color": "#2b3646" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lab_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lab_E_1"
         },
         {
           "side": "S",
@@ -249,19 +313,21 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "lab_S_2"
         },
         {
           "side": "W",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lab_W_3"
         }
       ]
     },
     {
       "key": "control_room",
       "name": "Control Room",
-      "type": "control_room",
+      "type": "",
       "x": 12,
       "z": 10.5,
       "w": 8,
@@ -272,24 +338,34 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#5d6f85" },
-      "floorMat": { "color": "#263343" },
-      "roofMat": { "color": "#1a2029" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "control_room_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "control_room_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "control_room_S_2"
         },
         {
           "side": "W",
@@ -297,14 +373,15 @@
           "door": {
             "width": 1.6,
             "offset": 0
-          }
+          },
+          "id": "control_room_W_3"
         }
       ]
     },
     {
       "key": "lockdown",
       "name": "Lockdown",
-      "type": "lockdown",
+      "type": "",
       "x": 18,
       "z": 10.5,
       "w": 3.5,
@@ -315,24 +392,34 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#6e3e3e" },
-      "floorMat": { "color": "#2f1f1f" },
-      "roofMat": { "color": "#2a1c1c" },
+      "floorMat": {
+        "color": "#ffffff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#6e3e3e"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lockdown_N_0"
         },
         {
           "side": "E",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lockdown_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "lockdown_S_2"
         },
         {
           "side": "W",
@@ -340,14 +427,15 @@
           "door": {
             "width": 1.2,
             "offset": 0
-          }
+          },
+          "id": "lockdown_W_3"
         }
       ]
     },
     {
       "key": "meeting_room",
       "name": "Meeting Room",
-      "type": "meeting_room",
+      "type": "",
       "x": -8,
       "z": 2.5,
       "w": 12,
@@ -358,14 +446,22 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
-      "wallMat": { "color": "#546479" },
-      "floorMat": { "color": "#223042" },
-      "roofMat": { "color": "#151b22" },
+      "floorMat": {
+        "color": "#fafcff"
+      },
+      "roofMat": {
+        "color": "#ffffff"
+      },
+      "wallMat": {
+        "color": "#ffffff"
+      },
+      "exported": true,
       "edges": [
         {
           "side": "N",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "meeting_room_N_0"
         },
         {
           "side": "E",
@@ -373,23 +469,1128 @@
           "door": {
             "width": 1.8,
             "offset": 0
-          }
+          },
+          "id": "meeting_room_E_1"
         },
         {
           "side": "S",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "meeting_room_S_2"
         },
         {
           "side": "W",
           "present": true,
-          "door": null
+          "door": null,
+          "id": "meeting_room_W_3"
         }
       ]
     }
   ],
-  "walls": [],
-  "wallAABBs": [],
-  "floors": [],
-  "roofs": []
+  "walls": [
+    {
+      "x": 8,
+      "z": -9.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "team_alpha_N_0",
+      "room": "team_alpha",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 11,
+      "z": -8.65,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_alpha_E_1",
+      "room": "team_alpha",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 11,
+      "z": -5.35,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_alpha_E_1",
+      "room": "team_alpha",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": -4.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "team_alpha_S_2",
+      "room": "team_alpha",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 5,
+      "z": -7,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_alpha_W_3",
+      "room": "team_alpha",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": -9.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "team_beta_N_0",
+      "room": "team_beta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 19,
+      "z": -7,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_beta_E_1",
+      "room": "team_beta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": -4.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "team_beta_S_2",
+      "room": "team_beta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 13,
+      "z": -8.65,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_beta_W_3",
+      "room": "team_beta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 13,
+      "z": -5.35,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_beta_W_3",
+      "room": "team_beta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": -1.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "team_gamma_N_0",
+      "room": "team_gamma",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 11,
+      "z": -0.6499999999999999,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_gamma_E_1",
+      "room": "team_gamma",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 11,
+      "z": 2.65,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_gamma_E_1",
+      "room": "team_gamma",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": 3.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "team_gamma_S_2",
+      "room": "team_gamma",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 5,
+      "z": 1,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_gamma_W_3",
+      "room": "team_gamma",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": -1.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "team_delta_N_0",
+      "room": "team_delta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 19,
+      "z": 1,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "E",
+      "id": "team_delta_E_1",
+      "room": "team_delta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": 3.5,
+      "w": 6,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "team_delta_S_2",
+      "room": "team_delta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 13,
+      "z": -0.6499999999999999,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_delta_W_3",
+      "room": "team_delta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 13,
+      "z": 2.65,
+      "w": 0.6,
+      "d": 1.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "team_delta_W_3",
+      "room": "team_delta",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 9.65,
+      "z": -11.5,
+      "w": 3.3,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "kitchen_N_0",
+      "room": "kitchen",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 14.35,
+      "z": -11.5,
+      "w": 3.3,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "kitchen_N_0",
+      "room": "kitchen",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": -10.5,
+      "w": 0.6,
+      "d": 2,
+      "h": 2.4,
+      "side": "E",
+      "id": "kitchen_E_1",
+      "room": "kitchen",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "z": -9.5,
+      "w": 8,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "kitchen_S_2",
+      "room": "kitchen",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": -10.5,
+      "w": 0.6,
+      "d": 2,
+      "h": 2.4,
+      "side": "W",
+      "id": "kitchen_W_3",
+      "room": "kitchen",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "z": 4,
+      "w": 10,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "lab_N_0",
+      "room": "lab",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 17,
+      "z": 6.5,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "E",
+      "id": "lab_E_1",
+      "room": "lab",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 9.1,
+      "z": 9,
+      "w": 4.2,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "lab_S_2",
+      "room": "lab",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 14.9,
+      "z": 9,
+      "w": 4.2,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "lab_S_2",
+      "room": "lab",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 7,
+      "z": 6.5,
+      "w": 0.6,
+      "d": 5,
+      "h": 2.4,
+      "side": "W",
+      "id": "lab_W_3",
+      "room": "lab",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "z": 9,
+      "w": 8,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "control_room_N_0",
+      "room": "control_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "z": 10.5,
+      "w": 0.6,
+      "d": 3,
+      "h": 2.4,
+      "side": "E",
+      "id": "control_room_E_1",
+      "room": "control_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "z": 12,
+      "w": 8,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "control_room_S_2",
+      "room": "control_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": 9.35,
+      "w": 0.6,
+      "d": 0.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "control_room_W_3",
+      "room": "control_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "z": 11.65,
+      "w": 0.6,
+      "d": 0.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "control_room_W_3",
+      "room": "control_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 18,
+      "z": 9.25,
+      "w": 3.5,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "lockdown_N_0",
+      "room": "lockdown",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#6e3e3e"
+      }
+    },
+    {
+      "x": 19.75,
+      "z": 10.5,
+      "w": 0.6,
+      "d": 2.5,
+      "h": 2.4,
+      "side": "E",
+      "id": "lockdown_E_1",
+      "room": "lockdown",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#6e3e3e"
+      }
+    },
+    {
+      "x": 18,
+      "z": 11.75,
+      "w": 3.5,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "lockdown_S_2",
+      "room": "lockdown",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#6e3e3e"
+      }
+    },
+    {
+      "x": 16.25,
+      "z": 9.575,
+      "w": 0.6,
+      "d": 0.65,
+      "h": 2.4,
+      "side": "W",
+      "id": "lockdown_W_3",
+      "room": "lockdown",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#6e3e3e"
+      }
+    },
+    {
+      "x": 16.25,
+      "z": 11.425,
+      "w": 0.6,
+      "d": 0.65,
+      "h": 2.4,
+      "side": "W",
+      "id": "lockdown_W_3",
+      "room": "lockdown",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#6e3e3e"
+      }
+    },
+    {
+      "x": -8,
+      "z": -2,
+      "w": 12,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "meeting_room_N_0",
+      "room": "meeting_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -2,
+      "z": -0.20000000000000018,
+      "w": 0.6,
+      "d": 3.6,
+      "h": 2.4,
+      "side": "E",
+      "id": "meeting_room_E_1",
+      "room": "meeting_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -2,
+      "z": 5.2,
+      "w": 0.6,
+      "d": 3.6,
+      "h": 2.4,
+      "side": "E",
+      "id": "meeting_room_E_1",
+      "room": "meeting_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -8,
+      "z": 7,
+      "w": 12,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "meeting_room_S_2",
+      "room": "meeting_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -14,
+      "z": 2.5,
+      "w": 0.6,
+      "d": 9,
+      "h": 2.4,
+      "side": "W",
+      "id": "meeting_room_W_3",
+      "room": "meeting_room",
+      "rotDeg": 0,
+      "mat": {
+        "color": "#ffffff"
+      }
+    }
+  ],
+  "wallAABBs": [
+    {
+      "minX": 5,
+      "maxX": 11,
+      "minZ": -9.8,
+      "maxZ": -9.2
+    },
+    {
+      "minX": 10.7,
+      "maxX": 11.3,
+      "minZ": -9.5,
+      "maxZ": -7.800000000000001
+    },
+    {
+      "minX": 10.7,
+      "maxX": 11.3,
+      "minZ": -6.199999999999999,
+      "maxZ": -4.5
+    },
+    {
+      "minX": 5,
+      "maxX": 11,
+      "minZ": -4.8,
+      "maxZ": -4.2
+    },
+    {
+      "minX": 4.7,
+      "maxX": 5.3,
+      "minZ": -9.5,
+      "maxZ": -4.5
+    },
+    {
+      "minX": 13,
+      "maxX": 19,
+      "minZ": -9.8,
+      "maxZ": -9.2
+    },
+    {
+      "minX": 18.7,
+      "maxX": 19.3,
+      "minZ": -9.5,
+      "maxZ": -4.5
+    },
+    {
+      "minX": 13,
+      "maxX": 19,
+      "minZ": -4.8,
+      "maxZ": -4.2
+    },
+    {
+      "minX": 12.7,
+      "maxX": 13.3,
+      "minZ": -9.5,
+      "maxZ": -7.800000000000001
+    },
+    {
+      "minX": 12.7,
+      "maxX": 13.3,
+      "minZ": -6.199999999999999,
+      "maxZ": -4.5
+    },
+    {
+      "minX": 5,
+      "maxX": 11,
+      "minZ": -1.8,
+      "maxZ": -1.2
+    },
+    {
+      "minX": 10.7,
+      "maxX": 11.3,
+      "minZ": -1.5,
+      "maxZ": 0.20000000000000007
+    },
+    {
+      "minX": 10.7,
+      "maxX": 11.3,
+      "minZ": 1.7999999999999998,
+      "maxZ": 3.5
+    },
+    {
+      "minX": 5,
+      "maxX": 11,
+      "minZ": 3.2,
+      "maxZ": 3.8
+    },
+    {
+      "minX": 4.7,
+      "maxX": 5.3,
+      "minZ": -1.5,
+      "maxZ": 3.5
+    },
+    {
+      "minX": 13,
+      "maxX": 19,
+      "minZ": -1.8,
+      "maxZ": -1.2
+    },
+    {
+      "minX": 18.7,
+      "maxX": 19.3,
+      "minZ": -1.5,
+      "maxZ": 3.5
+    },
+    {
+      "minX": 13,
+      "maxX": 19,
+      "minZ": 3.2,
+      "maxZ": 3.8
+    },
+    {
+      "minX": 12.7,
+      "maxX": 13.3,
+      "minZ": -1.5,
+      "maxZ": 0.20000000000000007
+    },
+    {
+      "minX": 12.7,
+      "maxX": 13.3,
+      "minZ": 1.7999999999999998,
+      "maxZ": 3.5
+    },
+    {
+      "minX": 8,
+      "maxX": 11.3,
+      "minZ": -11.8,
+      "maxZ": -11.2
+    },
+    {
+      "minX": 12.7,
+      "maxX": 16,
+      "minZ": -11.8,
+      "maxZ": -11.2
+    },
+    {
+      "minX": 15.7,
+      "maxX": 16.3,
+      "minZ": -11.5,
+      "maxZ": -9.5
+    },
+    {
+      "minX": 8,
+      "maxX": 16,
+      "minZ": -9.8,
+      "maxZ": -9.2
+    },
+    {
+      "minX": 7.7,
+      "maxX": 8.3,
+      "minZ": -11.5,
+      "maxZ": -9.5
+    },
+    {
+      "minX": 7,
+      "maxX": 17,
+      "minZ": 3.7,
+      "maxZ": 4.3
+    },
+    {
+      "minX": 16.7,
+      "maxX": 17.3,
+      "minZ": 4,
+      "maxZ": 9
+    },
+    {
+      "minX": 7,
+      "maxX": 11.2,
+      "minZ": 8.7,
+      "maxZ": 9.3
+    },
+    {
+      "minX": 12.8,
+      "maxX": 17,
+      "minZ": 8.7,
+      "maxZ": 9.3
+    },
+    {
+      "minX": 6.7,
+      "maxX": 7.3,
+      "minZ": 4,
+      "maxZ": 9
+    },
+    {
+      "minX": 8,
+      "maxX": 16,
+      "minZ": 8.7,
+      "maxZ": 9.3
+    },
+    {
+      "minX": 15.7,
+      "maxX": 16.3,
+      "minZ": 9,
+      "maxZ": 12
+    },
+    {
+      "minX": 8,
+      "maxX": 16,
+      "minZ": 11.7,
+      "maxZ": 12.3
+    },
+    {
+      "minX": 7.7,
+      "maxX": 8.3,
+      "minZ": 9,
+      "maxZ": 9.7
+    },
+    {
+      "minX": 7.7,
+      "maxX": 8.3,
+      "minZ": 11.3,
+      "maxZ": 12
+    },
+    {
+      "minX": 16.25,
+      "maxX": 19.75,
+      "minZ": 8.95,
+      "maxZ": 9.55
+    },
+    {
+      "minX": 19.45,
+      "maxX": 20.05,
+      "minZ": 9.25,
+      "maxZ": 11.75
+    },
+    {
+      "minX": 16.25,
+      "maxX": 19.75,
+      "minZ": 11.45,
+      "maxZ": 12.05
+    },
+    {
+      "minX": 15.95,
+      "maxX": 16.55,
+      "minZ": 9.25,
+      "maxZ": 9.899999999999999
+    },
+    {
+      "minX": 15.95,
+      "maxX": 16.55,
+      "minZ": 11.100000000000001,
+      "maxZ": 11.75
+    },
+    {
+      "minX": -14,
+      "maxX": -2,
+      "minZ": -2.3,
+      "maxZ": -1.7
+    },
+    {
+      "minX": -2.3,
+      "maxX": -1.7,
+      "minZ": -2,
+      "maxZ": 1.5999999999999999
+    },
+    {
+      "minX": -2.3,
+      "maxX": -1.7,
+      "minZ": 3.4000000000000004,
+      "maxZ": 7
+    },
+    {
+      "minX": -14,
+      "maxX": -2,
+      "minZ": 6.7,
+      "maxZ": 7.3
+    },
+    {
+      "minX": -14.3,
+      "maxX": -13.7,
+      "minZ": -2,
+      "maxZ": 7
+    }
+  ],
+  "floors": [
+    {
+      "x": 8,
+      "y": 0.06,
+      "z": -7,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "y": 0.06,
+      "z": -7,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "y": 0.06,
+      "z": 1,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "y": 0.06,
+      "z": 1,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 0.06,
+      "z": -10.5,
+      "w": 8,
+      "d": 2,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 0.06,
+      "z": 6.5,
+      "w": 10,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 0.06,
+      "z": 10.5,
+      "w": 8,
+      "d": 3,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 18,
+      "y": 0.06,
+      "z": 10.5,
+      "w": 3.5,
+      "d": 2.5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -8,
+      "y": 0.06,
+      "z": 2.5,
+      "w": 12,
+      "d": 9,
+      "t": 0.12,
+      "mat": {
+        "color": "#fafcff"
+      }
+    }
+  ],
+  "roofs": [
+    {
+      "x": 8,
+      "y": 2.34,
+      "z": -7,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "y": 2.34,
+      "z": -7,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 8,
+      "y": 2.34,
+      "z": 1,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 16,
+      "y": 2.34,
+      "z": 1,
+      "w": 6,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 2.34,
+      "z": -10.5,
+      "w": 8,
+      "d": 2,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 2.34,
+      "z": 6.5,
+      "w": 10,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 12,
+      "y": 2.34,
+      "z": 10.5,
+      "w": 8,
+      "d": 3,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 18,
+      "y": 2.34,
+      "z": 10.5,
+      "w": 3.5,
+      "d": 2.5,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -8,
+      "y": 2.34,
+      "z": 2.5,
+      "w": 12,
+      "d": 9,
+      "t": 0.12,
+      "mat": {
+        "color": "#ffffff"
+      }
+    }
+  ]
 }

@@ -328,6 +328,75 @@ function makeSlab({ name = "Floor", x = 0, z = 0, w = 4, d = 3, t = DEFAULT_SLAB
         name, x, z, w, d, t, y, exported, mat,
     };
 }
+// --- loader utils -----------------------------------------------------------
+function normalizeLoadedMap(raw, makeRoomFn) {
+    const data = raw && typeof raw === "object" ? raw : {};
+    const rooms = Array.isArray(data.rooms) ? data.rooms : [];
+    const floors = Array.isArray(data.floors) ? data.floors : [];
+
+    // ensure each room has the fields our editor expects
+    const fixedRooms = rooms.map((r, i) =>
+        makeRoomFn({
+            key: r.key || `room_${i}`,
+            name: r.name || `Room ${i + 1}`,
+            x: r.x ?? 0,
+            z: r.z ?? 0,
+            w: Math.max(0.5, r.w ?? 4),
+            d: Math.max(0.5, r.d ?? 3),
+            rotDeg: r.rotDeg ?? 0,
+            h: r.h ?? DEFAULT_WALL_HEIGHT,
+            floorY: r.floorY ?? 0,
+            roofT: r.roofT ?? DEFAULT_SLAB_THICKNESS,
+            hasFloor: r.hasFloor !== false,
+            hasRoof: r.hasRoof !== false,
+            wallMat: r.wallMat || { color: "#9aa4b2" },
+            floorMat: r.floorMat || { color: "#30363d" },
+            roofMat: r.roofMat || { color: "#232a31" },
+            edges: Array.isArray(r.edges) ? r.edges : [
+                { side: "N", present: true, door: null },
+                { side: "E", present: true, door: null },
+                { side: "S", present: true, door: null },
+                { side: "W", present: true, door: null }
+            ],
+            exported: r.exported !== false
+        })
+    );
+
+    // free floors are already in the export shape; just coerce numbers & defaults
+    const fixedFloors = floors.map((f, i) => ({
+        id: f.id || `slab_${i}`,
+        name: f.name || `Floor ${i + 1}`,
+        x: +f.x || 0,
+        z: +f.z || 0,
+        w: Math.max(0.1, +f.w || 6),
+        d: Math.max(0.1, +f.d || 6),
+        t: Math.max(0.01, +f.t || DEFAULT_SLAB_THICKNESS),
+        y: +f.y || 0,
+        mat: f.mat || { color: "#30363d" },
+        exported: f.exported !== false
+    }));
+
+    return { rooms: fixedRooms, floors: fixedFloors };
+}
+
+async function loadDefaultMapJSON() {
+    // Prefer dynamic import (Vite transforms JSON and gives parsed object)
+    try {
+        const mod = await import("../map/defaultMap.json");
+        return mod.default;
+    } catch (e1) {
+        // Fallback via fetch with module-relative URL (works in dev/preview)
+        try {
+            const url = new URL("../map/defaultMap.json", import.meta.url);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(String(res.status));
+            return await res.json();
+        } catch (e2) {
+            console.error("Failed to load defaultMap.json", e1, e2);
+            throw e2;
+        }
+    }
+}
 
 // ---------------- UI Panel ----------------
 export function MapEditorUI() {
@@ -450,6 +519,26 @@ export function MapEditorUI() {
         setSelFloor(null);
         setSelectedEdge(null);
     };
+    const loadDefault = async () => {
+        try {
+            const raw = await loadDefaultMapJSON();
+            const { rooms: newRooms, floors: newFloors } = normalizeLoadedMap(raw, makeRoom);
+
+            setRooms(newRooms);
+            setFloors(newFloors);
+            setSelected(newRooms.length ? 0 : null);
+            setSelFloor(null);
+            setSelectedEdge(null);
+
+            // Persist as the current draft so it survives reloads
+            saveDraftV3(newRooms, newFloors);
+            legacySaveDraftRooms?.(newRooms);
+
+            alert("Loaded src/map/defaultMap.json");
+        } catch {
+            alert("Could not load src/map/defaultMap.json. Check the console for details.");
+        }
+    };
 
     // floor slab actions
     const addFloor = () => {
@@ -535,7 +624,11 @@ export function MapEditorUI() {
                     <button onClick={addMeetingRoom}>+ MeetingRoom</button>
                     <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
                     <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+
+                    {/* NEW: load defaultMap.json */}
+                    <button onClick={loadDefault}>Load defaultMap.json</button>
                 </div>
+
             </div>
 
             {/* global toggles */}
