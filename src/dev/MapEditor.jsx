@@ -1,56 +1,88 @@
 // src/dev/MapEditor.jsx
-// Draw-rect editor with per-edge doors/heights, rotation, floors/roofs, room keys/types, and export filtering.
+// Draw-rect editor with: rooms, per-edge doors/heights, rotation,
+// per-room floor/roof toggles, FREE floor slabs (outside), and JSON export
+// that contains rooms, walls, wallAABBs, floors, roofs.
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { TransformControls } from "@react-three/drei";
-// at the top with your other imports
 
-
-// ✅ Robust import: works even if some named exports are missing in roomTools.js
+// ---- room tools (robust import)
 import * as RT from "../map/roomTools";
-// fallbacks (won't break if constants aren't exported yet)
 const WALL_THICKNESS = RT.WALL_THICKNESS ?? 0.6;
 const DEFAULT_WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 2.4;
 const DEFAULT_SLAB_THICKNESS = RT.DEFAULT_SLAB_THICKNESS ?? 0.12;
 
-// required API from roomTools
 const makeRoom = RT.makeRoom;
 const wallsForRoomLocal = RT.wallsForRoomLocal;
 const packMap = RT.packMap;
-const saveDraft = RT.saveDraft;
-const loadDraft = RT.loadDraft;
+const legacySaveDraftRooms = RT.saveDraft;
+const legacyLoadDraftRooms = RT.loadDraft;
 
-// If you renamed deck file to "deck.js", use that path:
+// Use your deck rooms as a seed
 import { ROOMS as INITIAL_DECK_ROOMS } from "../map/deckA";
 
+// ---------------- Context ----------------
 const Ctx = createContext(null);
 export const useMapEditor = () => useContext(Ctx);
 
+// LocalStorage helpers for combined draft (rooms + floors)
+const LS_KEY_V3 = "mapEditorDraft_v3";
+
+function loadDraftV3() {
+    try {
+        const raw = localStorage.getItem(LS_KEY_V3);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        const rooms = Array.isArray(parsed.rooms) ? parsed.rooms.map((r) => makeRoom(r)) : [];
+        const floors = Array.isArray(parsed.floors) ? parsed.floors : [];
+        return { rooms, floors };
+    } catch {
+        return null;
+    }
+}
+
+function saveDraftV3(rooms, floors) {
+    try {
+        localStorage.setItem(
+            LS_KEY_V3,
+            JSON.stringify({ rooms, floors }, null, 2)
+        );
+    } catch { }
+}
+
 export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS, enabled = true }) {
+    // Seed rooms & floors: prefer v3 (rooms+floors), else legacy rooms only, else deck rooms
     const seed = useMemo(() => {
-        const draft = loadDraft?.();
-        if (draft && Array.isArray(draft)) return draft;
-        return (initialRooms || []).map((r) => makeRoom({ ...r }));
+        const v3 = loadDraftV3();
+        if (v3) return v3;
+
+        const legacyRooms = legacyLoadDraftRooms?.();
+        if (legacyRooms && Array.isArray(legacyRooms)) return { rooms: legacyRooms, floors: [] };
+
+        return { rooms: (initialRooms || []).map((r) => makeRoom({ ...r })), floors: [] };
     }, [initialRooms]);
 
-    const [rooms, setRooms] = useState(seed);
-    const [selected, setSelected] = useState(0);
+    const [rooms, setRooms] = useState(seed.rooms);
+    const [floors, setFloors] = useState(seed.floors); // free slabs
+    const [selected, setSelected] = useState(0);       // room index
+    const [selFloor, setSelFloor] = useState(null);    // floor slab index
     const [selectedEdge, setSelectedEdge] = useState(null); // {roomIndex, side}
     const [showGrid, setShowGrid] = useState(true);
     const [snap, setSnap] = useState(0.5);
 
-    // NEW: floors/roofs toggles
+    // global visibility toggles
     const [showFloors, setShowFloors] = useState(true);
     const [showRoofs, setShowRoofs] = useState(true);
 
-    // draw-rectangle interaction
-    const [drawMode, setDrawMode] = useState(false);
+    // draw interaction
+    const [draw, setDraw] = useState({ active: false, kind: "room" }); // kind: 'room' | 'floor'
     const [drawStart, setDrawStart] = useState(null); // {x,z}
     const [drawCurr, setDrawCurr] = useState(null);
 
-    // ensure keys once
+    // ensure keys once on rooms
     useEffect(() => {
         setRooms((prev) => prev.map((r, i) => ({ ...r, key: r.key || `room_${i}` })));
     }, []);
@@ -58,14 +90,16 @@ export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS,
     const api = useMemo(
         () => ({
             rooms, setRooms,
+            floors, setFloors,
             selected, setSelected,
+            selFloor, setSelFloor,
             selectedEdge, setSelectedEdge,
             showGrid, setShowGrid,
             snap, setSnap,
-            drawMode, setDrawMode, drawStart, setDrawStart, drawCurr, setDrawCurr,
+            draw, setDraw, drawStart, setDrawStart, drawCurr, setDrawCurr,
             showFloors, setShowFloors, showRoofs, setShowRoofs,
         }),
-        [rooms, selected, selectedEdge, showGrid, snap, drawMode, drawStart, drawCurr, showFloors, showRoofs]
+        [rooms, floors, selected, selFloor, selectedEdge, showGrid, snap, draw, drawStart, drawCurr, showFloors, showRoofs]
     );
 
     if (!enabled) return children;
@@ -76,10 +110,12 @@ export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS,
 export function MapEditor3D() {
     const {
         rooms, setRooms,
+        floors, setFloors,
         selected, setSelected,
+        selFloor, setSelFloor,
         selectedEdge, setSelectedEdge,
         showGrid, snap,
-        drawMode, setDrawMode, drawStart, setDrawStart, drawCurr, setDrawCurr,
+        draw, setDraw, drawStart, setDrawStart, drawCurr, setDrawCurr,
         showFloors, showRoofs,
     } = useMapEditor();
 
@@ -91,50 +127,74 @@ export function MapEditor3D() {
     const matFloor = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x30363d, roughness: 0.9, metalness: 0.0 }), []);
     const matRoof = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x232a31, roughness: 0.85, metalness: 0.0 }), []);
 
-    // draw on ground
+    // ground draw interactions
     const onGroundDown = (e) => {
-        if (!drawMode) return;
+        if (!draw.active) return;
         e.stopPropagation();
         const p = e.point;
         setDrawStart({ x: p.x, z: p.z });
         setDrawCurr({ x: p.x, z: p.z });
     };
     const onGroundMove = (e) => {
-        if (!drawMode || !drawStart) return;
+        if (!draw.active || !drawStart) return;
         const p = e.point;
         setDrawCurr({ x: p.x, z: p.z });
     };
     const onGroundUp = () => {
-        if (!drawMode || !drawStart || !drawCurr) return;
+        if (!draw.active || !drawStart || !drawCurr) return;
         const w = Math.abs(drawCurr.x - drawStart.x);
         const d = Math.abs(drawCurr.z - drawStart.z);
         if (w >= 0.5 && d >= 0.5) {
             const cx = (drawCurr.x + drawStart.x) / 2;
             const cz = (drawCurr.z + drawStart.z) / 2;
             const snapV = (v) => (snap ? Math.round(v / snap) * snap : v);
-            const room = makeRoom({
-                name: `Room ${rooms.length + 1}`,
-                x: snapV(cx), z: snapV(cz), w: snapV(w), d: snapV(d),
-                floorY: 0, roofT: DEFAULT_SLAB_THICKNESS,
-                exported: true,
-            });
-            setRooms((prev) => [...prev, room]);
-            setSelected(rooms.length);
-            setSelectedEdge(null);
+            if (draw.kind === "room") {
+                const room = makeRoom({
+                    name: `Room ${rooms.length + 1}`,
+                    x: snapV(cx), z: snapV(cz), w: snapV(w), d: snapV(d),
+                    floorY: 0, roofT: DEFAULT_SLAB_THICKNESS,
+                    hasFloor: true, hasRoof: true,
+                    exported: true,
+                });
+                setRooms((prev) => [...prev, room]);
+                setSelected(rooms.length);
+                setSelFloor(null);
+                setSelectedEdge(null);
+            } else {
+                // free floor slab
+                const slab = makeSlab({
+                    name: `Floor ${floors.length + 1}`,
+                    x: snapV(cx), z: snapV(cz), w: snapV(w), d: snapV(d),
+                    y: 0 + DEFAULT_SLAB_THICKNESS / 2,
+                    t: DEFAULT_SLAB_THICKNESS,
+                    exported: true,
+                });
+                setFloors((prev) => [...prev, slab]);
+                setSelFloor(floors.length);
+                setSelected(null);
+                setSelectedEdge(null);
+            }
         }
         setDrawStart(null); setDrawCurr(null);
     };
 
-    // gizmo handler (world coords)
+    // gizmo move handler
     const onGizmoChange = (v) => {
-        const idx = selected;
-        if (idx == null || idx < 0 || idx >= rooms.length) return;
         const x = snap ? Math.round(v.x / snap) * snap : v.x;
         const z = snap ? Math.round(v.z / snap) * snap : v.z;
+        if (selFloor != null) {
+            setFloors((prev) => prev.map((s, i) => (i === selFloor ? { ...s, x, z } : s)));
+            return;
+        }
+        const idx = selected;
+        if (idx == null || idx < 0 || idx >= rooms.length) return;
         setRooms((prev) => prev.map((rr, i) => (i === idx ? { ...rr, x, z } : rr)));
     };
 
     const selRoom = rooms[selected];
+    const gizmoPos = selFloor != null
+        ? [floors[selFloor]?.x ?? 0, 0, floors[selFloor]?.z ?? 0]
+        : selRoom ? [selRoom.x, 0, selRoom.z] : null;
 
     return (
         <>
@@ -148,7 +208,7 @@ export function MapEditor3D() {
             </mesh>
 
             {/* draw preview */}
-            {drawMode && drawStart && drawCurr && (
+            {draw.active && drawStart && drawCurr && (
                 <mesh rotation={[-Math.PI / 2, 0, 0]}
                     position={[(drawStart.x + drawCurr.x) / 2, 0.02, (drawStart.z + drawCurr.z) / 2]}>
                     <planeGeometry args={[
@@ -159,22 +219,34 @@ export function MapEditor3D() {
                 </mesh>
             )}
 
-            {/* rooms */}
+            {/* FREE FLOOR SLABS */}
+            {floors.map((f, i) => (
+                <group key={f.id || i} position={[f.x, 0, f.z]}
+                    onPointerDown={(e) => { e.stopPropagation(); setSelFloor(i); setSelected(null); setSelectedEdge(null); }}>
+                    <mesh position={[0, (f.t ?? DEFAULT_SLAB_THICKNESS) / 2 + (f.y ?? 0) - (DEFAULT_SLAB_THICKNESS / 2), 0]}>
+                        <boxGeometry args={[f.w, f.t ?? DEFAULT_SLAB_THICKNESS, f.d]} />
+                        <primitive attach="material" object={matFloor} />
+                    </mesh>
+                </group>
+            ))}
+
+            {/* ROOMS */}
             {rooms.map((r, i) => {
-                const isSel = i === selected;
+                const isSel = i === selected && selFloor == null;
                 const localWalls = wallsForRoomLocal(r, WALL_THICKNESS);
                 const thick = r.roofT ?? DEFAULT_SLAB_THICKNESS;
-                const floorY = (r.floorY ?? 0) + thick / 2;
-                const roofY = (r.h || DEFAULT_WALL_HEIGHT) - thick / 2;
+                const floorYCenter = (r.floorY ?? 0) + thick / 2;
+                const roofYCenter = (r.floorY ?? 0) + (r.h || DEFAULT_WALL_HEIGHT) - thick / 2;
 
                 return (
                     <group key={r.key || i}
                         position={[r.x, 0, r.z]}
                         rotation={[0, (r.rotDeg || 0) * Math.PI / 180, 0]}
-                        onPointerDown={(e) => { e.stopPropagation(); setSelected(i); }}>
+                        onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                         {/* floor slab */}
-                        {showFloors && (
-                            <mesh position={[0, floorY, 0]}>
+                        {showFloors && r.hasFloor !== false && (
+                            <mesh position={[0, floorYCenter, 0]}
+                                onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
                                 <primitive attach="material" object={matFloor} />
                             </mesh>
@@ -182,7 +254,7 @@ export function MapEditor3D() {
 
                         {/* footprint overlay */}
                         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, (r.floorY ?? 0) + 0.02, 0]}
-                            onPointerDown={(e) => { e.stopPropagation(); setSelected(i); }}>
+                            onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                             <planeGeometry args={[r.w, r.d]} />
                             <primitive attach="material" object={isSel ? matRoomSel : matRoom} />
                         </mesh>
@@ -194,6 +266,7 @@ export function MapEditor3D() {
                                 onPointerDown={(e) => {
                                     e.stopPropagation();
                                     setSelected(i);
+                                    setSelFloor(null);
                                     setSelectedEdge({ roomIndex: i, side: w.side });
                                 }}>
                                 <boxGeometry args={[w.w, w.h || DEFAULT_WALL_HEIGHT, w.d]} />
@@ -205,8 +278,9 @@ export function MapEditor3D() {
                         ))}
 
                         {/* roof slab */}
-                        {showRoofs && (
-                            <mesh position={[0, roofY + (r.floorY ?? 0), 0]}>
+                        {showRoofs && r.hasRoof !== false && (
+                            <mesh position={[0, roofYCenter, 0]}
+                                onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
                                 <primitive attach="material" object={matRoof} />
                             </mesh>
@@ -215,8 +289,8 @@ export function MapEditor3D() {
                 );
             })}
 
-            {/* move gizmo (world) */}
-            {selRoom && <GizmoTranslate position={[selRoom.x, 0, selRoom.z]} onChange={onGizmoChange} />}
+            {/* move gizmo */}
+            {gizmoPos && <GizmoTranslate position={gizmoPos} onChange={onGizmoChange} />}
         </>
     );
 }
@@ -238,32 +312,46 @@ function GizmoTranslate({ position, onChange }) {
     );
 }
 
+// util for free floor slabs
+function makeSlab({ name = "Floor", x = 0, z = 0, w = 4, d = 3, t = DEFAULT_SLAB_THICKNESS, y = 0, exported = true } = {}) {
+    return {
+        id: `slab_${Math.random().toString(36).slice(2, 8)}`,
+        name, x, z, w, d, t, y, exported,
+    };
+}
+
 // ---------------- UI Panel ----------------
 export function MapEditorUI() {
     const {
         rooms, setRooms,
+        floors, setFloors,
         selected, setSelected,
+        selFloor, setSelFloor,
         selectedEdge, setSelectedEdge,
         showGrid, setShowGrid,
         snap, setSnap,
-        drawMode, setDrawMode,
+        draw, setDraw,
         showFloors, setShowFloors, showRoofs, setShowRoofs,
     } = useMapEditor();
 
     const r = rooms[selected];
+    const f = selFloor != null ? floors[selFloor] : null;
 
-    const update = (patch) => setRooms((prev) => prev.map((it, i) => (i === selected ? { ...it, ...patch } : it)));
+    const updateRoom = (patch) => setRooms((prev) => prev.map((it, i) => (i === selected ? { ...it, ...patch } : it)));
     const updateEdge = (side, patch) => setRooms((prev) => prev.map((it, i) => {
         if (i !== selected) return it;
         const edges = it.edges.map((e) => e.side === side ? { ...e, ...patch } : e);
         return { ...it, edges };
     }));
+    const updateFloor = (patch) => {
+        if (selFloor == null) return;
+        setFloors((prev) => prev.map((it, i) => (i === selFloor ? { ...it, ...patch } : it)));
+    };
 
-    // --- helpers for specific room types ---
+    // helpers
     const uniqueKey = (desired) => {
         if (!desired) return "";
-        let k = desired;
-        let n = 2;
+        let k = desired, n = 2;
         const has = (kk) => rooms.some((rr) => rr.key === kk);
         while (has(k)) k = `${desired}_${n++}`;
         return k;
@@ -274,6 +362,7 @@ export function MapEditorUI() {
         name: "Lockdown",
         type: "lockdown",
         exported: true,
+        hasFloor: true, hasRoof: true,
         x, z, w: 4.5, d: 3.0, h: 2.4,
         edges: [
             { side: "N", present: true, door: null },
@@ -288,6 +377,7 @@ export function MapEditorUI() {
         name: "Meeting Room",
         type: "meeting_room",
         exported: true,
+        hasFloor: true, hasRoof: true,
         x, z, w: 6.0, d: 4.0, h: 2.4,
         edges: [
             { side: "N", present: true, door: null },
@@ -297,13 +387,14 @@ export function MapEditorUI() {
         ],
     });
 
+    // room actions
     const addRoom = () => {
         const idx = rooms.length;
-        setRooms((prev) => [...prev, makeRoom({ key: `room_${idx}`, name: `Room ${idx + 1}`, x: 0, z: 0, w: 4, d: 3, exported: true })]);
+        setRooms((prev) => [...prev, makeRoom({ key: `room_${idx}`, name: `Room ${idx + 1}`, x: 0, z: 0, w: 4, d: 3, exported: true, hasFloor: true, hasRoof: true })]);
         setSelected(idx);
+        setSelFloor(null);
         setSelectedEdge(null);
     };
-
     const addLockdown = () => {
         const base = rooms[selected];
         const x = base ? base.x + (base.w || 4) / 2 + 1 : 0;
@@ -311,9 +402,9 @@ export function MapEditorUI() {
         const idx = rooms.length;
         setRooms((prev) => [...prev, mkLockdown(x, z)]);
         setSelected(idx);
+        setSelFloor(null);
         setSelectedEdge(null);
     };
-
     const addMeetingRoom = () => {
         const base = rooms[selected];
         const x = base ? base.x - (base.w || 4) / 2 - 1 : 0;
@@ -321,52 +412,116 @@ export function MapEditorUI() {
         const idx = rooms.length;
         setRooms((prev) => [...prev, mkMeetingRoom(x, z)]);
         setSelected(idx);
+        setSelFloor(null);
         setSelectedEdge(null);
     };
-
     const duplicateRoom = () => {
         if (!r) return;
         const idx = rooms.length;
         setRooms((prev) => [...prev, makeRoom({ ...r, key: uniqueKey(`${r.key || "room"}_copy`) })]);
         setSelected(idx);
+        setSelFloor(null);
         setSelectedEdge(null);
     };
-
     const deleteRoom = () => {
         if (!r) return;
         const next = rooms.filter((_, i) => i !== selected);
         setRooms(next);
         setSelected(Math.max(0, selected - 1));
+        setSelFloor(null);
         setSelectedEdge(null);
     };
 
-    const saveToLocal = () => saveDraft?.(rooms);
+    // floor slab actions
+    const addFloor = () => {
+        const idx = floors.length;
+        setFloors((prev) => [...prev, makeSlab({ name: `Floor ${idx + 1}`, x: 0, z: 0, w: 6, d: 6, t: DEFAULT_SLAB_THICKNESS, y: 0, exported: true })]);
+        setSelFloor(idx);
+        setSelected(null);
+        setSelectedEdge(null);
+    };
+    const duplicateFloor = () => {
+        if (selFloor == null) return;
+        const src = floors[selFloor];
+        const idx = floors.length;
+        setFloors((prev) => [...prev, { ...src, id: `slab_${Math.random().toString(36).slice(2, 8)}`, name: `${src.name || "Floor"} copy` }]);
+        setSelFloor(idx);
+    };
+    const deleteFloor = () => {
+        if (selFloor == null) return;
+        const next = floors.filter((_, i) => i !== selFloor);
+        setFloors(next);
+        setSelFloor(next.length ? Math.max(0, selFloor - 1) : null);
+    };
+
+    // Save / Export
+    const saveDraft = () => {
+        saveDraftV3(rooms, floors);         // our combined draft
+        legacySaveDraftRooms?.(rooms);      // keep legacy save updated (optional)
+    };
 
     const download = () => {
-        // Filter to exported rooms (so you only ship Lockdown/MeetingRoom/etc you marked)
+        // Filter exported rooms
         const exportRooms = rooms.filter((rm) => rm.exported !== false);
-        const data = packMap ? packMap(exportRooms) : { rooms: exportRooms }; // compatible with older packMap
+
+        // Use packMap (gives walls & AABBs)
+        const packed = packMap ? packMap(exportRooms) : { rooms: exportRooms, walls: [], wallAABBs: [] };
+
+        // Build floors/roofs:
+        // - Per-room slabs if room.hasFloor/hasRoof !== false
+        // - Free slabs included if exported !== false
+        const floorsFromRooms = exportRooms
+            .filter((rm) => rm.hasFloor !== false)
+            .map((rm) => {
+                const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
+                const yCenter = (rm.floorY ?? 0) + t / 2;
+                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t };
+            });
+
+        const roofsFromRooms = exportRooms
+            .filter((rm) => rm.hasRoof !== false)
+            .map((rm) => {
+                const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
+                const h = rm.h ?? DEFAULT_WALL_HEIGHT;
+                const yCenter = (rm.floorY ?? 0) + h - t / 2;
+                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t };
+            });
+
+        const freeFloors = floors.filter((s) => s.exported !== false).map((s) => ({
+            x: s.x, y: s.y ?? 0, z: s.z, w: s.w, d: s.d, t: s.t ?? DEFAULT_SLAB_THICKNESS, name: s.name,
+        }));
+
+        const data = {
+            rooms: exportRooms,
+            walls: packed.walls || [],
+            wallAABBs: packed.wallAABBs || [],
+            floors: [...floorsFromRooms, ...freeFloors],
+            roofs: [...roofsFromRooms],
+        };
+
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url; a.download = "map.json";
+        a.href = url; a.download = "defaultMap.json";
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
     };
 
     return createPortal(
         <div style={panelStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            {/* header + actions */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
                 <strong>Map Editor</strong>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={addRoom}>+ Add</button>
+                    <button onClick={addRoom}>+ Room</button>
                     <button onClick={addLockdown}>+ Lockdown</button>
                     <button onClick={addMeetingRoom}>+ MeetingRoom</button>
-                    <button onClick={duplicateRoom} disabled={!r}>Duplicate</button>
-                    <button onClick={deleteRoom} disabled={!r}>Delete</button>
+                    <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
+                    <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
                 </div>
             </div>
 
+            {/* global toggles */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                 <label><input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} /> Grid</label>
                 <label>Snap
@@ -374,11 +529,23 @@ export function MapEditorUI() {
                 </label>
                 <label><input type="checkbox" checked={showFloors} onChange={(e) => setShowFloors(e.target.checked)} /> Floors</label>
                 <label><input type="checkbox" checked={showRoofs} onChange={(e) => setShowRoofs(e.target.checked)} /> Roofs</label>
-                <button onClick={() => setDrawMode((v) => !v)} style={{ background: drawMode ? "#2f6f4f" : undefined }}>
-                    {drawMode ? "Drawing: ON" : "Draw Room"}
+
+                {/* draw modes */}
+                <button
+                    onClick={() => setDraw((d) => ({ active: !d.active || d.kind !== "room", kind: "room" }))}
+                    style={{ background: draw.active && draw.kind === "room" ? "#2f6f4f" : undefined }}
+                >
+                    {draw.active && draw.kind === "room" ? "Drawing Room…" : "Draw Room"}
                 </button>
-                <button onClick={saveToLocal}>Save Draft</button>
-                <button onClick={download}>Download JSON</button>
+                <button
+                    onClick={() => setDraw((d) => ({ active: !d.active || d.kind !== "floor", kind: "floor" }))}
+                    style={{ background: draw.active && draw.kind === "floor" ? "#2f6f4f" : undefined }}
+                >
+                    {draw.active && draw.kind === "floor" ? "Drawing Floor…" : "Draw Floor"}
+                </button>
+
+                <button onClick={saveDraft}>Save Draft</button>
+                <button onClick={download}>Export JSON</button>
             </div>
 
             {/* room list */}
@@ -386,8 +553,11 @@ export function MapEditorUI() {
                 {rooms.map((it, i) => (
                     <div
                         key={it.key}
-                        style={{ padding: 4, background: i === selected ? "#1f2a44" : "transparent", borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between" }}
-                        onClick={() => { setSelected(i); setSelectedEdge(null); }}
+                        style={{
+                            padding: 4, background: i === selected && selFloor == null ? "#1f2a44" : "transparent",
+                            borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between"
+                        }}
+                        onClick={() => { setSelected(i); setSelFloor(null); setSelectedEdge(null); }}
                     >
                         <span>{it.name}</span>
                         <span style={{ opacity: 0.7 }}>
@@ -397,48 +567,79 @@ export function MapEditorUI() {
                 ))}
             </div>
 
-            {r && (
+            {/* FREE FLOORS list */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <strong>Free Floors</strong>
+                <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={addFloor}>+ Add Floor</button>
+                    <button onClick={duplicateFloor} disabled={selFloor == null}>Duplicate</button>
+                    <button onClick={deleteFloor} disabled={selFloor == null}>Delete</button>
+                </div>
+            </div>
+            <div style={{ maxHeight: 120, overflow: "auto", padding: 6, border: "1px solid #2b2b2b", borderRadius: 6, marginBottom: 8 }}>
+                {floors.map((it, i) => (
+                    <div key={it.id || i}
+                        style={{
+                            padding: 4, background: i === selFloor ? "#183a2e" : "transparent",
+                            borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between"
+                        }}
+                        onClick={() => { setSelFloor(i); setSelected(null); setSelectedEdge(null); }}>
+                        <span>{it.name || `Floor ${i + 1}`}</span>
+                        <span style={{ opacity: 0.7 }}>
+                            {it.exported === false ? "not exported" : "exported"} · {it.w?.toFixed(1)}×{it.d?.toFixed(1)} @ ({it.x?.toFixed(1)},{it.z?.toFixed(1)})
+                        </span>
+                    </div>
+                ))}
+            </div>
+
+            {/* ROOM fields */}
+            {r && selFloor == null && (
                 <>
-                    {/* room fields */}
                     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6 }}>
                         <label>Key</label>
-                        <input value={r.key} onChange={(e) => { const v = e.target.value.trim(); if (v) update({ key: v }); }} />
+                        <input value={r.key} onChange={(e) => { const v = e.target.value.trim(); if (v) updateRoom({ key: v }); }} />
 
                         <label>Name</label>
-                        <input value={r.name} onChange={(e) => update({ name: e.target.value })} />
+                        <input value={r.name} onChange={(e) => updateRoom({ name: e.target.value })} />
 
                         <label>Type</label>
-                        <input value={r.type || ""} onChange={(e) => update({ type: e.target.value })} placeholder="lockdown / meeting_room / ..." />
+                        <input value={r.type || ""} onChange={(e) => updateRoom({ type: e.target.value })} placeholder="lockdown / meeting_room / ..." />
 
                         <label>Export?</label>
-                        <input type="checkbox" checked={r.exported !== false} onChange={(e) => update({ exported: e.target.checked })} />
+                        <input type="checkbox" checked={r.exported !== false} onChange={(e) => updateRoom({ exported: e.target.checked })} />
+
+                        <label>Has Floor?</label>
+                        <input type="checkbox" checked={r.hasFloor !== false} onChange={(e) => updateRoom({ hasFloor: e.target.checked })} />
+
+                        <label>Has Roof?</label>
+                        <input type="checkbox" checked={r.hasRoof !== false} onChange={(e) => updateRoom({ hasRoof: e.target.checked })} />
 
                         <label>Center X</label>
-                        <input type="number" step={0.1} value={r.x} onChange={(e) => update({ x: Number(e.target.value) })} />
+                        <input type="number" step={0.1} value={r.x} onChange={(e) => updateRoom({ x: Number(e.target.value) })} />
 
                         <label>Center Z</label>
-                        <input type="number" step={0.1} value={r.z} onChange={(e) => update({ z: Number(e.target.value) })} />
+                        <input type="number" step={0.1} value={r.z} onChange={(e) => updateRoom({ z: Number(e.target.value) })} />
 
                         <label>Width (w)</label>
-                        <input type="number" min={0.5} step={0.1} value={r.w} onChange={(e) => update({ w: Math.max(0.5, Number(e.target.value)) })} />
+                        <input type="number" min={0.5} step={0.1} value={r.w} onChange={(e) => updateRoom({ w: Math.max(0.5, Number(e.target.value)) })} />
 
                         <label>Depth (d)</label>
-                        <input type="number" min={0.5} step={0.1} value={r.d} onChange={(e) => update({ d: Math.max(0.5, Number(e.target.value)) })} />
+                        <input type="number" min={0.5} step={0.1} value={r.d} onChange={(e) => updateRoom({ d: Math.max(0.5, Number(e.target.value)) })} />
 
                         <label>Rotate (deg)</label>
-                        <input type="range" min={-180} max={180} step={1} value={r.rotDeg || 0} onChange={(e) => update({ rotDeg: Number(e.target.value) })} />
+                        <input type="range" min={-180} max={180} step={1} value={r.rotDeg || 0} onChange={(e) => updateRoom({ rotDeg: Number(e.target.value) })} />
 
                         <label>Default Wall Height</label>
-                        <input type="number" min={0.5} step={0.1} value={r.h || DEFAULT_WALL_HEIGHT} onChange={(e) => update({ h: Math.max(0.5, Number(e.target.value)) })} />
+                        <input type="number" min={0.5} step={0.1} value={r.h || DEFAULT_WALL_HEIGHT} onChange={(e) => updateRoom({ h: Math.max(0.5, Number(e.target.value)) })} />
 
                         <label>Floor Y</label>
-                        <input type="number" step={0.05} value={r.floorY ?? 0} onChange={(e) => update({ floorY: Number(e.target.value) })} />
+                        <input type="number" step={0.05} value={r.floorY ?? 0} onChange={(e) => updateRoom({ floorY: Number(e.target.value) })} />
 
                         <label>Roof/Floor Thickness</label>
-                        <input type="number" min={0.01} step={0.01} value={r.roofT ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => update({ roofT: Math.max(0.01, Number(e.target.value)) })} />
+                        <input type="number" min={0.01} step={0.01} value={r.roofT ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => updateRoom({ roofT: Math.max(0.01, Number(e.target.value)) })} />
                     </div>
 
-                    {/* Edge tools */}
+                    {/* Edges */}
                     <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
                         <div style={{ display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
                             {r.edges.map((e) => (
@@ -490,8 +691,39 @@ export function MapEditorUI() {
                 </>
             )}
 
+            {/* FREE FLOOR fields */}
+            {f && (
+                <>
+                    <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6 }}>
+                        <label>Name</label>
+                        <input value={f.name || ""} onChange={(e) => updateFloor({ name: e.target.value })} />
+
+                        <label>Export?</label>
+                        <input type="checkbox" checked={f.exported !== false} onChange={(e) => updateFloor({ exported: e.target.checked })} />
+
+                        <label>Center X</label>
+                        <input type="number" step={0.1} value={f.x} onChange={(e) => updateFloor({ x: Number(e.target.value) })} />
+
+                        <label>Center Z</label>
+                        <input type="number" step={0.1} value={f.z} onChange={(e) => updateFloor({ z: Number(e.target.value) })} />
+
+                        <label>Width (w)</label>
+                        <input type="number" min={0.1} step={0.1} value={f.w} onChange={(e) => updateFloor({ w: Math.max(0.1, Number(e.target.value)) })} />
+
+                        <label>Depth (d)</label>
+                        <input type="number" min={0.1} step={0.1} value={f.d} onChange={(e) => updateFloor({ d: Math.max(0.1, Number(e.target.value)) })} />
+
+                        <label>Thickness (t)</label>
+                        <input type="number" min={0.01} step={0.01} value={f.t ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => updateFloor({ t: Math.max(0.01, Number(e.target.value)) })} />
+
+                        <label>Y center</label>
+                        <input type="number" step={0.05} value={f.y ?? 0} onChange={(e) => updateFloor({ y: Number(e.target.value) })} />
+                    </div>
+                </>
+            )}
+
             <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-                Draw: click “Draw Room” then drag on the ground. Click a wall to select its edge. Y axis is height.
+                Tip: choose “Draw Room” or “Draw Floor”, drag on ground to create. Click a slab/room to move with the gizmo.
             </div>
         </div>,
         document.body
@@ -508,7 +740,7 @@ const panelStyle = {
     border: "1px solid #263041",
     borderRadius: 12,
     padding: 14,
-    width: 500,
+    width: 520,
     fontSize: 12,
     lineHeight: 1.35,
     boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
