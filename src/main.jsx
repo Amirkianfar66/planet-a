@@ -2,29 +2,43 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import App from "./App.jsx";
 import { GameStateProvider } from "./game/GameStateProvider";
-import MapEditorPage from "./pages/MapEditorPage.jsx"; // create this file below
+
+// Editor-only bits
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import { MapEditorProvider, MapEditor3D, MapEditorUI } from "./dev/MapEditor";
+
+const isEditor = new URLSearchParams(location.search).get("editor") === "1";
+
+function EditorOnly() {
+    return (
+        <MapEditorProvider enabled={true}>
+            <div style={{ position: "fixed", inset: 0 }}>
+                <Canvas camera={{ position: [0, 18, 18], fov: 40 }}>
+                    <ambientLight intensity={0.6} />
+                    <directionalLight position={[10, 15, 5]} intensity={1} />
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+                        <planeGeometry args={[120, 120]} />
+                        <meshBasicMaterial color="#0b0f14" />
+                    </mesh>
+
+                    <MapEditor3D />
+                    <OrbitControls makeDefault enablePan enableRotate enableZoom />
+                </Canvas>
+            </div>
+            <MapEditorUI />
+        </MapEditorProvider>
+    );
+}
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-    <BrowserRouter>
-        <Routes>
-            {/* Game route (with your provider) */}
-            <Route
-                path="/"
-                element={
-                    <GameStateProvider>
-                        <App />
-                    </GameStateProvider>
-                }
-            />
-
-            {/* Editor route (standalone, no game provider) */}
-            <Route path="/editor" element={<MapEditorPage />} />
-
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-    </BrowserRouter>
+    isEditor
+        ? <EditorOnly />
+        : (
+            <GameStateProvider>
+                <App />
+            </GameStateProvider>
+        )
 );
