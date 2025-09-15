@@ -476,12 +476,12 @@
       ]
     },
     {
-      "key": "",
+      "key": "room_6",
       "name": "Room 7",
       "type": "",
       "x": 5.5,
       "z": 42,
-      "w": 12,
+      "w": 50,
       "d": 12,
       "rotDeg": 0,
       "h": 20,
@@ -492,7 +492,7 @@
       "wallT": null,
       "exported": true,
       "wallMat": {
-        "color": "#9aa4b2"
+        "color": "#006aff"
       },
       "floorMat": {
         "color": "#30363d"
@@ -507,6 +507,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": null
         },
         {
@@ -515,6 +516,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": null
         },
         {
@@ -523,6 +525,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": null
         },
         {
@@ -531,6 +534,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": null
         }
       ]
@@ -904,57 +908,57 @@
     {
       "x": 5.5,
       "z": 36,
-      "w": 12,
+      "w": 50,
       "d": 0.6,
       "h": 20,
       "side": "N",
       "rotDeg": 0,
-      "id": "room_N_0",
-      "room": "",
+      "id": "room_6_N_0",
+      "room": "room_6",
       "mat": {
-        "color": "#9aa4b2"
+        "color": "#006aff"
       }
     },
     {
-      "x": 11.5,
+      "x": 30.5,
       "z": 42,
       "w": 0.6,
       "d": 12,
       "h": 20,
       "side": "E",
       "rotDeg": 0,
-      "id": "room_E_1",
-      "room": "",
+      "id": "room_6_E_1",
+      "room": "room_6",
       "mat": {
-        "color": "#9aa4b2"
+        "color": "#006aff"
       }
     },
     {
       "x": 5.5,
       "z": 48,
-      "w": 12,
+      "w": 50,
       "d": 0.6,
       "h": 20,
       "side": "S",
       "rotDeg": 0,
-      "id": "room_S_2",
-      "room": "",
+      "id": "room_6_S_2",
+      "room": "room_6",
       "mat": {
-        "color": "#9aa4b2"
+        "color": "#006aff"
       }
     },
     {
-      "x": -0.5,
+      "x": -19.5,
       "z": 42,
       "w": 0.6,
       "d": 12,
       "h": 20,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_3",
-      "room": "",
+      "id": "room_6_W_3",
+      "room": "room_6",
       "mat": {
-        "color": "#9aa4b2"
+        "color": "#006aff"
       }
     }
   ],
@@ -1116,26 +1120,26 @@
       "maxZ": 7.675
     },
     {
-      "minX": -0.5,
-      "maxX": 11.5,
+      "minX": -19.5,
+      "maxX": 30.5,
       "minZ": 35.7,
       "maxZ": 36.3
     },
     {
-      "minX": 5.5,
-      "maxX": 17.5,
+      "minX": 24.5,
+      "maxX": 36.5,
       "minZ": 41.7,
       "maxZ": 42.3
     },
     {
-      "minX": -0.5,
-      "maxX": 11.5,
+      "minX": -19.5,
+      "maxX": 30.5,
       "minZ": 47.7,
       "maxZ": 48.3
     },
     {
-      "minX": -6.5,
-      "maxX": 5.5,
+      "minX": -25.5,
+      "maxX": -13.5,
       "minZ": 41.7,
       "maxZ": 42.3
     }
@@ -1211,105 +1215,9 @@
       "x": 5.5,
       "y": 0.06,
       "z": 42,
-      "w": 12,
+      "w": 50,
       "d": 12,
       "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 5.4,
-      "y": 0.06,
-      "z": -5.35,
-      "w": 9.2,
-      "d": 10.7,
-      "t": 0.12,
-      "name": "Floor 1",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": 14.6,
-      "y": 0.06,
-      "z": -5.35,
-      "w": 9.2,
-      "d": 10.7,
-      "t": 0.12,
-      "name": "Floor 2",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": 5.4,
-      "y": 0.06,
-      "z": 5.35,
-      "w": 9.2,
-      "d": 10.7,
-      "t": 0.12,
-      "name": "Floor 3",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": 14.6,
-      "y": 0.06,
-      "z": 5.35,
-      "w": 9.2,
-      "d": 10.7,
-      "t": 0.12,
-      "name": "Floor 4",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": 15.4,
-      "y": 0.06,
-      "z": 13.5,
-      "w": 7.5,
-      "d": 6.1,
-      "t": 0.12,
-      "name": "Floor 5",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": -5,
-      "y": 0.06,
-      "z": 4,
-      "w": 12.4,
-      "d": 11.5,
-      "t": 0.12,
-      "name": "Floor 6",
-      "mat": {
-        "color": "#ffffff"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0,
-      "z": 0,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "name": "Floor 1",
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -20,
-      "y": 0.06,
-      "z": 3.8,
-      "w": 16.8,
-      "d": 24.6,
-      "t": 0.12,
-      "name": "Floor 3",
       "mat": {
         "color": "#30363d"
       }
@@ -1386,7 +1294,7 @@
       "x": 5.5,
       "y": 19.94,
       "z": 42,
-      "w": 12,
+      "w": 50,
       "d": 12,
       "t": 0.12,
       "mat": {
