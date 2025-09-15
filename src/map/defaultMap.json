@@ -1,0 +1,694 @@
+{
+  "rooms": [
+    {
+      "key": "base",
+      "name": "Base",
+      "x": 5.4,
+      "z": -5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "base_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "base_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "base_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "base_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null
+        }
+      ]
+    },
+    {
+      "key": "kitchen",
+      "name": "Kitchen",
+      "x": 14.6,
+      "z": -5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "kitchen_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "kitchen_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "kitchen_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "kitchen_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        }
+      ]
+    },
+    {
+      "key": "lab",
+      "name": "Lab",
+      "x": 5.4,
+      "z": 5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "lab_N",
+          "side": "N",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        },
+        {
+          "id": "lab_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "lab_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "lab_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        }
+      ]
+    },
+    {
+      "key": "control_room",
+      "name": "Control Room",
+      "x": 14.6,
+      "z": 5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "control_room_N",
+          "side": "N",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        },
+        {
+          "id": "control_room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "control_room_S",
+          "side": "S",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        },
+        {
+          "id": "control_room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        }
+      ]
+    },
+    {
+      "key": "lockdown",
+      "name": "Lockdown",
+      "x": 15.4,
+      "z": 13.5,
+      "w": 7.5,
+      "d": 6.1,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "lockdown_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "lockdown_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "lockdown_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "lockdown_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null
+        }
+      ]
+    },
+    {
+      "key": "meeting_room",
+      "name": "Meeting Room",
+      "x": -5.125,
+      "z": 3.8,
+      "w": 12.4,
+      "d": 11.5,
+      "rotDeg": 0,
+      "h": 2.4,
+      "edges": [
+        {
+          "id": "meeting_room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "meeting_room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "meeting_room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null
+        },
+        {
+          "id": "meeting_room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "width": 2,
+            "offset": 0
+          },
+          "h": null
+        }
+      ]
+    }
+  ],
+  "walls": [
+    {
+      "x": 5.4,
+      "z": -10.7,
+      "w": 9.2,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "base_N",
+      "room": "base",
+      "rotDeg": 0
+    },
+    {
+      "x": 0.8000000000000007,
+      "z": -5.35,
+      "w": 0.6,
+      "d": 10.7,
+      "h": 2.4,
+      "side": "W",
+      "id": "base_W",
+      "room": "base",
+      "rotDeg": 0
+    },
+    {
+      "x": 14.6,
+      "z": -10.7,
+      "w": 9.2,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "kitchen_N",
+      "room": "kitchen",
+      "rotDeg": 0
+    },
+    {
+      "x": 19.2,
+      "z": -5.35,
+      "w": 0.6,
+      "d": 10.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "kitchen_E",
+      "room": "kitchen",
+      "rotDeg": 0
+    },
+    {
+      "x": 10,
+      "z": -8.524999999999999,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "kitchen_W",
+      "room": "kitchen",
+      "rotDeg": 0
+    },
+    {
+      "x": 10,
+      "z": -2.175,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "kitchen_W",
+      "room": "kitchen",
+      "rotDeg": 0
+    },
+    {
+      "x": 2.6000000000000005,
+      "z": 0,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "lab_N",
+      "room": "lab",
+      "rotDeg": 0
+    },
+    {
+      "x": 8.2,
+      "z": 0,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "lab_N",
+      "room": "lab",
+      "rotDeg": 0
+    },
+    {
+      "x": 5.4,
+      "z": 10.7,
+      "w": 9.2,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "lab_S",
+      "room": "lab",
+      "rotDeg": 0
+    },
+    {
+      "x": 0.8000000000000007,
+      "z": 2.175,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "lab_W",
+      "room": "lab",
+      "rotDeg": 0
+    },
+    {
+      "x": 0.8000000000000007,
+      "z": 8.524999999999999,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "lab_W",
+      "room": "lab",
+      "rotDeg": 0
+    },
+    {
+      "x": 11.8,
+      "z": 0,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "control_room_N",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 17.4,
+      "z": 0,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "control_room_N",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 19.2,
+      "z": 5.35,
+      "w": 0.6,
+      "d": 10.7,
+      "h": 2.4,
+      "side": "E",
+      "id": "control_room_E",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 11.8,
+      "z": 10.7,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "control_room_S",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 17.4,
+      "z": 10.7,
+      "w": 3.5999999999999996,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "control_room_S",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 10,
+      "z": 2.175,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "control_room_W",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 10,
+      "z": 8.524999999999999,
+      "w": 0.6,
+      "d": 4.35,
+      "h": 2.4,
+      "side": "W",
+      "id": "control_room_W",
+      "room": "control_room",
+      "rotDeg": 0
+    },
+    {
+      "x": 19.15,
+      "z": 13.5,
+      "w": 0.6,
+      "d": 6.1,
+      "h": 2.4,
+      "side": "E",
+      "id": "lockdown_E",
+      "room": "lockdown",
+      "rotDeg": 0
+    },
+    {
+      "x": 15.4,
+      "z": 16.55,
+      "w": 7.5,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "lockdown_S",
+      "room": "lockdown",
+      "rotDeg": 0
+    },
+    {
+      "x": 11.65,
+      "z": 13.5,
+      "w": 0.6,
+      "d": 6.1,
+      "h": 2.4,
+      "side": "W",
+      "id": "lockdown_W",
+      "room": "lockdown",
+      "rotDeg": 0
+    },
+    {
+      "x": -5.125,
+      "z": -1.9500000000000002,
+      "w": 12.4,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "N",
+      "id": "meeting_room_N",
+      "room": "meeting_room",
+      "rotDeg": 0
+    },
+    {
+      "x": -5.125,
+      "z": 9.55,
+      "w": 12.4,
+      "d": 0.6,
+      "h": 2.4,
+      "side": "S",
+      "id": "meeting_room_S",
+      "room": "meeting_room",
+      "rotDeg": 0
+    },
+    {
+      "x": -11.325,
+      "z": 0.4249999999999998,
+      "w": 0.6,
+      "d": 4.75,
+      "h": 2.4,
+      "side": "W",
+      "id": "meeting_room_W",
+      "room": "meeting_room",
+      "rotDeg": 0
+    },
+    {
+      "x": -11.325,
+      "z": 7.175,
+      "w": 0.6,
+      "d": 4.75,
+      "h": 2.4,
+      "side": "W",
+      "id": "meeting_room_W",
+      "room": "meeting_room",
+      "rotDeg": 0
+    }
+  ],
+  "wallAABBs": [
+    {
+      "minX": 0.8000000000000007,
+      "maxX": 10,
+      "minZ": -11,
+      "maxZ": -10.399999999999999
+    },
+    {
+      "minX": 0.5000000000000007,
+      "maxX": 1.1000000000000008,
+      "minZ": -10.7,
+      "maxZ": 0
+    },
+    {
+      "minX": 10,
+      "maxX": 19.2,
+      "minZ": -11,
+      "maxZ": -10.399999999999999
+    },
+    {
+      "minX": 18.9,
+      "maxX": 19.5,
+      "minZ": -10.7,
+      "maxZ": 0
+    },
+    {
+      "minX": 9.7,
+      "maxX": 10.3,
+      "minZ": -10.7,
+      "maxZ": -6.349999999999999
+    },
+    {
+      "minX": 9.7,
+      "maxX": 10.3,
+      "minZ": -4.35,
+      "maxZ": 0
+    },
+    {
+      "minX": 0.8000000000000007,
+      "maxX": 4.4,
+      "minZ": -0.3,
+      "maxZ": 0.3
+    },
+    {
+      "minX": 6.3999999999999995,
+      "maxX": 10,
+      "minZ": -0.3,
+      "maxZ": 0.3
+    },
+    {
+      "minX": 0.8000000000000007,
+      "maxX": 10,
+      "minZ": 10.399999999999999,
+      "maxZ": 11
+    },
+    {
+      "minX": 0.5000000000000007,
+      "maxX": 1.1000000000000008,
+      "minZ": 0,
+      "maxZ": 4.35
+    },
+    {
+      "minX": 0.5000000000000007,
+      "maxX": 1.1000000000000008,
+      "minZ": 6.349999999999999,
+      "maxZ": 10.7
+    },
+    {
+      "minX": 10,
+      "maxX": 13.600000000000001,
+      "minZ": -0.3,
+      "maxZ": 0.3
+    },
+    {
+      "minX": 15.599999999999998,
+      "maxX": 19.2,
+      "minZ": -0.3,
+      "maxZ": 0.3
+    },
+    {
+      "minX": 18.9,
+      "maxX": 19.5,
+      "minZ": 0,
+      "maxZ": 10.7
+    },
+    {
+      "minX": 10,
+      "maxX": 13.600000000000001,
+      "minZ": 10.399999999999999,
+      "maxZ": 11
+    },
+    {
+      "minX": 15.599999999999998,
+      "maxX": 19.2,
+      "minZ": 10.399999999999999,
+      "maxZ": 11
+    },
+    {
+      "minX": 9.7,
+      "maxX": 10.3,
+      "minZ": 0,
+      "maxZ": 4.35
+    },
+    {
+      "minX": 9.7,
+      "maxX": 10.3,
+      "minZ": 6.349999999999999,
+      "maxZ": 10.7
+    },
+    {
+      "minX": 18.849999999999998,
+      "maxX": 19.45,
+      "minZ": 10.45,
+      "maxZ": 16.55
+    },
+    {
+      "minX": 11.65,
+      "maxX": 19.15,
+      "minZ": 16.25,
+      "maxZ": 16.85
+    },
+    {
+      "minX": 11.35,
+      "maxX": 11.950000000000001,
+      "minZ": 10.45,
+      "maxZ": 16.55
+    },
+    {
+      "minX": -11.325,
+      "maxX": 1.0750000000000002,
+      "minZ": -2.25,
+      "maxZ": -1.6500000000000001
+    },
+    {
+      "minX": -11.325,
+      "maxX": 1.0750000000000002,
+      "minZ": 9.25,
+      "maxZ": 9.850000000000001
+    },
+    {
+      "minX": -11.625,
+      "maxX": -11.024999999999999,
+      "minZ": -1.9500000000000002,
+      "maxZ": 2.8
+    },
+    {
+      "minX": -11.625,
+      "maxX": -11.024999999999999,
+      "minZ": 4.8,
+      "maxZ": 9.55
+    }
+  ]
+}
