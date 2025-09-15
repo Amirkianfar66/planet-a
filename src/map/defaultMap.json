@@ -14,14 +14,17 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
       "roofMat": {
         "color": "#ffffff"
       },
-      "wallMat": null,
-      "exported": true,
       "edges": [
         {
           "id": "base_N",
@@ -29,6 +32,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#ff0000"
           }
@@ -39,6 +43,7 @@
           "present": false,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#ff0000"
           }
@@ -49,6 +54,7 @@
           "present": false,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#ff0000"
           }
@@ -59,6 +65,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#ff0019"
           }
@@ -79,14 +86,17 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
       "roofMat": {
         "color": "#ffffff"
       },
-      "wallMat": null,
-      "exported": true,
       "edges": [
         {
           "id": "kitchen_N",
@@ -94,9 +104,14 @@
           "present": true,
           "door": {
             "width": 1.2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#00ff32"
           }
@@ -107,6 +122,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#00ff32"
           }
@@ -117,9 +133,14 @@
           "present": false,
           "door": {
             "width": 1.2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#00ff32"
           }
@@ -130,9 +151,14 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#00ff32"
           }
@@ -153,12 +179,17 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
-      "roofMat": null,
-      "wallMat": null,
-      "exported": true,
+      "roofMat": {
+        "color": "#232a31"
+      },
       "edges": [
         {
           "id": "lab_N",
@@ -166,9 +197,14 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#c8fafa"
           }
@@ -178,7 +214,9 @@
           "side": "E",
           "present": false,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "lab_S",
@@ -186,6 +224,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#c8c8fa"
           }
@@ -196,9 +235,14 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#c8fa96"
           }
@@ -219,14 +263,17 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
       "roofMat": {
         "color": "#ffffff"
       },
-      "wallMat": null,
-      "exported": true,
       "edges": [
         {
           "id": "control_room_N",
@@ -234,16 +281,24 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "control_room_E",
           "side": "E",
           "present": true,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "control_room_S",
@@ -251,9 +306,15 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "control_room_W",
@@ -261,9 +322,15 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         }
       ]
     },
@@ -281,42 +348,53 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
       "roofMat": {
         "color": "#ffffff"
       },
-      "wallMat": null,
-      "exported": true,
       "edges": [
         {
           "id": "lockdown_N",
           "side": "N",
           "present": false,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "lockdown_E",
           "side": "E",
           "present": true,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "lockdown_S",
           "side": "S",
           "present": true,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "lockdown_W",
           "side": "W",
           "present": true,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         }
       ]
     },
@@ -334,16 +412,17 @@
       "roofT": 0.12,
       "hasFloor": true,
       "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#ffffff"
+      },
       "floorMat": {
         "color": "#ffffff"
       },
       "roofMat": {
         "color": "#ffffff"
       },
-      "wallMat": {
-        "color": "#ffffff"
-      },
-      "exported": true,
       "edges": [
         {
           "id": "meeting_room_N",
@@ -351,6 +430,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#006aff"
           }
@@ -360,7 +440,9 @@
           "side": "E",
           "present": false,
           "door": null,
-          "h": null
+          "h": null,
+          "t": null,
+          "mat": null
         },
         {
           "id": "meeting_room_S",
@@ -368,6 +450,7 @@
           "present": true,
           "door": null,
           "h": null,
+          "t": null,
           "mat": {
             "color": "#0064ff"
           }
@@ -378,12 +461,77 @@
           "present": true,
           "door": {
             "width": 2,
-            "offset": 0
+            "offset": 0,
+            "height": 2.1,
+            "panels": 2,
+            "type": "sliding",
+            "open": 0
           },
           "h": null,
+          "t": null,
           "mat": {
             "color": "#006aff"
           }
+        }
+      ]
+    },
+    {
+      "key": "",
+      "name": "Room 7",
+      "type": "",
+      "x": 5.5,
+      "z": 42,
+      "w": 12,
+      "d": 12,
+      "rotDeg": 0,
+      "h": 20,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
         }
       ]
     }
@@ -396,11 +544,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "base_N",
-      "room": "base",
       "rotDeg": 0,
+      "id": "base_N_0",
+      "room": "base",
       "mat": {
-        "color": "#ff0000"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -410,11 +558,11 @@
       "d": 10.7,
       "h": 5,
       "side": "W",
-      "id": "base_W",
-      "room": "base",
       "rotDeg": 0,
+      "id": "base_W_1",
+      "room": "base",
       "mat": {
-        "color": "#ff0019"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -424,11 +572,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "kitchen_N",
+      "rotDeg": 358,
+      "id": "kitchen_N_0",
       "room": "kitchen",
-      "rotDeg": -2,
       "mat": {
-        "color": "#00ff32"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -438,11 +586,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "kitchen_N",
+      "rotDeg": 358,
+      "id": "kitchen_N_1",
       "room": "kitchen",
-      "rotDeg": -2,
       "mat": {
-        "color": "#00ff32"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -452,11 +600,11 @@
       "d": 10.7,
       "h": 5,
       "side": "E",
-      "id": "kitchen_E",
+      "rotDeg": 358,
+      "id": "kitchen_E_2",
       "room": "kitchen",
-      "rotDeg": -2,
       "mat": {
-        "color": "#00ff32"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -466,11 +614,11 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "kitchen_W",
+      "rotDeg": 358,
+      "id": "kitchen_W_3",
       "room": "kitchen",
-      "rotDeg": -2,
       "mat": {
-        "color": "#00ff32"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -480,11 +628,11 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "kitchen_W",
+      "rotDeg": 358,
+      "id": "kitchen_W_4",
       "room": "kitchen",
-      "rotDeg": -2,
       "mat": {
-        "color": "#00ff32"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -494,11 +642,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "lab_N",
-      "room": "lab",
       "rotDeg": 0,
+      "id": "lab_N_0",
+      "room": "lab",
       "mat": {
-        "color": "#c8fafa"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -508,11 +656,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "lab_N",
-      "room": "lab",
       "rotDeg": 0,
+      "id": "lab_N_1",
+      "room": "lab",
       "mat": {
-        "color": "#c8fafa"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -522,11 +670,11 @@
       "d": 0.6,
       "h": 5,
       "side": "S",
-      "id": "lab_S",
-      "room": "lab",
       "rotDeg": 0,
+      "id": "lab_S_2",
+      "room": "lab",
       "mat": {
-        "color": "#c8c8fa"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -536,11 +684,11 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "lab_W",
-      "room": "lab",
       "rotDeg": 0,
+      "id": "lab_W_3",
+      "room": "lab",
       "mat": {
-        "color": "#c8fa96"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -550,11 +698,11 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "lab_W",
-      "room": "lab",
       "rotDeg": 0,
+      "id": "lab_W_4",
+      "room": "lab",
       "mat": {
-        "color": "#c8fa96"
+        "color": "#9aa4b2"
       }
     },
     {
@@ -564,10 +712,12 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "control_room_N",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_N_0",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 17.4,
@@ -576,10 +726,12 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "control_room_N",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_N_1",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 19.2,
@@ -588,10 +740,12 @@
       "d": 10.7,
       "h": 5,
       "side": "E",
-      "id": "control_room_E",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_E_2",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 11.8,
@@ -600,10 +754,12 @@
       "d": 0.6,
       "h": 5,
       "side": "S",
-      "id": "control_room_S",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_S_3",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 17.4,
@@ -612,10 +768,12 @@
       "d": 0.6,
       "h": 5,
       "side": "S",
-      "id": "control_room_S",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_S_4",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 10,
@@ -624,10 +782,12 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "control_room_W",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_W_5",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 10,
@@ -636,10 +796,12 @@
       "d": 4.35,
       "h": 5,
       "side": "W",
-      "id": "control_room_W",
-      "room": "control_room",
       "rotDeg": 0,
-      "mat": null
+      "id": "control_room_W_6",
+      "room": "control_room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 19.15,
@@ -648,10 +810,12 @@
       "d": 6.1,
       "h": 5,
       "side": "E",
-      "id": "lockdown_E",
-      "room": "lockdown",
       "rotDeg": 0,
-      "mat": null
+      "id": "lockdown_E_0",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 15.4,
@@ -660,10 +824,12 @@
       "d": 0.6,
       "h": 5,
       "side": "S",
-      "id": "lockdown_S",
-      "room": "lockdown",
       "rotDeg": 0,
-      "mat": null
+      "id": "lockdown_S_1",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": 11.65,
@@ -672,10 +838,12 @@
       "d": 6.1,
       "h": 5,
       "side": "W",
-      "id": "lockdown_W",
-      "room": "lockdown",
       "rotDeg": 0,
-      "mat": null
+      "id": "lockdown_W_2",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
     },
     {
       "x": -5,
@@ -684,11 +852,11 @@
       "d": 0.6,
       "h": 5,
       "side": "N",
-      "id": "meeting_room_N",
-      "room": "meeting_room",
       "rotDeg": 0,
+      "id": "meeting_room_N_0",
+      "room": "meeting_room",
       "mat": {
-        "color": "#006aff"
+        "color": "#ffffff"
       }
     },
     {
@@ -698,11 +866,11 @@
       "d": 0.6,
       "h": 5,
       "side": "S",
-      "id": "meeting_room_S",
-      "room": "meeting_room",
       "rotDeg": 0,
+      "id": "meeting_room_S_1",
+      "room": "meeting_room",
       "mat": {
-        "color": "#0064ff"
+        "color": "#ffffff"
       }
     },
     {
@@ -712,11 +880,11 @@
       "d": 4.75,
       "h": 5,
       "side": "W",
-      "id": "meeting_room_W",
-      "room": "meeting_room",
       "rotDeg": 0,
+      "id": "meeting_room_W_2",
+      "room": "meeting_room",
       "mat": {
-        "color": "#006aff"
+        "color": "#ffffff"
       }
     },
     {
@@ -726,11 +894,67 @@
       "d": 4.75,
       "h": 5,
       "side": "W",
-      "id": "meeting_room_W",
-      "room": "meeting_room",
       "rotDeg": 0,
+      "id": "meeting_room_W_3",
+      "room": "meeting_room",
       "mat": {
-        "color": "#006aff"
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 5.5,
+      "z": 36,
+      "w": 12,
+      "d": 0.6,
+      "h": 20,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "room_N_0",
+      "room": "",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 11.5,
+      "z": 42,
+      "w": 0.6,
+      "d": 12,
+      "h": 20,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "room_E_1",
+      "room": "",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 5.5,
+      "z": 48,
+      "w": 12,
+      "d": 0.6,
+      "h": 20,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "room_S_2",
+      "room": "",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -0.5,
+      "z": 42,
+      "w": 0.6,
+      "d": 12,
+      "h": 20,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "room_W_3",
+      "room": "",
+      "mat": {
+        "color": "#9aa4b2"
       }
     }
   ],
@@ -742,40 +966,40 @@
       "maxZ": -10.399999999999999
     },
     {
-      "minX": 0.5000000000000007,
-      "maxX": 1.1000000000000008,
-      "minZ": -10.7,
-      "maxZ": 0
+      "minX": -4.549999999999999,
+      "maxX": 6.15,
+      "minZ": -5.6499999999999995,
+      "maxZ": -5.05
     },
     {
-      "minX": 9.814871542391971,
-      "maxX": 13.814871542391971,
-      "minZ": -10.906002233125658,
-      "maxZ": -10.306002233125657
+      "minX": 9.80562003934303,
+      "maxX": 13.824123045440913,
+      "minZ": -10.975618474636388,
+      "maxZ": -10.236385991614927
     },
     {
-      "minX": 15.011703842891269,
-      "maxX": 19.01170384289127,
-      "minZ": -11.087479615978665,
-      "maxZ": -10.487479615978664
+      "minX": 15.002452339842327,
+      "maxX": 19.02095534594021,
+      "minZ": -11.157095857489395,
+      "maxZ": -10.417863374467935
     },
     {
-      "minX": 18.89719780428784,
-      "maxX": 19.49719780428784,
-      "minZ": -10.860537684831503,
-      "maxZ": -0.1605376848315041
+      "minX": 13.839987030724927,
+      "maxX": 24.55440857785075,
+      "minZ": -5.997067240295612,
+      "maxZ": -5.024008129367395
     },
     {
-      "minX": 9.591996293681717,
-      "maxX": 10.191996293681719,
-      "minZ": -10.537528190954124,
-      "maxZ": -6.187528190954123
+      "minX": 7.707851395904434,
+      "maxX": 12.076141191459001,
+      "minZ": -8.738251844387792,
+      "maxZ": -7.986804537520455
     },
     {
-      "minX": 9.813608097742598,
-      "maxX": 10.4136080977426,
-      "minZ": -4.191396439382866,
-      "maxZ": 0.15860356061713343
+      "minX": 7.929463199965316,
+      "maxX": 12.297752995519883,
+      "minZ": -2.3921200928165343,
+      "maxZ": -1.6406727859491983
     },
     {
       "minX": 0.8000000000000007,
@@ -796,16 +1020,16 @@
       "maxZ": 11
     },
     {
-      "minX": 0.5000000000000007,
-      "maxX": 1.1000000000000008,
-      "minZ": 0,
-      "maxZ": 4.35
+      "minX": -1.3749999999999991,
+      "maxX": 2.9750000000000005,
+      "minZ": 1.8749999999999998,
+      "maxZ": 2.4749999999999996
     },
     {
-      "minX": 0.5000000000000007,
-      "maxX": 1.1000000000000008,
-      "minZ": 6.349999999999999,
-      "maxZ": 10.7
+      "minX": -1.3749999999999991,
+      "maxX": 2.9750000000000005,
+      "minZ": 8.224999999999998,
+      "maxZ": 8.825
     },
     {
       "minX": 10,
@@ -820,10 +1044,10 @@
       "maxZ": 0.3
     },
     {
-      "minX": 18.9,
-      "maxX": 19.5,
-      "minZ": 0,
-      "maxZ": 10.7
+      "minX": 13.85,
+      "maxX": 24.549999999999997,
+      "minZ": 5.05,
+      "maxZ": 5.6499999999999995
     },
     {
       "minX": 10,
@@ -838,22 +1062,22 @@
       "maxZ": 11
     },
     {
-      "minX": 9.7,
-      "maxX": 10.3,
-      "minZ": 0,
-      "maxZ": 4.35
+      "minX": 7.825,
+      "maxX": 12.175,
+      "minZ": 1.8749999999999998,
+      "maxZ": 2.4749999999999996
     },
     {
-      "minX": 9.7,
-      "maxX": 10.3,
-      "minZ": 6.349999999999999,
-      "maxZ": 10.7
+      "minX": 7.825,
+      "maxX": 12.175,
+      "minZ": 8.224999999999998,
+      "maxZ": 8.825
     },
     {
-      "minX": 18.849999999999998,
-      "maxX": 19.45,
-      "minZ": 10.45,
-      "maxZ": 16.55
+      "minX": 16.099999999999998,
+      "maxX": 22.2,
+      "minZ": 13.2,
+      "maxZ": 13.8
     },
     {
       "minX": 11.65,
@@ -862,10 +1086,10 @@
       "maxZ": 16.85
     },
     {
-      "minX": 11.35,
-      "maxX": 11.950000000000001,
-      "minZ": 10.45,
-      "maxZ": 16.55
+      "minX": 8.600000000000001,
+      "maxX": 14.7,
+      "minZ": 13.2,
+      "maxZ": 13.8
     },
     {
       "minX": -11.2,
@@ -880,16 +1104,40 @@
       "maxZ": 10.05
     },
     {
-      "minX": -11.5,
-      "maxX": -10.899999999999999,
-      "minZ": -1.75,
-      "maxZ": 3
+      "minX": -13.575,
+      "maxX": -8.825,
+      "minZ": 0.325,
+      "maxZ": 0.925
     },
     {
-      "minX": -11.5,
-      "maxX": -10.899999999999999,
-      "minZ": 5,
-      "maxZ": 9.75
+      "minX": -13.575,
+      "maxX": -8.825,
+      "minZ": 7.075,
+      "maxZ": 7.675
+    },
+    {
+      "minX": -0.5,
+      "maxX": 11.5,
+      "minZ": 35.7,
+      "maxZ": 36.3
+    },
+    {
+      "minX": 5.5,
+      "maxX": 17.5,
+      "minZ": 41.7,
+      "maxZ": 42.3
+    },
+    {
+      "minX": -0.5,
+      "maxX": 11.5,
+      "minZ": 47.7,
+      "maxZ": 48.3
+    },
+    {
+      "minX": -6.5,
+      "maxX": 5.5,
+      "minZ": 41.7,
+      "maxZ": 42.3
     }
   ],
   "floors": [
@@ -960,6 +1208,89 @@
       }
     },
     {
+      "x": 5.5,
+      "y": 0.06,
+      "z": 42,
+      "w": 12,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 5.4,
+      "y": 0.06,
+      "z": -5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "t": 0.12,
+      "name": "Floor 1",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 14.6,
+      "y": 0.06,
+      "z": -5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "t": 0.12,
+      "name": "Floor 2",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 5.4,
+      "y": 0.06,
+      "z": 5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "t": 0.12,
+      "name": "Floor 3",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 14.6,
+      "y": 0.06,
+      "z": 5.35,
+      "w": 9.2,
+      "d": 10.7,
+      "t": 0.12,
+      "name": "Floor 4",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": 15.4,
+      "y": 0.06,
+      "z": 13.5,
+      "w": 7.5,
+      "d": 6.1,
+      "t": 0.12,
+      "name": "Floor 5",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
+      "x": -5,
+      "y": 0.06,
+      "z": 4,
+      "w": 12.4,
+      "d": 11.5,
+      "t": 0.12,
+      "name": "Floor 6",
+      "mat": {
+        "color": "#ffffff"
+      }
+    },
+    {
       "x": 0,
       "y": 0,
       "z": 0,
@@ -967,7 +1298,9 @@
       "d": 6,
       "t": 0.12,
       "name": "Floor 1",
-      "mat": null
+      "mat": {
+        "color": "#30363d"
+      }
     },
     {
       "x": -20,
@@ -977,7 +1310,9 @@
       "d": 24.6,
       "t": 0.12,
       "name": "Floor 3",
-      "mat": null
+      "mat": {
+        "color": "#30363d"
+      }
     }
   ],
   "roofs": [
@@ -1010,7 +1345,9 @@
       "w": 9.2,
       "d": 10.7,
       "t": 0.12,
-      "mat": null
+      "mat": {
+        "color": "#232a31"
+      }
     },
     {
       "x": 14.6,
@@ -1043,6 +1380,17 @@
       "t": 0.12,
       "mat": {
         "color": "#ffffff"
+      }
+    },
+    {
+      "x": 5.5,
+      "y": 19.94,
+      "z": 42,
+      "w": 12,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
       }
     }
   ]

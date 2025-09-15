@@ -1,14 +1,14 @@
 // src/dev/MapEditor.jsx
-// Draw-rect editor with: rooms, per-edge doors/heights, rotation,
-// per-room floor/roof toggles, FREE floor slabs (outside), colors/materials,
-// and JSON export that contains rooms, walls, wallAABBs, floors, roofs.
+// Draw-rect editor with rooms, per-edge doors (sliding), floors/roofs,
+// free floor slabs, materials, load default JSON / load file, and export.
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { TransformControls } from "@react-three/drei";
 
-// ---- room tools (robust import)
+// ---- room tools
 import * as RT from "../map/roomTools";
 const WALL_THICKNESS = RT.WALL_THICKNESS ?? 0.6;
 const DEFAULT_WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 2.4;
@@ -20,7 +20,7 @@ const packMap = RT.packMap;
 const legacySaveDraftRooms = RT.saveDraft;
 const legacyLoadDraftRooms = RT.loadDraft;
 
-// Use your deck rooms as a seed
+// Seed from deck (rooms only)
 import { ROOMS as INITIAL_DECK_ROOMS } from "../map/deckA";
 
 // ---------------- Context ----------------
@@ -50,8 +50,8 @@ function saveDraftV3(rooms, floors) {
     } catch { }
 }
 
+// ---------------- Provider ----------------
 export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS, enabled = true }) {
-    // Seed rooms & floors: prefer v3 (rooms+floors), else legacy rooms only, else deck rooms
     const seed = useMemo(() => {
         const v3 = loadDraftV3();
         if (v3) return v3;
@@ -63,44 +63,101 @@ export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS,
     }, [initialRooms]);
 
     const [rooms, setRooms] = useState(seed.rooms);
-    const [floors, setFloors] = useState(seed.floors); // free slabs
-    const [selected, setSelected] = useState(0);       // room index
-    const [selFloor, setSelFloor] = useState(null);    // floor slab index
+    const [floors, setFloors] = useState(seed.floors);   // free slabs
+    const [selected, setSelected] = useState(0);         // room index
+    const [selFloor, setSelFloor] = useState(null);      // floor slab index
     const [selectedEdge, setSelectedEdge] = useState(null); // {roomIndex, side}
     const [showGrid, setShowGrid] = useState(true);
     const [snap, setSnap] = useState(0.5);
 
-    // global visibility toggles
     const [showFloors, setShowFloors] = useState(true);
     const [showRoofs, setShowRoofs] = useState(true);
 
-    // draw interaction
-    const [draw, setDraw] = useState({ active: false, kind: "room" }); // kind: 'room' | 'floor'
-    const [drawStart, setDrawStart] = useState(null); // {x,z}
+    const [draw, setDraw] = useState({ active: false, kind: "room" }); // 'room' | 'floor'
+    const [drawStart, setDrawStart] = useState(null);
     const [drawCurr, setDrawCurr] = useState(null);
 
-    // ensure keys once on rooms
     useEffect(() => {
         setRooms((prev) => prev.map((r, i) => ({ ...r, key: r.key || `room_${i}` })));
     }, []);
 
-    const api = useMemo(
-        () => ({
-            rooms, setRooms,
-            floors, setFloors,
-            selected, setSelected,
-            selFloor, setSelFloor,
-            selectedEdge, setSelectedEdge,
-            showGrid, setShowGrid,
-            snap, setSnap,
-            draw, setDraw, drawStart, setDrawStart, drawCurr, setDrawCurr,
-            showFloors, setShowFloors, showRoofs, setShowRoofs,
-        }),
-        [rooms, floors, selected, selFloor, selectedEdge, showGrid, snap, draw, drawStart, drawCurr, showFloors, showRoofs]
-    );
+    const api = useMemo(() => ({
+        rooms, setRooms,
+        floors, setFloors,
+        selected, setSelected,
+        selFloor, setSelFloor,
+        selectedEdge, setSelectedEdge,
+        showGrid, setShowGrid,
+        snap, setSnap,
+        draw, setDraw, drawStart, setDrawStart, drawCurr, setDrawCurr,
+        showFloors, setShowFloors, showRoofs, setShowRoofs,
+    }), [rooms, floors, selected, selFloor, selectedEdge, showGrid, snap, draw, drawStart, drawCurr, showFloors, showRoofs]);
 
     if (!enabled) return children;
     return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
+}
+
+// ---------------- Materials (color-only helper) ----------------
+function MaterialFromDef({ def, fallbackColor = "#9aa4b2", roughness = 0.9, metalness = 0.0 }) {
+    const color = useMemo(() => {
+        const hex = def?.color || fallbackColor;
+        try { return new THREE.Color(hex); } catch { return new THREE.Color(fallbackColor); }
+    }, [def, fallbackColor]);
+    return <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} />;
+}
+
+// ---------------- Sliding Door ----------------
+function SlidingDoor({
+    width = 1.8,
+    height = 2.1,
+    thickness = 0.06,
+    panels = 2,
+    open = 0,
+    colorPanel = "#c9d6f0",
+    colorFrame = "#5e748f",
+    frameDepth = 0.08,
+    trackHeight = 0.06,
+}) {
+    const gL = useRef(), gR = useRef(), gOpen = useRef({ v: open });
+    useFrame((_, dt) => {
+        gOpen.current.v += (open - gOpen.current.v) * Math.min(1, dt * 10);
+        const curr = gOpen.current.v;
+        const panelW = panels === 2 ? width / 2 : width;
+        const leftX = -panelW * curr;
+        const rightX = panelW * curr;
+        if (gL.current) gL.current.position.set(leftX, 0, 0);
+        if (gR.current) gR.current.position.set(panels === 2 ? rightX : 0, 0, 0);
+    });
+
+    return (
+        <group>
+            {/* header + sill */}
+            <mesh position={[0, height + trackHeight / 2, 0]}>
+                <boxGeometry args={[width + 0.04, trackHeight, frameDepth]} />
+                <meshStandardMaterial color={colorFrame} roughness={0.9} metalness={0.1} />
+            </mesh>
+            <mesh position={[0, 0.02, 0]}>
+                <boxGeometry args={[width + 0.02, 0.04, frameDepth]} />
+                <meshStandardMaterial color={colorFrame} roughness={0.9} metalness={0.1} />
+            </mesh>
+
+            {/* panels */}
+            <group position={[0, height / 2, 0]} ref={gL}>
+                <mesh>
+                    <boxGeometry args={[panels === 2 ? width / 2 : width, height, thickness]} />
+                    <meshStandardMaterial color={colorPanel} metalness={0.15} roughness={0.6} />
+                </mesh>
+            </group>
+            {panels === 2 && (
+                <group position={[0, height / 2, 0]} ref={gR}>
+                    <mesh>
+                        <boxGeometry args={[width / 2, height, thickness]} />
+                        <meshStandardMaterial color={colorPanel} metalness={0.15} roughness={0.6} />
+                    </mesh>
+                </group>
+            )}
+        </group>
+    );
 }
 
 // ---------------- 3D Layer ----------------
@@ -118,22 +175,7 @@ export function MapEditor3D() {
 
     const matRoom = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x4ea1ff, transparent: true, opacity: 0.18 }), []);
     const matRoomSel = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xffc14e, transparent: true, opacity: 0.28 }), []);
-    const matSelEdge = useMemo(() => new THREE.MeshBasicMaterial({ color: 0xff6767 }), []);
     const matDraw = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x22cc88, transparent: true, opacity: 0.25 }), []);
-
-    // helpers to preview colors from data
-    const colorOf = (hex, fallback) => {
-        if (!hex) return fallback;
-        try { return new THREE.Color(hex); } catch { return fallback; }
-    };
-
-    const wallColorOf = (room, side) => {
-        const edge = room.edges?.find(e => e.side === side);
-        const c = edge?.mat?.color || room.wallMat?.color;
-        return colorOf(c, new THREE.Color("#9aa4b2"));
-    };
-    const floorColorOf = (room) => colorOf(room.floorMat?.color, new THREE.Color("#30363d"));
-    const roofColorOf = (room) => colorOf(room.roofMat?.color, new THREE.Color("#232a31"));
 
     // ground draw interactions
     const onGroundDown = (e) => {
@@ -161,8 +203,7 @@ export function MapEditor3D() {
                     name: `Room ${rooms.length + 1}`,
                     x: snapV(cx), z: snapV(cz), w: snapV(w), d: snapV(d),
                     floorY: 0, roofT: DEFAULT_SLAB_THICKNESS,
-                    hasFloor: true, hasRoof: true,
-                    exported: true,
+                    hasFloor: true, hasRoof: true, exported: true,
                     wallMat: { color: "#9aa4b2" },
                     floorMat: { color: "#30363d" },
                     roofMat: { color: "#232a31" },
@@ -237,7 +278,7 @@ export function MapEditor3D() {
                     onPointerDown={(e) => { e.stopPropagation(); setSelFloor(i); setSelected(null); setSelectedEdge(null); }}>
                     <mesh position={[0, (f.t ?? DEFAULT_SLAB_THICKNESS) / 2 + (f.y ?? 0) - (DEFAULT_SLAB_THICKNESS / 2), 0]}>
                         <boxGeometry args={[f.w, f.t ?? DEFAULT_SLAB_THICKNESS, f.d]} />
-                        <meshStandardMaterial color={colorOf(f.mat?.color, new THREE.Color("#30363d"))} roughness={0.9} metalness={0.0} />
+                        <MaterialFromDef def={f.mat} fallbackColor="#30363d" roughness={0.9} metalness={0.0} />
                     </mesh>
                 </group>
             ))}
@@ -260,7 +301,7 @@ export function MapEditor3D() {
                             <mesh position={[0, floorYCenter, 0]}
                                 onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
-                                <meshStandardMaterial color={floorColorOf(r)} roughness={0.9} metalness={0.0} />
+                                <MaterialFromDef def={r.floorMat} fallbackColor="#30363d" roughness={0.9} metalness={0.0} />
                             </mesh>
                         )}
 
@@ -271,19 +312,43 @@ export function MapEditor3D() {
                             <primitive attach="material" object={isSel ? matRoomSel : matRoom} />
                         </mesh>
 
-                        {/* walls */}
+                        {/* walls + doors */}
                         {localWalls.map((w, wi) => (
-                            <mesh key={`w_${wi}`}
+                            <group key={`w_${wi}`}
                                 position={[w.x, (w.h || DEFAULT_WALL_HEIGHT) / 2 + (r.floorY ?? 0), w.z]}
+                                rotation={[0, w.rotY || 0, 0]}
                                 onPointerDown={(e) => {
                                     e.stopPropagation();
                                     setSelected(i);
                                     setSelFloor(null);
                                     setSelectedEdge({ roomIndex: i, side: w.side });
                                 }}>
-                                <boxGeometry args={[w.w, w.h || DEFAULT_WALL_HEIGHT, w.d]} />
-                                <meshStandardMaterial color={wallColorOf(r, w.side)} roughness={0.9} metalness={0.0} />
-                            </mesh>
+                                {!w.doorSlot && (
+                                    <mesh>
+                                        <boxGeometry args={[w.len, w.h || DEFAULT_WALL_HEIGHT, w.thickness]} />
+                                        <MaterialFromDef def={w.mat || r.wallMat} fallbackColor="#9aa4b2" roughness={0.9} metalness={0.0} />
+                                    </mesh>
+                                )}
+                                {w.doorSlot && (
+                                    <group>
+                                        {/* jambs (visual) */}
+                                        <mesh position={[0, (w.doorSlot.height) / 2, 0]}>
+                                            <boxGeometry args={[0.02, w.doorSlot.height, 0.04]} />
+                                            <meshStandardMaterial color="#6b7f98" roughness={0.9} metalness={0.1} />
+                                        </mesh>
+                                        {/* sliding door */}
+                                        <SlidingDoor
+                                            width={w.doorSlot.width}
+                                            height={w.doorSlot.height}
+                                            panels={w.doorSlot.panels}
+                                            open={w.doorSlot.open ?? 0}
+                                            thickness={0.06}
+                                            colorPanel="#c9d6f0"
+                                            colorFrame="#5e748f"
+                                        />
+                                    </group>
+                                )}
+                            </group>
                         ))}
 
                         {/* roof slab */}
@@ -291,7 +356,7 @@ export function MapEditor3D() {
                             <mesh position={[0, roofYCenter, 0]}
                                 onPointerDown={(e) => { e.stopPropagation(); setSelected(i); setSelFloor(null); }}>
                                 <boxGeometry args={[r.w, thick, r.d]} />
-                                <meshStandardMaterial color={roofColorOf(r)} roughness={0.85} metalness={0.0} />
+                                <MaterialFromDef def={r.roofMat} fallbackColor="#232a31" roughness={0.85} metalness={0.0} />
                             </mesh>
                         )}
                     </group>
@@ -327,75 +392,6 @@ function makeSlab({ name = "Floor", x = 0, z = 0, w = 4, d = 3, t = DEFAULT_SLAB
         id: `slab_${Math.random().toString(36).slice(2, 8)}`,
         name, x, z, w, d, t, y, exported, mat,
     };
-}
-// --- loader utils -----------------------------------------------------------
-function normalizeLoadedMap(raw, makeRoomFn) {
-    const data = raw && typeof raw === "object" ? raw : {};
-    const rooms = Array.isArray(data.rooms) ? data.rooms : [];
-    const floors = Array.isArray(data.floors) ? data.floors : [];
-
-    // ensure each room has the fields our editor expects
-    const fixedRooms = rooms.map((r, i) =>
-        makeRoomFn({
-            key: r.key || `room_${i}`,
-            name: r.name || `Room ${i + 1}`,
-            x: r.x ?? 0,
-            z: r.z ?? 0,
-            w: Math.max(0.5, r.w ?? 4),
-            d: Math.max(0.5, r.d ?? 3),
-            rotDeg: r.rotDeg ?? 0,
-            h: r.h ?? DEFAULT_WALL_HEIGHT,
-            floorY: r.floorY ?? 0,
-            roofT: r.roofT ?? DEFAULT_SLAB_THICKNESS,
-            hasFloor: r.hasFloor !== false,
-            hasRoof: r.hasRoof !== false,
-            wallMat: r.wallMat || { color: "#9aa4b2" },
-            floorMat: r.floorMat || { color: "#30363d" },
-            roofMat: r.roofMat || { color: "#232a31" },
-            edges: Array.isArray(r.edges) ? r.edges : [
-                { side: "N", present: true, door: null },
-                { side: "E", present: true, door: null },
-                { side: "S", present: true, door: null },
-                { side: "W", present: true, door: null }
-            ],
-            exported: r.exported !== false
-        })
-    );
-
-    // free floors are already in the export shape; just coerce numbers & defaults
-    const fixedFloors = floors.map((f, i) => ({
-        id: f.id || `slab_${i}`,
-        name: f.name || `Floor ${i + 1}`,
-        x: +f.x || 0,
-        z: +f.z || 0,
-        w: Math.max(0.1, +f.w || 6),
-        d: Math.max(0.1, +f.d || 6),
-        t: Math.max(0.01, +f.t || DEFAULT_SLAB_THICKNESS),
-        y: +f.y || 0,
-        mat: f.mat || { color: "#30363d" },
-        exported: f.exported !== false
-    }));
-
-    return { rooms: fixedRooms, floors: fixedFloors };
-}
-
-async function loadDefaultMapJSON() {
-    // Prefer dynamic import (Vite transforms JSON and gives parsed object)
-    try {
-        const mod = await import("../map/defaultMap.json");
-        return mod.default;
-    } catch (e1) {
-        // Fallback via fetch with module-relative URL (works in dev/preview)
-        try {
-            const url = new URL("../map/defaultMap.json", import.meta.url);
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(String(res.status));
-            return await res.json();
-        } catch (e2) {
-            console.error("Failed to load defaultMap.json", e1, e2);
-            throw e2;
-        }
-    }
 }
 
 // ---------------- UI Panel ----------------
@@ -449,7 +445,7 @@ export function MapEditorUI() {
             { side: "N", present: true, door: null },
             { side: "E", present: true, door: null },
             { side: "S", present: true, door: null },
-            { side: "W", present: true, door: { width: 1.2, offset: 0 } },
+            { side: "W", present: true, door: { width: 1.2, offset: 0, type: "sliding", panels: 2 } },
         ],
     });
 
@@ -465,7 +461,7 @@ export function MapEditorUI() {
         roofMat: { color: "#232a31" },
         edges: [
             { side: "N", present: true, door: null },
-            { side: "E", present: true, door: { width: 1.6, offset: 0 } },
+            { side: "E", present: true, door: { width: 1.6, offset: 0, type: "sliding", panels: 2 } },
             { side: "S", present: true, door: null },
             { side: "W", present: true, door: null },
         ],
@@ -504,46 +500,30 @@ export function MapEditorUI() {
         setSelectedEdge(null);
     };
     const duplicateRoom = () => {
-        if (!r) return;
+        const rr = rooms[selected];
+        if (!rr) return;
         const idx = rooms.length;
-        setRooms((prev) => [...prev, makeRoom({ ...r, key: uniqueKey(`${r.key || "room"}_copy`) })]);
+        setRooms((prev) => [...prev, makeRoom({ ...rr, key: uniqueKey(`${rr.key || "room"}_copy`) })]);
         setSelected(idx);
         setSelFloor(null);
         setSelectedEdge(null);
     };
     const deleteRoom = () => {
-        if (!r) return;
+        const rr = rooms[selected];
+        if (!rr) return;
         const next = rooms.filter((_, i) => i !== selected);
         setRooms(next);
         setSelected(Math.max(0, selected - 1));
         setSelFloor(null);
         setSelectedEdge(null);
     };
-    const loadDefault = async () => {
-        try {
-            const raw = await loadDefaultMapJSON();
-            const { rooms: newRooms, floors: newFloors } = normalizeLoadedMap(raw, makeRoom);
 
-            setRooms(newRooms);
-            setFloors(newFloors);
-            setSelected(newRooms.length ? 0 : null);
-            setSelFloor(null);
-            setSelectedEdge(null);
-
-            // Persist as the current draft so it survives reloads
-            saveDraftV3(newRooms, newFloors);
-            legacySaveDraftRooms?.(newRooms);
-
-            alert("Loaded src/map/defaultMap.json");
-        } catch {
-            alert("Could not load src/map/defaultMap.json. Check the console for details.");
-        }
-    };
-
-    // floor slab actions
+    // floors
     const addFloor = () => {
         const idx = floors.length;
-        setFloors((prev) => [...prev, makeSlab({ name: `Floor ${idx + 1}`, x: 0, z: 0, w: 6, d: 6, t: DEFAULT_SLAB_THICKNESS, y: 0, exported: true, mat: { color: "#30363d" } })]);
+        setFloors((prev) => [...prev, makeSlab({
+            name: `Floor ${idx + 1}`, x: 0, z: 0, w: 6, d: 6, t: DEFAULT_SLAB_THICKNESS, y: 0, exported: true, mat: { color: "#30363d" }
+        })]);
         setSelFloor(idx);
         setSelected(null);
         setSelectedEdge(null);
@@ -564,18 +544,15 @@ export function MapEditorUI() {
 
     // Save / Export
     const saveDraft = () => {
-        saveDraftV3(rooms, floors);         // combined draft
-        legacySaveDraftRooms?.(rooms);      // keep legacy save updated (optional)
+        saveDraftV3(rooms, floors);
+        legacySaveDraftRooms?.(rooms);
     };
 
     const download = () => {
-        // Filter exported rooms
         const exportRooms = rooms.filter((rm) => rm.exported !== false);
-
-        // Use packMap (gives walls & AABBs)
         const packed = packMap ? packMap(exportRooms) : { rooms: exportRooms, walls: [], wallAABBs: [] };
 
-        // Build floors/roofs:
+        // floors/roofs
         const floorsFromRooms = exportRooms
             .filter((rm) => rm.hasFloor !== false)
             .map((rm) => {
@@ -613,6 +590,59 @@ export function MapEditorUI() {
         URL.revokeObjectURL(url);
     };
 
+    // ---- Loaders
+    const fileInputRef = useRef(null);
+
+    const loadFromObject = (obj) => {
+        try {
+            const r = Array.isArray(obj.rooms) ? obj.rooms.map(makeRoom) : [];
+            const f = Array.isArray(obj.floors) ? obj.floors : [];
+            setRooms(r);
+            setFloors(f);
+            setSelected(r.length ? 0 : null);
+            setSelFloor(null);
+            setSelectedEdge(null);
+        } catch (err) {
+            console.error("Invalid JSON map:", err);
+            alert("Invalid JSON map format.");
+        }
+    };
+
+    const onPickFile = async (ev) => {
+        const file = ev.target.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            loadFromObject(data);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to load JSON file.");
+        } finally {
+            ev.target.value = "";
+        }
+    };
+
+    const loadDefault = async () => {
+        try {
+            // dynamic import should work in Vite/Vercel
+            const mod = await import("../map/defaultMap.json");
+            const data = mod.default || mod;
+            loadFromObject(data);
+        } catch (e) {
+            console.warn("Dynamic import failed, trying fetch…", e);
+            try {
+                const url = new URL("../map/defaultMap.json", import.meta.url);
+                const res = await fetch(url);
+                const data = await res.json();
+                loadFromObject(data);
+            } catch (err) {
+                console.error(err);
+                alert("Could not load ../map/defaultMap.json");
+            }
+        }
+    };
+
     return createPortal(
         <div style={panelStyle}>
             {/* header + actions */}
@@ -624,11 +654,7 @@ export function MapEditorUI() {
                     <button onClick={addMeetingRoom}>+ MeetingRoom</button>
                     <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
                     <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
-
-                    {/* NEW: load defaultMap.json */}
-                    <button onClick={loadDefault}>Load defaultMap.json</button>
                 </div>
-
             </div>
 
             {/* global toggles */}
@@ -656,13 +682,18 @@ export function MapEditorUI() {
 
                 <button onClick={saveDraft}>Save Draft</button>
                 <button onClick={download}>Export JSON</button>
+
+                {/* load */}
+                <input ref={fileInputRef} type="file" accept="application/json" style={{ display: "none" }} onChange={onPickFile} />
+                <button onClick={() => fileInputRef.current?.click()}>Load JSON…</button>
+                <button onClick={loadDefault}>Load Default</button>
             </div>
 
             {/* room list */}
             <div style={{ maxHeight: 160, overflow: "auto", padding: 6, border: "1px solid #2b2b2b", borderRadius: 6, marginBottom: 8 }}>
                 {rooms.map((it, i) => (
                     <div
-                        key={it.key}
+                        key={it.key || i}
                         style={{
                             padding: 4, background: i === selected && selFloor == null ? "#1f2a44" : "transparent",
                             borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between"
@@ -742,6 +773,18 @@ export function MapEditorUI() {
                         <label>Default Wall Height</label>
                         <input type="number" min={0.5} step={0.1} value={r.h || DEFAULT_WALL_HEIGHT} onChange={(e) => updateRoom({ h: Math.max(0.5, Number(e.target.value)) })} />
 
+                        {/* Default wall thickness for this room */}
+                        <label>Default Wall Thickness</label>
+                        <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={r.wallT ?? WALL_THICKNESS}
+                            onChange={(e) => updateRoom({ wallT: Math.max(0.01, Number(e.target.value)) })}
+                        />
+
+
+
                         <label>Floor Y</label>
                         <input type="number" step={0.05} value={r.floorY ?? 0} onChange={(e) => updateRoom({ floorY: Number(e.target.value) })} />
 
@@ -795,22 +838,84 @@ export function MapEditorUI() {
                             return (
                                 <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6 }}>
                                     <label>Present</label>
-                                    <input type="checkbox" checked={!!e.present} onChange={(ev) => setE({ present: ev.target.checked })} />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!e.present}
+                                        onChange={(ev) => setE({ present: ev.target.checked })}
+                                    />
 
                                     <label>Door?</label>
-                                    <input type="checkbox" checked={!!e.door} onChange={(ev) => setE({ door: ev.target.checked ? (e.door || { width: 1.2, offset: 0 }) : null })} />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!e.door}
+                                        onChange={(ev) =>
+                                            setE({ door: ev.target.checked ? (e.door || { width: 1.2, offset: 0 }) : null })
+                                        }
+                                    />
 
                                     <label>Door Width</label>
-                                    <input type="number" min={0} step={0.1} value={e.door?.width || 0} onChange={(ev) => setE({ door: { ...(e.door || {}), width: Math.max(0, Number(ev.target.value)) } })} />
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        step={0.1}
+                                        value={e.door?.width || 0}
+                                        onChange={(ev) => setE({ door: { ...(e.door || {}), width: Math.max(0, Number(ev.target.value)) } })}
+                                    />
 
                                     <label>Door Offset</label>
-                                    <input type="number" step={0.1} value={e.door?.offset || 0} onChange={(ev) => setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })} />
+                                    <input
+                                        type="number"
+                                        step={0.1}
+                                        value={e.door?.offset || 0}
+                                        onChange={(ev) => setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })}
+                                    />
 
                                     <label>Edge Height</label>
-                                    <input type="number" min={0.5} step={0.1} value={e.h || r.h || DEFAULT_WALL_HEIGHT} onChange={(ev) => setE({ h: Math.max(0.5, Number(ev.target.value)) })} />
+                                    <input
+                                        type="number"
+                                        min={0.5}
+                                        step={0.1}
+                                        value={e.h || r.h || DEFAULT_WALL_HEIGHT}
+                                        onChange={(ev) => setE({ h: Math.max(0.5, Number(ev.target.value)) })}
+                                    />
+
+                                    {/* --- NEW: Edge Thickness (depth) --- */}
+                                    {/* Edge Thickness (depth across the wall); overrides room.wallT */}
+                                    <label>Edge Thickness (depth)</label>
+                                    <input
+                                        type="number"
+                                        min={0.01}
+                                        step={0.01}
+                                        value={e.t ?? (r.wallT ?? WALL_THICKNESS)}
+                                        onChange={(ev) => setE({ t: Math.max(0.01, Number(ev.target.value)) })}
+                                    />
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <button onClick={() => setE({ t: null })}>
+                                            Use Room Default ({(r.wallT ?? WALL_THICKNESS).toFixed(2)})
+                                        </button>
+                                    </div>
+
+
+                                    {/* --- NEW: Edge Width (length along side) --- */}
+                                    {/* Wall Thickness (per-edge override) */}
+                                    <label>Wall Thickness (override)</label>
+                                    <input
+                                        type="number"
+                                        min={0.01}
+                                        step={0.01}
+                                        value={e.t ?? (r.wallT ?? WALL_THICKNESS)}
+                                        onChange={(ev) =>
+                                            setE({ t: Math.max(0.01, Number(ev.target.value)) })
+                                        }
+                                    />
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <button onClick={() => setE({ t: null })}>Use room default</button>
+                                    </div>
+
 
                                     <label>Edge Color</label>
-                                    <input type="color"
+                                    <input
+                                        type="color"
                                         value={(e.mat?.color) || (r.wallMat?.color) || "#9aa4b2"}
                                         onChange={(ev) => setE({ mat: { ...(e.mat || {}), color: ev.target.value } })}
                                     />
@@ -820,6 +925,7 @@ export function MapEditorUI() {
                                         <button onClick={() => setE({ present: true })}>Restore Edge</button>
                                     </div>
                                 </div>
+
                             );
                         })()}
                     </div>
