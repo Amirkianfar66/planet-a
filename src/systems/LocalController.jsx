@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 import { getMyPos, setMyPos } from "../network/playroom";
 import { FLOOR, WALL_THICKNESS, wallAABBs } from "../map/deckA";
+import { getStaticAABBs } from "../systems/collision";
 
 const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
@@ -14,9 +15,9 @@ const GROUND_Y = 0;
 // ⬇️ Set this to the center of your Lockdown room (map coordinates)
 const LOCKDOWN_POS = { x: 12, y: 0, z: -6 };
 
-function resolveCollisions(next) {
-    for (let pass = 0; pass < 2; pass++) {
-        for (const b of wallAABBs) {
+function resolveCollisions(next, boxes) {
+         for (let pass = 0; pass < 2; pass++) {
+           for (const b of boxes) {
             const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
             const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
             if (!(insideX && insideZ)) continue;
@@ -87,7 +88,8 @@ function LocalControllerInner() {
 
     useFrame((_, dt) => {
         if (!dt) return;
-
+        // union of static walls + GLB-baked boxes
+        const colliders = wallAABBs.concat(getStaticAABBs());
         const p = myPlayer();
 
         // ⬇️ NEW: Lockdown enforcement (no change to normal logic for others)
@@ -126,7 +128,7 @@ function LocalControllerInner() {
             next.x += move.x;
             next.z += move.z;
 
-            resolveCollisions(next);
+            resolveCollisions(next, colliders);
 
             const m = WALL_THICKNESS + PLAYER_RADIUS + 0.05;
             next.x = Math.max(-FLOOR.w / 2 + m, Math.min(FLOOR.w / 2 - m, next.x));

@@ -11,7 +11,7 @@ export const WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 2.4;
 const DEFAULT_SLAB_THICKNESS = RT.DEFAULT_SLAB_THICKNESS ?? 0.12;
 
 // Keep legacy floor bounds if other code relies on them.
-export const FLOOR = { w: 40, d: 24 };
+export const FLOOR = { w: 100, d: 100 };
 
 // Optional legacy areas for tinting etc.
 export const OUTSIDE_AREA = { x: -FLOOR.w / 4, z: 0, w: FLOOR.w / 2 - 1, d: FLOOR.d - 2 };

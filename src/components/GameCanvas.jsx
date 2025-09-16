@@ -1,13 +1,13 @@
-﻿// src/world/GameCanvas.jsx
-import React, { useMemo } from "react";
+﻿// src/components/GameCanvas.jsx
+import React, { useMemo, Suspense } from "react"
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
-
+// (Landscape removed)
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
 } from "../map/deckA";
-
+import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
@@ -87,14 +87,14 @@ function FloorAndWalls() {
 
             {/* Per-room floors (if provided by deckA/map JSON) */}
             {FLOORS?.map((f, i) => {
-                  const mat = getMaterial("floor", f.mat);
-                  return (
-                        <mesh key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
-                              <boxGeometry args={[f.w, f.t, f.d]} />
-                              <primitive object={mat} attach="material" />
-                            </mesh>
-                      );
-                })}
+                const mat = getMaterial("floor", f.mat);
+                return (
+                    <mesh key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
+                        <boxGeometry args={[f.w, f.t, f.d]} />
+                        <primitive object={mat} attach="material" />
+                    </mesh>
+                );
+            })}
 
             {/* Walls: respect per-wall height (w.h) and room floorY offset */}
             {walls.map((w, i) => {
@@ -112,14 +112,14 @@ function FloorAndWalls() {
 
             {/* Per-room roofs (if provided) */}
             {ROOFS?.map((rf, i) => {
-                  const mat = getMaterial("roof", rf.mat);
-                  return (
-                        <mesh key={`roof_${i}`} position={[rf.x, rf.y, rf.z]}>
-                              <boxGeometry args={[rf.w, rf.t, rf.d]} />
-                              <primitive object={mat} attach="material" />
-                            </mesh>
-                      );
-                })}
+                const mat = getMaterial("roof", rf.mat);
+                return (
+                    <mesh key={`roof_${i}`} position={[rf.x, rf.y, rf.z]}>
+                        <boxGeometry args={[rf.w, rf.t, rf.d]} />
+                        <primitive object={mat} attach="material" />
+                    </mesh>
+                );
+            })}
 
             {/* Labels */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
@@ -148,8 +148,20 @@ export default function GameCanvas({ dead = [] }) {
                 <color attach="background" args={["#0b1220"]} />
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[5, 10, 3]} intensity={1} />
-                <FloorAndWalls />
 
+                <Suspense fallback={null}>
+                    {WORLD_GLB?.enabled && WORLD_GLB?.url && (
+                        <WorldGLB
+                            url={WORLD_GLB.url}
+                            position={WORLD_GLB.position || [0, 0, 0]}
+                            rotationYDeg={WORLD_GLB.rotationYDeg || 0}   // ← keep one source of truth
+                            scale={WORLD_GLB.scale || 1}
+                        />
+                    )}
+                </Suspense>
+
+
+                <FloorAndWalls />
                 {/* Items & players */}
                 <ItemsAndDevices />
                 <Players3D dead={dead} />

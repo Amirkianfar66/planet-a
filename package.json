@@ -3,11 +3,34 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "vite",
+    "electron:dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "app:dev": "concurrently -k \"vite\" \"npm:electron:dev\"",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "build:web": "vite build --mode electron",
+    "preview": "vite preview",
+    "dist": "npm run build:web && electron-builder",
+    "lint": "eslint ."
+  },
+  "build": {
+    "appId": "com.planeta.game",
+    "files": [
+      "dist/**",
+      "electron/**"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.{glb,gltf,bin,ktx2,wasm,hdr}"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "PlanetA-Setup-${version}.exe"
+    },
+    "directories": {
+      "buildResources": "build"
+    }
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
@@ -24,10 +47,15 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.1.0",
+    "cross-env": "^10.0.0",
+    "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
-    "vite": "^7.1.2"
+    "vite": "^7.1.2",
+    "vite-plugin-electron": "^0.29.0"
   }
 }

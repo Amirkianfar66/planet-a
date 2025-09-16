@@ -1,0 +1,233 @@
+html, body, #root { height: 100%; margin: 0; }
+button { cursor: pointer; }
+canvas { display: block; }
+/* ----- Role panel ----- */
+.role-objective__label {
+    color: var(--ui-sub);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.role-objective__text {
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    padding: 10px;
+    line-height: 1.35;
+}
+
+.ui-list {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ui-sub);
+}
+
+.ui-empty {
+    color: var(--ui-sub);
+    opacity: .85;
+}
+
+/* ----- Inventory grid ----- */
+.inv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px;
+}
+
+@media (min-width: 460px) {
+    .inv-grid {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+}
+
+.inv-slot {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    align-items: start;
+    gap: 6px;
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.inv-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #1a2230;
+    border: 1px solid var(--ui-border);
+    font-weight: 700;
+}
+
+.inv-name {
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+.inv-qty {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-variant-numeric: tabular-nums;
+    background: #162030;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: var(--ui-sub);
+}
+
+.inv-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* ----- Team chat ----- */
+.team-chat .member-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.member-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    background: var(--ui-chip-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+}
+
+    .member-pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #666;
+    }
+
+        .member-pill .dot.on {
+            background: #35d07f;
+        }
+
+        .member-pill .dot.off {
+            background: #7a8696;
+        }
+
+.chat-body {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+}
+
+.chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 36vh;
+    overflow: auto;
+}
+
+.bubble {
+    max-width: 85%;
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--ui-border);
+    background: var(--ui-card);
+}
+
+    .bubble.me {
+        align-self: flex-end;
+        background: linear-gradient(180deg, #19324a, #102234);
+    }
+
+.bubble-author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ui-sub);
+    font-size: 12px;
+}
+
+.bubble-text {
+    line-height: 1.35;
+}
+
+.bubble-time {
+    align-self: end;
+    justify-self: end;
+    color: var(--ui-sub);
+    font-size: 10px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    border-top: 1px solid var(--ui-border);
+    padding-top: 8px;
+}
+
+    .chat-input input {
+        flex: 1;
+        background: #0e141f;
+        border: 1px solid var(--ui-border);
+        color: var(--ui-txt);
+        padding: 8px 10px;
+        border-radius: 10px;
+    }
+/* e.g., src/ui/ui.css */
+.item-btn {
+    font: 600 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    color: #0b1220;
+    background: #bfe1ff;
+    border: 1px solid #93c5fd;
+    border-radius: 10px;
+    padding: 6px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .item-btn:hover {
+        filter: brightness(1.05);
+    }
+
+    .item-btn:active {
+        transform: translateY(1px);
+    }
+
+    .item-btn:disabled {
+        cursor: not-allowed;
+        opacity: .6;
+        background: #e5e7eb;
+        border-color: #d1d5db;
+    }
+
+.item-btn--pulse {
+    animation: itemPulse .18s ease-in;
+}
+
+@keyframes itemPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(0.97);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
