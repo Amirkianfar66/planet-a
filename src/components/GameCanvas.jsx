@@ -22,15 +22,14 @@ import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
 import { getMaterial } from "../map/materials";
 
-// Uses the enhanced version you updated earlier
+// Uses the enhanced door component (supports single GLB w/ animation)
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 
-// ---------- helper: read player world position from a global each frame ----------
+// ---------- helper: read player world position (set this from your controller) ----------
 function usePlayerPosFromWindow() {
     const ref = useRef(null);
     useFrame(() => {
         const g = (typeof window !== "undefined" && window.__playerPos) || null;
-        // expect [x,y,z]
         if (Array.isArray(g) && g.length === 3) ref.current = g;
     });
     return ref.current;
@@ -72,7 +71,7 @@ function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff"
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
     const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map((r) => [r.key, r])), []);
-    const playerPos = usePlayerPosFromWindow(); // ← live player position if your controller sets it
+    const playerPos = usePlayerPosFromWindow();
 
     return (
         <group>
@@ -128,34 +127,35 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Doors (auto-open by proximity). Wrap in Suspense for GLB loads */}
+            {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
             <Suspense fallback={null}>
-                {DOORS?.map((d, i) => (
-                    <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
-                        <Door3D
-                            // geometry/looks
-                            doorWidth={2.4}
-                            doorHeight={d.height ?? 2.4}
-                            thickness={0.3}
-                            panels={d.panels || 2}
-                            seam={0.02}
-                            slideSlope={0.1}
+                {DOORS?.map((d, i) => {
+                    const useProx = d.useProximity !== false; // default true from deckA
+                    return (
+                        <group key={`door_${d.id || i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
+                            <Door3D
+                                // single animated GLB
+                                glbUrl={d.glbUrl || "/models/door.glb"}
+                                clipName={d.clipName || "Open"}
 
-                            // GLB assets (put files under /public/models or adjust paths)
-                            frameUrl={"/models/door frame.glb"}
-                            leftUrl={"/models/door panel l.glb"}
-                            rightUrl={"/models/door panel r.glb"}
+                                // geometry/looks
+                                doorWidth={d.width ?? 2.4}
+                                doorHeight={d.height ?? 2.4}
+                                thickness={d.thickness ?? 0.3}
+                                panels={d.panels ?? 2}
+                                seam={0.02}
+                                slideSlope={0.1}
 
-                            // behavior
-                            playerPosition={playerPos /* auto-open when player near */}
-                            triggerRadius={3}
-                            openSpeed={6}
-                            closeSpeed={4}
-
-                        // if you prefer controlled: pass open={d.open} and omit playerPosition
-                        />
-                    </group>
-                ))}
+                                // behavior
+                                playerPosition={useProx ? playerPos : null}
+                                triggerRadius={d.triggerRadius ?? 3}
+                                open={useProx ? undefined : (d.open ?? 0)}
+                                openSpeed={6}
+                                closeSpeed={4}
+                            />
+                        </group>
+                    );
+                })}
             </Suspense>
 
             {/* Roofs */}
@@ -209,6 +209,7 @@ export default function GameCanvas({ dead = [] }) {
                 </Suspense>
 
                 <FloorAndWalls />
+
                 {/* Items & players */}
                 <ItemsAndDevices />
                 <Players3D dead={dead} />
