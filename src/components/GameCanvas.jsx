@@ -6,7 +6,7 @@ import * as THREE from "three";
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
-    DOORS,
+    DOORS,ROOM_BY_KEY,
 } from "../map/deckA";
 
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
@@ -129,34 +129,35 @@ function FloorAndWalls() {
 
             {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
             <Suspense fallback={null}>
-                {DOORS?.map((d, i) => {
-                    const useProx = d.useProximity !== false; // default true from deckA
-                    return (
-                        <group key={`door_${d.id || i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
-                            <Door3D
-                                // single animated GLB
-                                glbUrl={d.glbUrl || "/models/door.glb"}
-                                clipName={d.clipName || "Open"}
+                {DOORS?.map((d, i) => (
+                    <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
+                        <Door3D
+                            // use the animated GLB
+                            glbUrl="/models/door.glb"
+                            clipName="Open"          // omit if your clip is already named "Open"
 
-                                // geometry/looks
-                                doorWidth={d.width ?? 4.5}
-                                doorHeight={d.height ?? 3}
-                                thickness={d.thickness ?? 0.3}
-                                panels={d.panels ?? 2}
-                                seam={0.02}
-                                slideSlope={0.1}
+                            // placement / sizing
+                            doorWidth={4.5}
+                            doorHeight={3}
+                            thickness={0.3}
+                            panels={d.panels || 2}
+                            elevation={1.5}          // lifts model so it isn’t sunk into the floor
 
-                                // behavior
-                                playerPosition={useProx ? playerPos : null}
-                                triggerRadius={d.triggerRadius ?? 3}
-                                open={useProx ? undefined : (d.open ?? 0)}
-                                openSpeed={6}
-                                closeSpeed={4}
-                            />
-                        </group>
-                    );
-                })}
+                            // proximity behavior
+                            playerPosition={usePlayerPosFromWindow()} // or your actual player pos
+                            triggerRadius={3}
+                            dwellMillis={1000}       // must stay near for 1s to open
+                            outDwellMillis={350}     // optional: small delay before closing
+
+                            // smoothing
+                            openSpeed={6}
+                            closeSpeed={4}
+                        />
+                    </group>
+                ))}
             </Suspense>
+
+
 
             {/* Roofs */}
             {ROOFS?.map((rf, i) => {

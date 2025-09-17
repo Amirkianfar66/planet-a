@@ -50,6 +50,19 @@ function LocalControllerInner() {
 
     const vyRef = useRef(0);
     const groundedRef = useRef(true);
+    // Make player position visible to Door3D (GameCanvas reads window.__playerPos)
+    const publishPlayerPos = (p) => {
+           if (typeof window !== "undefined") {
+                 window.__playerPos =[p.x, p.y, p.z];
+               }
+         };
+     // Seed on mount; clean up on unmount
+         useEffect(() => {
+               publishPlayerPos(getMyPos());
+               return () => {
+                     if (typeof window !== "undefined") delete window.__playerPos;
+                   };
+         }, []);
 
     useEffect(() => {
         const down = (e) => {
@@ -98,7 +111,7 @@ function LocalControllerInner() {
             const next = { x: LOCKDOWN_POS.x, y: LOCKDOWN_POS.y, z: LOCKDOWN_POS.z };
             setPos(next);
             setMyPos(next.x, next.y, next.z);
-
+            publishPlayerPos(next);
             // Keep current facing; report no speed and on-ground
             p.setState("yaw", yawRef.current, false);
             p.setState("spd", 0, false);
@@ -154,7 +167,7 @@ function LocalControllerInner() {
 
         setPos(next);
         setMyPos(next.x, next.y, next.z);
-
+        publishPlayerPos(next);
         p.setState("yaw", yawRef.current, false);
         p.setState("spd", horizSpeed, false);
         p.setState("air", !groundedRef.current, false);

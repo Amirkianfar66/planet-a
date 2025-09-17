@@ -41,20 +41,23 @@ export function SlidingDoor({
     doorWidth = 2.4,
     doorHeight = 2.4,
     thickness = 0.3,
-    panels = 2, // 1 or 2
+    panels = 2,
 
     // animation control (shared)
-    playerPosition = null, // [x,y,z]; if provided, auto-open by distance
+    playerPosition = null,
     triggerRadius = 3,
-    open = 0, // used when playerPosition is not provided
+    open = 0,
     openSpeed = 6,
     closeSpeed = 4,
 
-    // ---------- Mode A: SINGLE animated GLB ----------
-    glbUrl = null,         // e.g. "/models/door.glb"
-    clipName = null,       // optional, defaults to "Open" or first available
+    // NEW: dwell/hold timings
+    dwellOpenSec = 1.0,     // must be inside radius for this long to open
+    holdOpenSec = 0.4,     // keep it open this long after leaving
 
-    // ---------- Mode B: panel fallback ----------
+    // Mode A: single animated GLB
+    glbUrl = null,
+    clipName = null,
+    // Mode B: panel fallback
     frameUrl = null,
     leftUrl = null,
     rightUrl = null,
@@ -65,17 +68,49 @@ export function SlidingDoor({
     frameDepth = 0.08,
     trackHeight = 0.06,
 }) {
+
     const root = useRef();
     const openRef = useRef(0); // smoothed 0..1
 
     // -------------------- Shared open (auto vs controlled) --------------------
+    // -------------------- Shared open with dwell/hold --------------------
+    const timeRef = useRef(typeof performance !== "undefined" ? performance.now() * 0.001 : 0);
+    const stateRef = useRef({ dwell: 0, sinceExit: 999, lastIn: false });
+
     const computeTargetOpen = () => {
+        // If no proximity control, just use the controlled 'open' prop
         if (!playerPosition) return THREE.MathUtils.clamp(open, 0, 1);
+
+        // Compute dt (seconds) using high-resolution clock
+        const now = (typeof performance !== "undefined" ? performance.now() * 0.001 : 0);
+        const dt = Math.max(0, Math.min(0.1, now - timeRef.current)); // clamp dt
+        timeRef.current = now;
+
+        // Distance in XZ plane
         const dx = (position?.[0] || 0) - playerPosition[0];
         const dz = (position?.[2] || 0) - playerPosition[2];
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        return dist <= triggerRadius ? 1 : 0;
+        const inRange = Math.hypot(dx, dz) <= triggerRadius;
+
+        // Update dwell / hold timers
+        const S = stateRef.current;
+        if (inRange) {
+            S.dwell += dt;     // time spent inside radius
+            S.sinceExit = 0;   // reset exit timer
+        } else {
+            S.dwell = 0;       // reset dwell
+            S.sinceExit += dt; // how long since we left
+        }
+        S.lastIn = inRange;
+
+        // Logic:
+        // - Open only after being inside for dwellOpenSec
+        // - If we just left, keep it open for holdOpenSec
+        if (inRange && S.dwell >= dwellOpenSec) return 1;
+        if (!inRange && S.sinceExit <= holdOpenSec) return 1;
+
+        return 0;
     };
+
 
     // =====================================================================================
     // MODE A: Single animated GLB (preferred) – scrub animation clip based on openRef.v
@@ -84,6 +119,7 @@ export function SlidingDoor({
         return (
             <AnimatedDoorSingleGLB
                 position={position}
+                elevation={elevation}
                 rotationY={rotationY}
                 glbUrl={glbUrl}
                 clipName={clipName}
@@ -174,7 +210,8 @@ export function SlidingDoor({
     });
 
     return (
-        <group ref={root} position={position} rotation={[0, rotationY || 0, 0]}>
+        <group ref={root} position={[position[0], position[1] + elevation, position[2]]}
+ rotation= { [0, rotationY || 0, 0]} >
             {/* ----- Frame ----- */}
             {frameNode ? (
                 <primitive object={frameNode} />
@@ -230,6 +267,7 @@ export function SlidingDoor({
 function AnimatedDoorSingleGLB({
     position,
     rotationY,
+    elevation = 0,
     glbUrl,
     clipName,
     width = 2.4,
@@ -258,7 +296,8 @@ function AnimatedDoorSingleGLB({
         box.getSize(size);
         box.getCenter(center);
 
-        obj.position.sub(center); // center on origin
+        const bottomY = box.min.y;
+        obj.position.set(-center.x, -bottomY, -center.z);
 
         const sx = size.x > 0 ? width / size.x : 1;
         const sy = size.y > 0 ? height / size.y : sx;
@@ -313,7 +352,8 @@ function AnimatedDoorSingleGLB({
     });
 
     return (
-        <group ref={root} position={position} rotation={[0, rotationY || 0, 0]}>
+        <group ref={root} position={[position[0], position[1] + elevation, position[2]]}
+ rotation= { [0, rotationY || 0, 0]} >
             <group ref={holder} />
         </group>
     );
