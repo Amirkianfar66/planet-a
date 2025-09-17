@@ -64,7 +64,7 @@ const MAP = getAuthoredMap();
 export const ROOMS = (MAP.rooms || []).map((r) => RT.makeRoom(r));
 export const ROOM_BY_KEY = Object.fromEntries(ROOMS.map((r) => [r.key, r]));
 
-// ----------------- Door normalization -----------------
+/// ----------------- Door normalization -----------------
 const DEG = Math.PI / 180;
 const yawFromSide = (side) => {
     switch ((side || "").toUpperCase()) {
@@ -121,8 +121,8 @@ function normalizeDoors(rawDoors, rooms) {
         });
     }
     return out;
-
 }
+
 export const DOORS = normalizeDoors(MAP.doors, ROOMS);
 
 // ---- Walls (baked or synthesized) ----
