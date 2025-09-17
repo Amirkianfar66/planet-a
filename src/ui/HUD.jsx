@@ -5,6 +5,7 @@ import { MetersPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
 import { useGameState } from "../game/GameStateProvider";
 import { requestAction as prRequestAction } from "../network/playroom";
 import { getAbilitiesForRole } from "../game/roleAbilities";
+import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
 
 /* ------- Tiny UI helpers ------- */
@@ -171,6 +172,33 @@ export default function HUD({ game = {} }) {
         }, 150);
         return () => clearInterval(iv);
     }, []);
+
+    // ✅ NEW: live oxygen from player state (host updates this)
+    const [oxygenVal, setOxygenVal] = useState(Number(me?.getState?.("oxygen") ?? 100));
+    useEffect(() => {
+          const iv = setInterval(() => {
+                     const v = Number(myPlayer()?.getState?.("oxygen") ?? 100);
+                     setOxygenVal(prev => (prev === v ? prev : v));
+          }, 150);
+              return () => clearInterval(iv);
+    }, []);
+        // ✅ NEW: track position for outside/inside check
+    const [pos, setPos] = useState({
+     x: Number(me?.getState?.("x") || 0),
+                   z: Number(me?.getState?.("z") || 0),
+                });
+   useEffect(() => {
+           const iv = setInterval(() => {
+                   const p = myPlayer();
+                   setPos(prev => {
+                           const nx = Number(p?.getState?.("x") || 0);
+                           const nz = Number(p?.getState?.("z") || 0);
+                           return (prev.x === nx && prev.z === nz) ? prev : { x: nx, z: nz };
+                   });
+           }, 120);
+           return () => clearInterval(iv);
+        }, []);
+   const outside = isOutsideByRoof(pos.x, pos.z); // ✅ NEW
     // ✅ NEW: keep a live snapshot of the backpack so stacking/counts update immediately
     const [bpSnapshot, setBpSnapshot] = useState(() => me?.getState?.("backpack") || []);
     useEffect(() => {
@@ -282,7 +310,13 @@ export default function HUD({ game = {} }) {
             >
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                    <MetersPanel life={lifeVal} energy={energyVal} oxygen={Number(oxygen)} />
+                    {/* ✅ Use live oxygen + show when outside */}
+                                        <MetersPanel
+                       title={outside ? "Life Support (Outside)" : "Life Support"}
+                                            life={lifeVal}
+                                            energy={energyVal}
+                                            oxygen={oxygenVal}
+                    />
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>

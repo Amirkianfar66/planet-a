@@ -33,6 +33,7 @@
     }
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.2.1",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "playroomkit": "^0.0.91",
@@ -57,5 +58,17 @@
     "globals": "^16.3.0",
     "vite": "^7.1.2",
     "vite-plugin-electron": "^0.29.0"
-  }
+  },
+  "description": "This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amirkianfar66/planet-a.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Amirkianfar66/planet-a/issues"
+  },
+  "homepage": "https://github.com/Amirkianfar66/planet-a#readme"
 }

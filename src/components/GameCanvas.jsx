@@ -1,12 +1,14 @@
 ﻿// src/components/GameCanvas.jsx
-import React, { useMemo, Suspense } from "react"
-import { Canvas } from "@react-three/fiber";
+import React, { useMemo, Suspense, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-// (Landscape removed)
+
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
+    DOORS,
 } from "../map/deckA";
+
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
@@ -20,13 +22,22 @@ import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
 import { getMaterial } from "../map/materials";
 
-function TextLabel({
-    text,
-    position = [0, 0.01, 0],
-    width = 6,
-    color = "#cfe7ff",
-    outline = "#0d1117",
-}) {
+// Uses the enhanced version you updated earlier
+import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
+
+// ---------- helper: read player world position from a global each frame ----------
+function usePlayerPosFromWindow() {
+    const ref = useRef(null);
+    useFrame(() => {
+        const g = (typeof window !== "undefined" && window.__playerPos) || null;
+        // expect [x,y,z]
+        if (Array.isArray(g) && g.length === 3) ref.current = g;
+    });
+    return ref.current;
+}
+
+// ---------- label ----------
+function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
     const { texture, aspect } = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 1024; canvas.height = 256;
@@ -57,13 +68,15 @@ function TextLabel({
     );
 }
 
+// ---------- scene ----------
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
-    const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map(r => [r.key, r])), [ROOMS]);
+    const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map((r) => [r.key, r])), []);
+    const playerPos = usePlayerPosFromWindow(); // ← live player position if your controller sets it
 
     return (
         <group>
-            {/* Global ground */}
+            {/* Ground */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
@@ -79,13 +92,13 @@ function FloorAndWalls() {
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
-            {/* Wire grid */}
+            {/* Grid */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
             </mesh>
 
-            {/* Per-room floors (if provided by deckA/map JSON) */}
+            {/* Floors */}
             {FLOORS?.map((f, i) => {
                 const mat = getMaterial("floor", f.mat);
                 return (
@@ -96,21 +109,56 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Walls: respect per-wall height (w.h) and room floorY offset */}
+            {/* Walls (already split in deckA) */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
-                const baseY = r?.floorY ?? 0;        // elevate walls if the room floor is raised
-                const h = w.h ?? WALL_HEIGHT;        // wall height from JSON or default
+                const baseY = r?.floorY ?? 0;
+                const h = w.h ?? WALL_HEIGHT;
                 const mat = getMaterial("wall", w.mat || r?.wallMat);
                 return (
-                    <mesh {...noRay} key={`wall_${i}`} position={[w.x, baseY + h / 2, w.z]}>
+                    <mesh
+                        {...noRay}
+                        key={`wall_${i}`}
+                        position={[w.x, baseY + h / 2, w.z]}
+                        rotation={[0, w.rotY || 0, 0]}
+                    >
                         <boxGeometry args={[w.w, h, w.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Per-room roofs (if provided) */}
+            {/* Doors (auto-open by proximity). Wrap in Suspense for GLB loads */}
+            <Suspense fallback={null}>
+                {DOORS?.map((d, i) => (
+                    <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
+                        <Door3D
+                            // geometry/looks
+                            doorWidth={2.4}
+                            doorHeight={d.height ?? 2.4}
+                            thickness={0.3}
+                            panels={d.panels || 2}
+                            seam={0.02}
+                            slideSlope={0.1}
+
+                            // GLB assets (put files under /public/models or adjust paths)
+                            frameUrl={"/models/door frame.glb"}
+                            leftUrl={"/models/door panel l.glb"}
+                            rightUrl={"/models/door panel r.glb"}
+
+                            // behavior
+                            playerPosition={playerPos /* auto-open when player near */}
+                            triggerRadius={3}
+                            openSpeed={6}
+                            closeSpeed={4}
+
+                        // if you prefer controlled: pass open={d.open} and omit playerPosition
+                        />
+                    </group>
+                ))}
+            </Suspense>
+
+            {/* Roofs */}
             {ROOFS?.map((rf, i) => {
                 const mat = getMaterial("roof", rf.mat);
                 return (
@@ -154,12 +202,11 @@ export default function GameCanvas({ dead = [] }) {
                         <WorldGLB
                             url={WORLD_GLB.url}
                             position={WORLD_GLB.position || [0, 0, 0]}
-                            rotationYDeg={WORLD_GLB.rotationYDeg || 0}   // ← keep one source of truth
+                            rotationYDeg={WORLD_GLB.rotationYDeg || 0}
                             scale={WORLD_GLB.scale || 1}
                         />
                     )}
                 </Suspense>
-
 
                 <FloorAndWalls />
                 {/* Items & players */}

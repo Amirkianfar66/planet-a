@@ -89,6 +89,46 @@ const matFrom = (base, fallbackColor) => ({
     emissiveIntensity: base?.emissiveIntensity ?? 1,
 });
 
+// ---- Door single-object helpers ----
+
+const DEFAULT_DOOR = { offset: 0 };
+
+function coalesceDoor(door) {
+    if (!door) return null;
+    if (Array.isArray(door)) return { ...door[0] };      // legacy: keep first
+    if (door === true) return { ...DEFAULT_DOOR };       // legacy boolean
+    if (typeof door === "object") return { ...door };
+    return null;
+}
+
+function clampDoorProps(door, len, wallH, wallT) {
+    if (!door) return null;
+    const half = Number.isFinite(len) ? Math.max(0, len / 2) : 0;
+     // Hard defaults that don't depend on DEFAULT_DOOR anymore:
+    const rawW = Number(door.width);
+    const fallbackW = 1.2;               // sane default
+    const width = Math.min(
+           Math.max(0.4, Number.isFinite(rawW) ? rawW : fallbackW),
+        +  Math.max(0, (Number.isFinite(len) ? len : fallbackW) - 0.1)
+         );
+    const rawH = Number(door.height);
+    const height = Math.max(0.5, Number.isFinite(rawH) ? rawH : ((Number.isFinite(wallH) ? wallH : 2.4) - 0.12));
+    const rawPanels = Number(door.panels);
+    const panels = Math.max(1, Math.min(2, Number.isFinite(rawPanels) ? rawPanels : 2));
+    const rawOpen = Number(door.open);
+    const open = Math.max(0, Math.min(1, Number.isFinite(rawOpen) ? rawOpen : 0));
+    const rawOff = Number(door.offset);
+    const offset = THREE.MathUtils.clamp(Number.isFinite(rawOff) ? rawOff : 0, -half + width / 2, half - width / 2);
+    const rawT = Number(door.thickness);
+    const thickness = Math.min(0.06, Number.isFinite(rawT) ? rawT : ((Number.isFinite(wallT) ? wallT : 0.6) * 0.9));
+    return { ...door, width, height, panels, open, offset, thickness };
+}
+
+function normalizeRoomSingleDoor(room) {
+    const edges = (room.edges || []).map((e) => ({ ...e, door: coalesceDoor(e.door) }));
+    return { ...room, edges };
+}
+
 // ---------------- Context ----------------
 const Ctx = createContext(null);
 export const useMapEditor = () => useContext(Ctx);
@@ -102,7 +142,7 @@ function loadDraftV3() {
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!parsed || typeof parsed !== "object") return null;
-        const rooms = Array.isArray(parsed.rooms) ? parsed.rooms.map((r) => makeRoom(r)) : [];
+        const rooms = Array.isArray(parsed.rooms) ? parsed.rooms.map((r) => normalizeRoomSingleDoor(makeRoom(r))) : [];
         const floors = Array.isArray(parsed.floors) ? parsed.floors : [];
         return { rooms, floors };
     } catch {
@@ -123,9 +163,9 @@ export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS,
         if (v3) return v3;
 
         const legacyRooms = legacyLoadDraftRooms?.();
-        if (legacyRooms && Array.isArray(legacyRooms)) return { rooms: legacyRooms, floors: [] };
+        if (legacyRooms && Array.isArray(legacyRooms)) return { rooms: legacyRooms.map((r) => normalizeRoomSingleDoor(makeRoom(r))), floors: [] };
 
-        return { rooms: (initialRooms || []).map((r) => makeRoom({ ...r })), floors: [] };
+        return { rooms: (initialRooms || []).map((r) => normalizeRoomSingleDoor(makeRoom({ ...r }))), floors: [] };
     }, [initialRooms]);
 
     const [rooms, setRooms] = useState(seed.rooms);
@@ -180,8 +220,10 @@ export function MapEditorProvider({ children, initialRooms = INITIAL_DECK_ROOMS,
             setShowFloors,
             showRoofs,
             setShowRoofs,
-            worldGLB, setWorldGLB,            // ← NEW
-        }), [rooms, floors, selected, selFloor, selectedEdge, showGrid, snap, draw, drawStart, drawCurr, showFloors, showRoofs, worldGLB]);
+            worldGLB, setWorldGLB,
+        }),
+        [rooms, floors, selected, selFloor, selectedEdge, showGrid, snap, draw, drawStart, drawCurr, showFloors, showRoofs, worldGLB]
+    );
 
     if (!enabled) return children;
     return <Ctx.Provider value={api}>{children}</Ctx.Provider>;
@@ -215,11 +257,6 @@ function SlidingDoor({
         return () => clearInterval(id);
     }, []);
 
-    // manual animation per frame
-    // (a lightweight approach here to keep dependencies minimal)
-    // You can wire this to useFrame from r3f if you prefer smoother lerp.
-    // (left as-is to avoid extra imports)
-    // NOTE: If you want buttery smooth, swap to useFrame and lerp gOpen.current.v towards `open`.
     const setOpenNow = (val) => {
         gOpen.current.v = val;
         const curr = gOpen.current.v;
@@ -332,7 +369,7 @@ export function MapEditor3D() {
             const cz = (drawCurr.z + drawStart.z) / 2;
             const snapV = (v) => (snap ? Math.round(v / snap) * snap : v);
             if (draw.kind === "room") {
-                const room = makeRoom({
+                const room = normalizeRoomSingleDoor(makeRoom({
                     name: `Room ${rooms.length + 1}`,
                     x: snapV(cx),
                     z: snapV(cz),
@@ -346,7 +383,7 @@ export function MapEditor3D() {
                     wallMat: { color: "#9aa4b2" },
                     floorMat: { color: "#30363d" },
                     roofMat: { color: "#232a31" },
-                });
+                }));
                 setRooms((prev) => [...prev, room]);
                 setSelected(rooms.length);
                 setSelFloor(null);
@@ -373,7 +410,6 @@ export function MapEditor3D() {
         setDrawStart(null);
         setDrawCurr(null);
     };
-    
 
     // gizmo move handler
     const onGizmoChange = (v) => {
@@ -401,6 +437,7 @@ export function MapEditor3D() {
                 <planeGeometry args={[200, 200]} />
                 <meshBasicMaterial visible={false} />
             </mesh>
+
             {/* World GLB */}
             <Suspense fallback={null}>
                 {worldGLB?.enabled && (
@@ -506,17 +543,47 @@ export function MapEditor3D() {
 
                         {/* walls + doors */}
                         {localWalls.map((w, wi) => {
-                            // locate edge for overrides
                             const edge = r.edges?.find((ed) => ed.side === w.side);
+
+                            // Edge deleted? Skip it.
+                            if (edge && edge.present === false) return null;
+
                             const edgeMat = edge?.mat ? { ...r.wallMat, ...edge.mat } : r.wallMat;
-                            const doorCfg = edge?.door || null;
-                            const doorPanelMat = doorCfg?.mat || r.doorMat || null;
-                            const doorFrameMat = doorCfg?.frameMat || r.doorFrameMat || null;
+
+                            // robust fallbacks
+                            const len = Number(w.len ?? w.w ?? 0);
+                            const half = len / 2;
+                            const wallH = Number(edge?.h ?? r.h ?? w.h ?? DEFAULT_WALL_HEIGHT);
+                            const wallT = Number(edge?.t ?? r.wallT ?? w.thickness ?? WALL_THICKNESS);
+
+                            // SINGLE door (coalesce + clamp)
+                            const doorRaw = coalesceDoor(edge?.door);
+                            const doorCfg = clampDoorProps(doorRaw, len, wallH, wallT);
+                            const hasDoor = !!doorCfg;
+
+                            // split wall and place door
+                            const slotW = hasDoor ? doorCfg.width : 0;
+                            const slotH = hasDoor ? doorCfg.height : 0;
+                            const slotPanels = hasDoor ? doorCfg.panels : 2;
+                            const slotOpen = hasDoor ? doorCfg.open : 0;
+                            const slotX = hasDoor ? doorCfg.offset : 0;
+                           
+                                 // If width is invalid or too large, treat as "no door"
+                            const hasSlot =
+                                      !!hasDoor &&
+                                      Number.isFinite(slotW) &&
+                                      slotW > 0.05 &&
+                                      Number.isFinite(len) &&
+                                      slotW < len - 0.05;
+                           
+                            const EPS = 0.0005; // tiny shrink to avoid z-fighting at seams
+                            const leftLen = hasSlot ? Math.max(0, slotX + half - slotW / 2) : len;
+                            const rightLen = hasSlot ? Math.max(0, half - slotX - slotW / 2) : 0;
 
                             return (
                                 <group
                                     key={`w_${wi}`}
-                                    position={[w.x, (w.h || DEFAULT_WALL_HEIGHT) / 2 + (r.floorY ?? 0), w.z]}
+                                    position={[w.x, (wallH / 2) + (r.floorY ?? 0), w.z]}
                                     rotation={[0, w.rotY || 0, 0]}
                                     onPointerDown={(e) => {
                                         e.stopPropagation();
@@ -525,17 +592,33 @@ export function MapEditor3D() {
                                         setSelectedEdge({ roomIndex: i, side: w.side });
                                     }}
                                 >
-                                    {!w.doorSlot && (
-                                        <mesh>
-                                            <boxGeometry args={[w.len, w.h || DEFAULT_WALL_HEIGHT, w.thickness]} />
+                                    {/* FULL wall when no door slot */}
+                                     {!hasSlot && leftLen > 0.005 && (
+                                           <mesh position={[0, 0, 0]}>
+                                                 <boxGeometry args={[len - EPS, wallH, wallT]} />
+                                                 <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
+                                               </mesh>
+                                         )}
+                                    
+                                     {/* Split wall when there is a valid door slot */}
+                                     {hasSlot && leftLen > 0.005 && (
+                                        <mesh position={[-(half - leftLen / 2), 0, 0]}>
+                                            <boxGeometry args={[leftLen - EPS, wallH, wallT]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
 
-                                    {/* edge label */}
+                                    {hasSlot && rightLen > 0.005 && (
+                                        <mesh position={[(half - rightLen / 2), 0, 0]}>
+                                            <boxGeometry args={[rightLen - EPS, wallH, wallT]} />
+                                            <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
+                                        </mesh>
+                                    )}
+
+                                    {/* Edge label */}
                                     {!!(edge?.mat?.label) && (
                                         <Text
-                                            position={[0, (w.h || r.h || DEFAULT_WALL_HEIGHT) - 0.2, (w.thickness / 2) + 0.01]}
+                                            position={[0, wallH - 0.2, (wallT / 2) + 0.01]}
                                             fontSize={0.35}
                                             color={edge?.mat?.labelColor || "#ffffff"}
                                             anchorX="center"
@@ -547,16 +630,17 @@ export function MapEditor3D() {
                                         </Text>
                                     )}
 
-                                    {w.doorSlot && (
-                                        <group>
+                                    {/* Door preview — y offset down to floor */}
+                                    {hasDoor && (
+                                        <group position={[slotX, -wallH / 2, 0]}>
                                             <SlidingDoor
-                                                width={w.doorSlot.width}
-                                                height={w.doorSlot.height}
-                                                panels={w.doorSlot.panels}
-                                                open={w.doorSlot.open ?? 0}
-                                                thickness={Math.min(0.06, w.thickness * 0.9)}
-                                                panelMat={doorPanelMat}
-                                                frameMat={doorFrameMat}
+                                                width={slotW}
+                                                height={slotH}
+                                                panels={slotPanels}
+                                                open={slotOpen}
+                                                thickness={doorCfg.thickness}
+                                                panelMat={doorCfg?.mat || r.doorMat || null}
+                                                frameMat={doorCfg?.frameMat || r.doorFrameMat || null}
                                                 label={doorCfg?.mat?.label || ""}
                                                 labelColor={doorCfg?.mat?.labelColor || "#e6edf3"}
                                             />
@@ -639,6 +723,51 @@ function makeSlab({
     };
 }
 
+// ---- Doors export (world space) ----
+function computeDoorsWorld(exportRooms) {
+    const round = (v) => (typeof v === "number" ? Number(v.toFixed(3)) : v);
+    const Y = new THREE.Vector3(0, 1, 0);
+
+    const all = [];
+    for (let ri = 0; ri < exportRooms.length; ri++) {
+        const r = exportRooms[ri];
+        const roomRot = THREE.MathUtils.degToRad(r.rotDeg || 0);
+        const walls = wallsForRoomLocal(r, r.wallT ?? WALL_THICKNESS);
+
+        for (const w of walls) {
+            const edge = r.edges?.find((ed) => ed.side === w.side);
+            
+            const len = Number(w.len || 0);
+
+            const door = clampDoorProps(coalesceDoor(edge?.door), len, (r.h ?? 2.4), (r.wallT ?? WALL_THICKNESS));
+            if (!door) continue;
+
+            const { offset } = door
+            const rotY = roomRot + (w.rotY || 0);
+
+            // Door center (X/Z) in world space
+            const local = new THREE.Vector3(w.x, 0, w.z);
+            const along = new THREE.Vector3(offset, 0, 0).applyAxisAngle(Y, w.rotY || 0);
+            local.add(along).applyAxisAngle(Y, roomRot);
+            local.x += r.x;
+            local.z += r.z;
+
+            all.push({
+                id: `${r.key || `room_${ri}`}_${w.side}_door`,
+                roomKey: r.key || null,
+                side: w.side,                 // "N" | "E" | "S" | "W"
+                x: round(local.x),
+                y: round(r.floorY ?? 0),      // base (floor) level
+                z: round(local.z),
+                rotY: round(rotY),            // radians
+               
+                offset: round(offset),
+            });
+        }
+    }
+    return all;
+}
+
 // ---------------- UI Panel ----------------
 export function MapEditorUI() {
     const {
@@ -685,15 +814,14 @@ export function MapEditorUI() {
     // helpers
     const uniqueKey = (desired) => {
         if (!desired) return "";
-        let k = desired,
-            n = 2;
+        let k = desired, n = 2;
         const has = (kk) => rooms.some((rr) => rr.key === kk);
         while (has(k)) k = `${desired}_${n++}`;
         return k;
     };
 
     const mkLockdown = (x = 0, z = 0) =>
-        makeRoom({
+        normalizeRoomSingleDoor(makeRoom({
             key: uniqueKey("lockdown"),
             name: "Lockdown",
             type: "lockdown",
@@ -714,10 +842,10 @@ export function MapEditorUI() {
                 { side: "S", present: true, door: null },
                 { side: "W", present: true, door: { width: 1.2, offset: 0, type: "sliding", panels: 2 } },
             ],
-        });
+        }));
 
     const mkMeetingRoom = (x = 0, z = 0) =>
-        makeRoom({
+        normalizeRoomSingleDoor(makeRoom({
             key: uniqueKey("meeting_room"),
             name: "Meeting Room",
             type: "meeting_room",
@@ -738,14 +866,14 @@ export function MapEditorUI() {
                 { side: "S", present: true, door: null },
                 { side: "W", present: true, door: null },
             ],
-        });
+        }));
 
     // room actions
     const addRoom = () => {
         const idx = rooms.length;
         setRooms((prev) => [
             ...prev,
-            makeRoom({
+            normalizeRoomSingleDoor(makeRoom({
                 key: `room_${idx}`,
                 name: `Room ${idx + 1}`,
                 x: 0,
@@ -758,7 +886,7 @@ export function MapEditorUI() {
                 wallMat: { color: "#9aa4b2" },
                 floorMat: { color: "#30363d" },
                 roofMat: { color: "#232a31" },
-            }),
+            })),
         ]);
         setSelected(idx);
         setSelFloor(null);
@@ -788,7 +916,7 @@ export function MapEditorUI() {
         const rr = rooms[selected];
         if (!rr) return;
         const idx = rooms.length;
-        setRooms((prev) => [...prev, makeRoom({ ...rr, key: uniqueKey(`${rr.key || "room"}_copy`) })]);
+        setRooms((prev) => [...prev, normalizeRoomSingleDoor(makeRoom({ ...rr, key: uniqueKey(`${rr.key || "room"}_copy`) }))]);
         setSelected(idx);
         setSelFloor(null);
         setSelectedEdge(null);
@@ -848,7 +976,10 @@ export function MapEditorUI() {
     };
 
     const download = () => {
-        const exportRooms = rooms.filter((rm) => rm.exported !== false);
+        const exportRooms = rooms
+            .filter((rm) => rm.exported !== false)
+            .map(normalizeRoomSingleDoor);
+
         const packed = packMap ? packMap(exportRooms) : { rooms: exportRooms, walls: [], wallAABBs: [] };
 
         // floors/roofs
@@ -882,12 +1013,15 @@ export function MapEditorUI() {
                 mat: s.mat || null,
             }));
 
+        const doors = computeDoorsWorld(exportRooms);
+
         const data = {
             rooms: exportRooms,
             walls: packed.walls || [],
             wallAABBs: packed.wallAABBs || [],
             floors: [...floorsFromRooms, ...freeFloors],
             roofs: [...roofsFromRooms],
+            doors,
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -900,141 +1034,15 @@ export function MapEditorUI() {
         a.remove();
         URL.revokeObjectURL(url);
     };
-    // ---- NEW: Export a full src/map/deckA.js file ----
-    const downloadDeckAJS = () => {
-        const exportRooms = rooms.filter((rm) => rm.exported !== false);
-        const packed = packMap ? packMap(exportRooms) : { walls: [], wallAABBs: [] };
 
-        // Floors & roofs (same as JSON export)
-        const floorsFromRooms = exportRooms
-            .filter((rm) => rm.hasFloor !== false)
-            .map((rm) => {
-                const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
-                const yCenter = (rm.floorY ?? 0) + t / 2;
-                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t, mat: rm.floorMat || null };
-            });
-
-        const roofsFromRooms = exportRooms
-            .filter((rm) => rm.hasRoof !== false)
-            .map((rm) => {
-                const t = Math.max(0.01, rm.roofT ?? DEFAULT_SLAB_THICKNESS);
-                const h = rm.h ?? DEFAULT_WALL_HEIGHT;
-                const yCenter = (rm.floorY ?? 0) + h - t / 2;
-                return { x: rm.x, y: yCenter, z: rm.z, w: rm.w, d: rm.d, t, mat: rm.roofMat || null };
-            });
-
-        const freeFloors = floors
-            .filter((s) => s.exported !== false)
-            .map((s) => ({ x: s.x, y: s.y ?? 0, z: s.z, w: s.w, d: s.d, t: s.t ?? DEFAULT_SLAB_THICKNESS, name: s.name, mat: s.mat || null }));
-
-        const FLOORS_OUT = [...floorsFromRooms, ...freeFloors];
-        const ROOFS_OUT = [...roofsFromRooms];
-
-        // ---- Bounds to synthesize FLOOR, STATION_AREA, OUTSIDE_AREA
-        const rects = [
-            // rooms footprint
-            ...exportRooms.map((r) => ({
-                minX: r.x - r.w / 2, maxX: r.x + r.w / 2,
-                minZ: r.z - r.d / 2, maxZ: r.z + r.d / 2
-            })),
-            // free floors
-            ...freeFloors.map((f) => ({
-                minX: f.x - f.w / 2, maxX: f.x + f.w / 2,
-                minZ: f.z - f.d / 2, maxZ: f.z + f.d / 2
-            })),
-        ];
-        const fallbackRect = { minX: -6, maxX: 6, minZ: -6, maxZ: 6 };
-        const sceneRect = rects.length
-            ? {
-                minX: Math.min(...rects.map(r => r.minX)),
-                maxX: Math.max(...rects.map(r => r.maxX)),
-                minZ: Math.min(...rects.map(r => r.minZ)),
-                maxZ: Math.max(...rects.map(r => r.maxZ)),
-            }
-            : fallbackRect;
-
-        const width = Math.max(2, sceneRect.maxX - sceneRect.minX);
-        const depth = Math.max(2, sceneRect.maxZ - sceneRect.minZ);
-        const centerX = (sceneRect.minX + sceneRect.maxX) / 2;
-        const centerZ = (sceneRect.minZ + sceneRect.maxZ) / 2;
-
-        // FLOOR is a centered ground plane size
-        const FLOOR_CONST = { w: Number((width + 4).toFixed(3)), d: Number((depth + 4).toFixed(3)) };
-
-        // Station area = tight fit; Outside = padded ring
-        const STATION_AREA = { x: Number(centerX.toFixed(3)), z: Number(centerZ.toFixed(3)), w: Number(width.toFixed(3)), d: Number(depth.toFixed(3)) };
-        const pad = 6;
-        const OUTSIDE_AREA = { x: Number(centerX.toFixed(3)), z: Number(centerZ.toFixed(3)), w: Number((width + pad).toFixed(3)), d: Number((depth + pad).toFixed(3)) };
-
-        // Meeting room AABB (best-effort pick by type/name)
-        const meeting =
-            exportRooms.find((r) => r.type === "meeting_room") ||
-            exportRooms.find((r) => /meeting/i.test(r.name || ""));
-        const MEETING_ROOM_AABB = meeting
-            ? {
-                minX: Number((meeting.x - meeting.w / 2).toFixed(3)),
-                maxX: Number((meeting.x + meeting.w / 2).toFixed(3)),
-                minZ: Number((meeting.z - meeting.d / 2).toFixed(3)),
-                maxZ: Number((meeting.z + meeting.d / 2).toFixed(3)),
-            }
-            : { minX: -1, maxX: 1, minZ: -1, maxZ: 1 };
-
-        const WALL_HEIGHT = Number((exportRooms[0]?.h ?? DEFAULT_WALL_HEIGHT).toFixed(3));
-
-        // Include GLB config saved in the editor panel
-        const WORLD_GLB = {
-            enabled: !!(worldGLB && worldGLB.enabled),
-            url: worldGLB?.url || "/models/world.glb",
-            x: Number((worldGLB?.x ?? 0).toFixed(3)),
-            y: Number((worldGLB?.y ?? 0).toFixed(3)),
-            z: Number((worldGLB?.z ?? 0).toFixed(3)),
-            rotYDeg: Number((worldGLB?.rotYDeg ?? 0).toFixed(3)),
-            scale: Number((worldGLB?.scale ?? 1).toFixed(3)),
-        };
-
-        // pretty JSON with rounded numbers
-        const round = (_, v) => (typeof v === "number" ? Number(v.toFixed(3)) : v);
-        const J = (o) => JSON.stringify(o, round, 2);
-
-        const js =
-            `// Auto-generated by MapEditor — ${new Date().toISOString()}
-// Drop this file in: src/map/deckA.js
-
-export const WALL_HEIGHT = ${WALL_HEIGHT};
-
-export const FLOOR = ${J(FLOOR_CONST)};
-export const OUTSIDE_AREA = ${J(OUTSIDE_AREA)};
-export const STATION_AREA = ${J(STATION_AREA)};
-
-export const WORLD_GLB = ${J(WORLD_GLB)};
-
-export const ROOMS = ${J(exportRooms)};
-export const FLOORS = ${J(FLOORS_OUT)};
-export const ROOFS  = ${J(ROOFS_OUT)};
-
-// Pre-baked wall boxes from packMap (preferred by GameCanvas)
-export const walls = ${J(packed.walls || [])};
-
-export const MEETING_ROOM_AABB = ${J(MEETING_ROOM_AABB)};
-`;
-
-        const blob = new Blob([js], { type: "application/javascript" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "deckA.js";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-    };
+   
 
     // ---- Loaders
     const fileInputRef = useRef(null);
 
     const loadFromObject = (obj) => {
         try {
-            const r = Array.isArray(obj.rooms) ? obj.rooms.map(makeRoom) : [];
+            const r = Array.isArray(obj.rooms) ? obj.rooms.map((x) => normalizeRoomSingleDoor(makeRoom(x))) : [];
             const f = Array.isArray(obj.floors) ? obj.floors : [];
             setRooms(r);
             setFloors(f);
@@ -1137,8 +1145,7 @@ export const MEETING_ROOM_AABB = ${J(MEETING_ROOM_AABB)};
 
                 <button onClick={saveDraft}>Save Draft</button>
                 <button onClick={download}>Export JSON</button>
-                <button onClick={download}>Export JSON</button>
-<button onClick={downloadDeckAJS}>Export deckA.js</button>   {/* NEW */}
+               
 
                 {/* load */}
                 <input ref={fileInputRef} type="file" accept="application/json" style={{ display: "none" }} onChange={onPickFile} />
@@ -1379,6 +1386,7 @@ export const MEETING_ROOM_AABB = ${J(MEETING_ROOM_AABB)};
                             }}
                         />
                     </div>
+
                     {/* World GLB */}
                     <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
                         <strong>World GLB</strong>
@@ -1461,59 +1469,19 @@ export const MEETING_ROOM_AABB = ${J(MEETING_ROOM_AABB)};
                                         <input type="checkbox" checked={!!e.present} onChange={(ev) => setE({ present: ev.target.checked })} />
 
                                         <label>Door?</label>
-                                        <input
-                                            type="checkbox"
-                                            checked={!!e.door}
-                                            onChange={(ev) => setE({ door: ev.target.checked ? (e.door || { width: 1.2, offset: 0, panels: 2, open: 0 }) : null })}
-                                        />
-
-                                        <label>Door Width</label>
-                                        <input
-                                            type="number"
-                                            min={0.1}
-                                            step={0.1}
-                                            value={e.door?.width || 0}
-                                            onChange={(ev) => setE({ door: { ...(e.door || {}), width: Math.max(0.1, Number(ev.target.value)) } })}
-                                        />
-
-                                        <label>Door Offset</label>
-                                        <input
-                                            type="number"
-                                            step={0.1}
-                                            value={e.door?.offset || 0}
-                                            onChange={(ev) => setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })}
-                                        />
-
-                                        <label>Door Panels</label>
-                                        <input
-                                            type="number"
-                                            min={1}
-                                            max={2}
-                                            step={1}
-                                            value={e.door?.panels ?? 2}
-                                            onChange={(ev) =>
-                                                setE({ door: { ...(e.door || {}), panels: Math.max(1, Math.min(2, Number(ev.target.value) || 2)) } })
-                                            }
-                                        />
-
-                                        <label>Preview Open</label>
-                                        <input
-                                            type="range"
-                                            min={0}
-                                            max={1}
-                                            step={0.01}
-                                            value={e.door?.open ?? 0}
-                                            onChange={(ev) => setE({ door: { ...(e.door || {}), open: Number(ev.target.value) } })}
-                                        />
-
-                                        <label>Edge Height</label>
-                                        <input
-                                            type="number"
-                                            min={0.5}
-                                            step={0.1}
-                                            value={e.h || r.h || DEFAULT_WALL_HEIGHT}
-                                            onChange={(ev) => setE({ h: Math.max(0.5, Number(ev.target.value)) })}
-                                        />
+                                            <input
+                                              type="checkbox"
+                                              checked={!!e.door}
+                                              onChange={(ev) => setE({ door: ev.target.checked ? { ...DEFAULT_DOOR } : null })}
+                                            />
+                                        
+                                            <label>Door Offset</label>
+                                            <input
+                                              type="number"
+                                              step={0.1}
+                                              value={e.door?.offset || 0}
+                                              onChange={(ev) => setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })}
+                                            />
 
                                         {/* Edge Thickness (depth across the wall) */}
                                         <label>Edge Thickness (depth)</label>
@@ -1560,37 +1528,7 @@ export const MEETING_ROOM_AABB = ${J(MEETING_ROOM_AABB)};
                                             onChange={(ev) => setE({ mat: { ...(e.mat || {}), labelColor: ev.target.value } })}
                                         />
 
-                                        {/* Door material + label */}
-                                        {e.door && (
-                                            <>
-                                                <label>Door Panel Tex URL</label>
-                                                <input
-                                                    value={e.door?.mat?.mapUrl || ""}
-                                                    onChange={(ev) => setE({ door: { ...(e.door || {}), mat: { ...(e.door?.mat || {}), mapUrl: ev.target.value } } })}
-                                                />
-                                                <label>Door Panel Repeat (x,y)</label>
-                                                <input
-                                                    value={(e.door?.mat?.repeat || [1, 1]).join(",")}
-                                                    onChange={(ev) => {
-                                                        const [rx, ry] = ev.target.value.split(",").map(Number);
-                                                        setE({ door: { ...(e.door || {}), mat: { ...(e.door?.mat || {}), repeat: [rx || 1, ry || 1] } } });
-                                                    }}
-                                                />
-                                                <label>Door Label</label>
-                                                <input
-                                                    value={e.door?.mat?.label || ""}
-                                                    onChange={(ev) => setE({ door: { ...(e.door || {}), mat: { ...(e.door?.mat || {}), label: ev.target.value } } })}
-                                                />
-                                                <label>Door Label Color</label>
-                                                <input
-                                                    type="color"
-                                                    value={e.door?.mat?.labelColor || "#e6edf3"}
-                                                    onChange={(ev) =>
-                                                        setE({ door: { ...(e.door || {}), mat: { ...(e.door?.mat || {}), labelColor: ev.target.value } } })
-                                                    }
-                                                />
-                                            </>
-                                        )}
+                                        
 
                                         <div style={{ gridColumn: "1 / span 2", display: "flex", gap: 8, marginTop: 6 }}>
                                             <button onClick={() => setE({ present: false })}>Delete Edge</button>
