@@ -139,8 +139,8 @@ function FloorAndWalls() {
                                 clipName={d.clipName || "Open"}
 
                                 // geometry/looks
-                                doorWidth={d.width ?? 2.4}
-                                doorHeight={d.height ?? 2.4}
+                                doorWidth={d.width ?? 4.5}
+                                doorHeight={d.height ?? 3}
                                 thickness={d.thickness ?? 0.3}
                                 panels={d.panels ?? 2}
                                 seam={0.02}

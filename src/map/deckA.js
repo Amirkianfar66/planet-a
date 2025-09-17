@@ -9,10 +9,10 @@ import authored from "./defaultMap.json";
 export { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 
 export const WALL_THICKNESS = RT.WALL_THICKNESS ?? 0.6;
-export const WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 2.4;
+export const WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 3;
 const DEFAULT_SLAB_THICKNESS = RT.DEFAULT_SLAB_THICKNESS ?? 0.12;
 
-const DEFAULT_DOOR_WIDTH = 2.4;     // ← requested
+const DEFAULT_DOOR_WIDTH = 4.5;     // ← requested
 const DEFAULT_DOOR_THICKNESS = 0.3; // ← requested
 export const DEFAULT_DOOR_GLB = { url: "/models/door.glb", clipName: "Open" };
 
