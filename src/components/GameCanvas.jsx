@@ -128,35 +128,41 @@ function FloorAndWalls() {
             })}
 
             {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
+            {/* Doors (auto-open by proximity). Wrap in Suspense for GLB loads */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
-                    <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
+                    <group
+                        key={`door_${i}`}
+                        position={[d.x, d.y, d.z]}
+                        rotation={[0, d.rotY || 0, 0]}
+                    >
                         <Door3D
-                            // use the animated GLB
+                            // use the single animated GLB
                             glbUrl="/models/door.glb"
-                            clipName="Open"          // omit if your clip is already named "Open"
 
-                            // placement / sizing
+                            // lift whole door up 1.5m
+                            elevation={0}
+
+                            // size/behavior (adjust as you like)
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
-                            elevation={1.5}          // lifts model so it isn’t sunk into the floor
+                            seam={0.02}
+                            slideSlope={0.1}
 
-                            // proximity behavior
-                            playerPosition={usePlayerPosFromWindow()} // or your actual player pos
+                            // proximity auto-open (uses window.__playerPos if you set it)
+                            playerPosition={/* or null to control via d.open */ window.__playerPos}
                             triggerRadius={3}
-                            dwellMillis={1000}       // must stay near for 1s to open
-                            outDwellMillis={350}     // optional: small delay before closing
-
-                            // smoothing
                             openSpeed={6}
                             closeSpeed={4}
+
+                        // (optional) to control manually instead of proximity:
+                        // open={d.open}
                         />
                     </group>
                 ))}
             </Suspense>
-
 
 
             {/* Roofs */}
