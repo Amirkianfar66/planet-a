@@ -36,7 +36,7 @@ export function SlidingDoor({
     // placement
     position = [0, 0, 0],
     rotationY = 0,
-
+    elevation = 0,
     // dimensions / behavior
     doorWidth = 2.4,
     doorHeight = 2.4,
