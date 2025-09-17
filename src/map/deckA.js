@@ -64,7 +64,7 @@ const MAP = getAuthoredMap();
 export const ROOMS = (MAP.rooms || []).map((r) => RT.makeRoom(r));
 export const ROOM_BY_KEY = Object.fromEntries(ROOMS.map((r) => [r.key, r]));
 
-// ---- Doors normalization (adds GLB fields) ----
+// ----------------- Door normalization -----------------
 const DEG = Math.PI / 180;
 const yawFromSide = (side) => {
     switch ((side || "").toUpperCase()) {
@@ -86,57 +86,42 @@ function normalizeDoors(rawDoors, rooms) {
         const wallH = Number.isFinite(r?.h) ? r.h : WALL_HEIGHT;
         const wallT = Number.isFinite(r?.wallT) ? r.wallT : WALL_THICKNESS;
 
-        // Trust "side" for facing when rotY=0
+        // Use side if rotY is 0
         const sideYaw = yawFromSide(d.side);
         const rotY = Number.isFinite(d.rotY)
             ? (Math.abs(d.rotY) > 1e-6 ? d.rotY : sideYaw + roomRot)
             : (sideYaw + roomRot);
 
-        // Dimensions / behavior
-        const width = Number.isFinite(d.width) && d.width > 0 ? Number(d.width) : DEFAULT_DOOR_WIDTH;
-        const height = Number.isFinite(d.height) && d.height > 0 ? Number(d.height) : wallH;
-
-        // IMPORTANT: allow thick doors (no 0.06 cap)
-        const thickness = Number.isFinite(d.thickness) && d.thickness > 0
-            ? Number(d.thickness)
-            : DEFAULT_DOOR_THICKNESS;
-
+        // Door default dims (width default was set to 4.5 elsewhere in your file)
+        const width = (Number(d.width) && Number(d.width) > 0) ? Number(d.width) : DEFAULT_DOOR_WIDTH;
+        const height = (Number(d.height) && Number(d.height) > 0) ? Number(d.height) : wallH;
+        const thickness = Number.isFinite(d.thickness) ? Math.min(0.06, Math.max(0.01, d.thickness)) : Math.min(0.06, wallT * 0.9);
         const panels = Number.isFinite(d.panels) ? Math.max(1, Math.min(2, d.panels | 0)) : 2;
         const open = Number.isFinite(d.open) ? Math.max(0, Math.min(1, Number(d.open))) : 0;
-        const floorY = Number.isFinite(d.y) ? Number(d.y) : Number(r?.floorY ?? 0);
 
-        // GLB animation support
-        const glbUrl = d.glbUrl || DEFAULT_DOOR_GLB.url;
-        const clipName = d.clipName || DEFAULT_DOOR_GLB.clipName;
+        // >>> IMPORTANT: raise to top of floor slab <<<
+        const floorY = Number.isFinite(d.y) ? Number(d.y) : Number(r?.floorY ?? 0);
+        const floorT = Math.max(0.01, Number.isFinite(r?.roofT) ? r.roofT : DEFAULT_SLAB_THICKNESS);
+        const yTop = floorY + floorT + 1e-4; // tiny epsilon to avoid z-fighting
 
         out.push({
             id: d.id || `${d.roomKey || "room"}_${d.side || "edge"}_${out.length}`,
             roomKey: r?.key || d.roomKey || null,
             side: d.side || null,
             x: Number(d.x) || 0,
-            y: floorY,
+            y: yTop,                // << now sits on top of the floor slab
             z: Number(d.z) || 0,
             rotY,
-
             width, height, thickness, panels, open,
-            offset: Number.isFinite(d.offset) ? Number(d.offset) : 0,
-
-            // materials (optional)
+            offset: Number(d.offset) || 0,
             panelMat: d.panelMat || null,
             frameMat: d.frameMat || null,
             label: d.label || null,
             labelColor: d.labelColor || null,
-
-            // animated GLB door
-            glbUrl,
-            clipName,
-
-            // optional proximity defaults (Door3D can use these if you wire it)
-            triggerRadius: Number.isFinite(d.triggerRadius) ? d.triggerRadius : 3,
-            useProximity: d.useProximity ?? true,
         });
     }
     return out;
+
 }
 export const DOORS = normalizeDoors(MAP.doors, ROOMS);
 
