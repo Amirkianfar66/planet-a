@@ -26,14 +26,16 @@ import { getMaterial } from "../map/materials";
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 
 // ---------- helper: read player world position (set this from your controller) ----------
-function usePlayerPosFromWindow() {
-    const ref = useRef(null);
+// live ref that updates every frame
+function usePlayerPosRefFromWindow() {
+    const ref = React.useRef([0, 0, 0]);
     useFrame(() => {
         const g = (typeof window !== "undefined" && window.__playerPos) || null;
         if (Array.isArray(g) && g.length === 3) ref.current = g;
     });
-    return ref.current;
+    return ref;
 }
+
 
 // ---------- label ----------
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
@@ -128,37 +130,27 @@ function FloorAndWalls() {
             })}
 
             {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
-            {/* Doors (auto-open by proximity). Wrap in Suspense for GLB loads */}
+            const playerRef = usePlayerPosRefFromWindow();
+
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
-                    <group
-                        key={`door_${i}`}
-                        position={[d.x, d.y, d.z]}
-                        rotation={[0, d.rotY || 0, 0]}
-                    >
+                    <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
-                            // use the single animated GLB
                             glbUrl="/models/door.glb"
-
-                            // lift whole door up 1.5m
-                            elevation={0}
-
-                            // size/behavior (adjust as you like)
+                            elevation={1.5}
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
-                            seam={0.02}
-                            slideSlope={0.1}
-
-                            // proximity auto-open (uses window.__playerPos if you set it)
-                            playerPosition={/* or null to control via d.open */ window.__playerPos}
+                            clipName="all"
+                            // PROXIMITY with dwell (opens after 1s near, re-opens fine)
+                            playerRef={playerRef}
                             triggerRadius={3}
+                            dwellSeconds={1}
+                            closeDelaySeconds={0.15}
+
                             openSpeed={6}
                             closeSpeed={4}
-
-                        // (optional) to control manually instead of proximity:
-                        // open={d.open}
                         />
                     </group>
                 ))}
