@@ -6,7 +6,7 @@ import * as THREE from "three";
 import {
     OUTSIDE_AREA, STATION_AREA, ROOMS,
     FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
-    DOORS,ROOM_BY_KEY,
+    DOORS,
 } from "../map/deckA";
 
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
@@ -26,16 +26,14 @@ import { getMaterial } from "../map/materials";
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 
 // ---------- helper: read player world position (set this from your controller) ----------
-// live ref that updates every frame
 function usePlayerPosRefFromWindow() {
-    const ref = React.useRef([0, 0, 0]);
+    const ref = useRef([0, 0, 0]);
     useFrame(() => {
         const g = (typeof window !== "undefined" && window.__playerPos) || null;
         if (Array.isArray(g) && g.length === 3) ref.current = g;
     });
     return ref;
 }
-
 
 // ---------- label ----------
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
@@ -73,7 +71,7 @@ function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff"
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
     const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map((r) => [r.key, r])), []);
-    const playerPos = usePlayerPosFromWindow();
+    const playerRef = usePlayerPosRefFromWindow(); // ✅ get player ref OUTSIDE JSX
 
     return (
         <group>
@@ -130,32 +128,29 @@ function FloorAndWalls() {
             })}
 
             {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
-            const playerRef = usePlayerPosRefFromWindow();
-
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
                             glbUrl="/models/door.glb"
-                            elevation={1.5}
+                            elevation={1.5}       // lifts model so it sits on the floor
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
-                            clipName="all"
-                            // PROXIMITY with dwell (opens after 1s near, re-opens fine)
+                            clipName="all"        // or omit to auto-pick first/‘Open’ clip
+
+                            // Proximity open with dwell
                             playerRef={playerRef}
                             triggerRadius={3}
                             dwellSeconds={1}
                             closeDelaySeconds={0.15}
-
                             openSpeed={6}
                             closeSpeed={4}
                         />
                     </group>
                 ))}
             </Suspense>
-
 
             {/* Roofs */}
             {ROOFS?.map((rf, i) => {

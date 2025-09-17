@@ -1,4 +1,4 @@
-// src/dev/SlidingDoorPreview.jsx
+﻿// src/dev/SlidingDoorPreview.jsx
 import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
@@ -112,7 +112,7 @@ export function SlidingDoor({
     };
 
     // =====================================================================================
-    // MODE A: Single animated GLB (preferred) � scrub animation clip based on openRef.v
+    // MODE A: Single animated GLB (preferred) – scrub animation clip based on openRef.v
     // =====================================================================================
     if (glbUrl) {
         return (
@@ -133,7 +133,7 @@ export function SlidingDoor({
     }
 
     // =====================================================================================
-    // MODE B: Panel fallback (legacy / editor preview) � code-moves panels
+    // MODE B: Panel fallback (legacy / editor preview) – code-moves panels
     // =====================================================================================
 
     const gL = useRef();   // left panel mover
@@ -373,9 +373,10 @@ export default SlidingDoor;
 
 try {
     if (typeof useGLTF.preload === "function") {
-        useGLTF.preload("/models/door.glb");
-        useGLTF.preload("/models/door_frame.glb");
-        useGLTF.preload("/models/door_panel_l.glb");
-        useGLTF.preload("/models/door_panel_r.glb");
+        useGLTF.preload("/models/door.glb"); // ✅ only this one
+        // remove the others to avoid 404s:
+        // useGLTF.preload("/models/door_panel_l.glb");
+        // useGLTF.preload("/models/door_panel_r.glb");
+        // useGLTF.preload("/models/door_frame.glb");
     }
 } catch { }
