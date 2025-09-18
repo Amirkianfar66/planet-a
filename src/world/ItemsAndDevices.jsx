@@ -19,7 +19,7 @@ const TYPE_META = {
     food_tank: { label: "Food Tank", color: "#10b981" },          // teal
     fuel_tank: { label: "Fuel Tank", color: "#a855f7" },          // purple
     protection_tank: { label: "Protection Tank", color: "#f59e0b" }, // orange
-
+    cctv: { label: "CCTV Camera", color: "#94a3b8" },
     // legacy/compat
     battery: { label: "Battery", color: "#2dd4bf" },
     o2can: { label: "O₂ Canister", color: "#9bd1ff" },
@@ -127,6 +127,27 @@ function ItemMesh({ type = "crate" }) {
             );
 
         // Tanks: same big barrel mesh for all three tank types
+        case "cctv":
+                        // small wall/ceiling pod with lens
+                            return (
+                                    <group>
+                                            {/* base mount */}
+                                            <mesh>
+                                                    <cylinderGeometry args={[0.07, 0.07, 0.05, 12]} />
+                                                    <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.4} />
+                                                </mesh>
+                                            {/* camera head */}
+                                            <mesh position={[0, 0, 0.14]}>
+                                                    <boxGeometry args={[0.16, 0.12, 0.22]} />
+                                                    <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
+                                                </mesh>
+                                            {/* lens */}
+                                            <mesh position={[0, 0, 0.27]}>
+                                                    <cylinderGeometry args={[0.04, 0.04, 0.03, 16]} />
+                                                    <meshStandardMaterial emissive="#22d3ee" emissiveIntensity={0.8} />
+                                                </mesh>
+                                        </group>
+                                );
         case "food_tank":
         case "fuel_tank":
         case "protection_tank":
@@ -218,7 +239,13 @@ function ItemEntity({ it }) {
     let ringColor = actionable ? "#86efac" : "#64748b";
     let ringScale = 1;
     let billboardY = 0.85;
-
+    let rotationY = 0;
+    // CCTV: face the direction it was placed
+        if (it.type === "cctv") {
+                rotationY = Number(it.yaw || 0);
+                // Optional: adjust prompt (you can keep the default if you prefer)
+                    prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
+            }
     // Special UX for tanks (non-pickable; press P to add matching item)
     if (isTankType(it.type)) {
         const me = myPlayer?.();
@@ -245,7 +272,7 @@ function ItemEntity({ it }) {
     }
 
     return (
-        <group position={[it.x, (it.y || 0) + 0.25, it.z]}>
+        <group position={[it.x, (it.y || 0) + 0.25, it.z]} rotation={[0, rotationY, 0]}>
             <ItemMesh type={it.type} />
 
             {/* Ground ring (scaled for tanks) */}

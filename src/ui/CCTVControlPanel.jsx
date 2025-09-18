@@ -1,27 +1,35 @@
 // src/ui/CCTVControlPanel.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { DEVICE_RADIUS } from "../data/constants.js";
 
-const CONSOLE_IDS = ["cctv_console", "cctv"]; // support either id
+const CONSOLE_IDS = ["cctv_console", "cctv"]; // supports both
 
 export default function CCTVControlPanel() {
-    const { items } = useItemsSync();
+    const { items } = useItemsSync(); // re-renders list of cams
     const [open, setOpen] = useState(false);
+    const [nearConsole, setNearConsole] = useState(false);
 
-    const nearConsole = useMemo(() => {
-        const p = myPlayer(); if (!p) return false;
-        const px = Number(p.getState("x") || 0);
-        const pz = Number(p.getState("z") || 0);
-        const consoleDev = DEVICES.find(d => CONSOLE_IDS.includes(d.id));
-        if (!consoleDev) return false;
-        const r = Number(consoleDev.radius || DEVICE_RADIUS || 2);
-        const dx = px - consoleDev.x, dz = pz - consoleDev.z;
-        return (dx * dx + dz * dz) <= r * r;
-    }, [items]);
+    // Recompute proximity ~5x/sec (robust against stale deps)
+    useEffect(() => {
+        const tick = () => {
+            const me = myPlayer();
+            const con = DEVICES.find(d => CONSOLE_IDS.includes(d.id));
+            if (!me || !con) { setNearConsole(false); return; }
+            const px = Number(me.getState("x") || 0);
+            const pz = Number(me.getState("z") || 0);
+            const r = Number(con.radius || DEVICE_RADIUS || 2);
+            const dx = px - con.x, dz = pz - con.z;
+            setNearConsole((dx * dx + dz * dz) <= r * r);
+        };
+        const id = setInterval(tick, 200);
+        tick();
+        return () => clearInterval(id);
+    }, []);
 
+    // Keybinds: C toggles (only opens if nearConsole), Esc closes
     useEffect(() => {
         const onKey = (e) => {
             if (e.key === "c" || e.key === "C") {
@@ -48,7 +56,8 @@ export default function CCTVControlPanel() {
         <div style={{
             position: "absolute", left: 16, top: 16, width: 340, zIndex: 9999,
             background: "rgba(12,16,24,0.95)", color: "#fff", border: "1px solid #2a3242",
-            borderRadius: 10, padding: 10, fontFamily: "ui-sans-serif", fontSize: 13
+            borderRadius: 10, padding: 10, fontFamily: "ui-sans-serif", fontSize: 13,
+            pointerEvents: "auto" // ensure clicks work
         }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <strong>CCTV Console</strong>
@@ -68,7 +77,7 @@ export default function CCTVControlPanel() {
                         </div>
                         <button
                             onClick={() => myPlayer()?.setState("cctvViewId", c.id, false)}
-                            style={{ pointerEvents: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#0f172a", color: "#fff" }}
+                            style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #334155", background: "#0f172a", color: "#fff" }}
                         >
                             View
                         </button>
