@@ -127,7 +127,6 @@ export default function Players3D({ dead = [] }) {
                                 onClickCarry={handleUseCarry}
                                 onContextMenuCarry={handleThrowCarry}
                             />
-
                             {/* show sidearm only when NOT disguised and real role is Guard/Officer */}
                             {!disguiseOn && (roleState === "Guard" || roleState === "Officer") && (
                                 <group position={[0.25, 1.1, 0.15]}>
