@@ -1,4 +1,4 @@
-﻿// src/components/ItemsAndDevices.jsx
+﻿// src/world/ItemsAndDevices.jsx
 import React, { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
