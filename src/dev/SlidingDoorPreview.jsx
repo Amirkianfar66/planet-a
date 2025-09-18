@@ -55,22 +55,7 @@ export function SlidingDoor({
     clipName = null,        // "all" | "Open" | "Left,Right" (comma list)
     clipNames = null,       // array override, e.g., ["Open_L","Open_R"]
 
-    // ---------- Mode B: panel fallback ----------
-    frameUrl = null,
-    leftUrl = null,
-    rightUrl = null,
-    slideSlope = 0,
-    seam = 0.02,
-    colorPanel = "#c9d6f0",
-    colorFrame = "#5e748f",
-    frameDepth = 0.08,
-    trackHeight = 0.06,
-}) {
-    const root = useRef();
-    const openRef = useRef(0);
-    const targetRef = useRef(0);
-    const dwellRef = useRef(0);
-    const farRef = useRef(closeDelaySeconds);
+    
 
     // ---- proximity + dwell → target open ----
     const updateTargetFromProximity = (dt) => {
