@@ -18,6 +18,9 @@ import * as THREE from "three";
 import { TransformControls, Text, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import WorldGLB from "../world/WorldGLB";
+// use your door preview instead of the built-in box door
+import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
+
 
 // ---- room tools
 import * as RT from "../map/roomTools";
@@ -151,157 +154,11 @@ function normalizeRoomSingleDoor(room) {
 }
 
 // ---------------- GLB Sliding Door (frame + 2 panels) ----------------
-function GLBSlidingDoor({
-    frameUrl,
-    leftUrl,
-    rightUrl,
-    width = 2.4,
-    height = 2.4,
-    panels = 2,
-    open = 0,         // 0..1
-    slope = 0,        // diagonal offset in Z per "open" (e.g. 0.15 → "/" feel)
-    thickness = 0.3,  // target depth (Z)
-}) {
-    const frameG = frameUrl ? useGLTF(frameUrl) : null;
-    const leftG = leftUrl ? useGLTF(leftUrl) : null;
-    const rightG = rightUrl ? useGLTF(rightUrl) : null;
 
-    // Helper: fit a loaded scene to target W/H/D, centered at origin
-    const Fit = React.useCallback(({ scene, targetW, targetH, targetD }) => {
-        const ref = useRef();
-        useEffect(() => {
-            if (!scene || !ref.current) return;
-            const obj = scene.clone(true);
-            const box = new THREE.Box3().setFromObject(obj);
-            const size = new THREE.Vector3();
-            const center = new THREE.Vector3();
-            box.getSize(size);
-            box.getCenter(center);
-            obj.position.sub(center);
-            ref.current.add(obj);
 
-            const sx = targetW > 0 && size.x > 0 ? targetW / size.x : 1;
-            const sy = targetH > 0 && size.y > 0 ? targetH / size.y : sx;
-            const sz = targetD > 0 && size.z > 0 ? targetD / size.z : sx;
-            obj.scale.set(sx, sy, sz);
-        }, [scene, targetW, targetH, targetD]);
-        return <group ref={ref} />;
-    }, []);
+// ---------------- Sliding Door (wrapper around Door3D + label) ----------------
 
-    const gL = useRef(), gR = useRef();
-    useFrame(() => {
-        const half = width / 2;
-        const panelW = panels === 2 ? half : width;
-        const offX = panelW * open;
-        const offZ = slope * open;
-        if (gL.current) gL.current.position.set(-offX, 0, -offZ);
-        if (gR.current) gR.current.position.set(panels === 2 ? offX : 0, 0, offZ);
-    });
 
-    return (
-        <group>
-            {/* frame */}
-            {frameG?.scene && (
-                <group position={[0, height / 2, 0]}>
-                    <Fit scene={frameG.scene} targetW={width + 0.04} targetH={height + 0.06} targetD={thickness} />
-                </group>
-            )}
-
-            {/* left panel */}
-            {leftG?.scene && (
-                <group position={[0, height / 2, 0]} ref={gL}>
-                    <Fit scene={leftG.scene} targetW={panels === 2 ? width / 2 : width} targetH={height} targetD={thickness} />
-                </group>
-            )}
-
-            {/* right panel */}
-            {panels === 2 && rightG?.scene && (
-                <group position={[0, height / 2, 0]} ref={gR}>
-                    <Fit scene={rightG.scene} targetW={width / 2} targetH={height} targetD={thickness} />
-                </group>
-            )}
-        </group>
-    );
-}
-
-// ---------------- Sliding Door (BOX fallback, textured + label) ----------------
-function SlidingDoor({
-    width = 1.8,
-    height = 2.1,
-    thickness = 0.06,
-    panels = 2,
-    open = 0,
-    panelMat = null, // texture/color def for panels
-    frameMat = null, // texture/color def for frame
-    label = "",
-    labelColor = "#e6edf3",
-}) {
-    const gL = useRef(),
-        gR = useRef(),
-        gOpen = useRef({ v: open });
-
-    useEffect(() => {
-        gOpen.current.v = open;
-    }, [open]);
-
-    const setOpenNow = (val) => {
-        gOpen.current.v = val;
-        const curr = gOpen.current.v;
-        const panelW = panels === 2 ? width / 2 : width;
-        const leftX = -panelW * curr;
-        const rightX = panelW * curr;
-        if (gL.current) gL.current.position.set(leftX, 0, 0);
-        if (gR.current) gR.current.position.set(panels === 2 ? rightX : 0, 0, 0);
-    };
-    setOpenNow(open);
-
-    const trackHeight = 0.06;
-    const frameDepth = Math.max(0.04, (frameMat?.frameDepth ?? 0.08));
-
-    return (
-        <group>
-            {/* header + sill (frame) */}
-            <mesh position={[0, height + trackHeight / 2, 0]}>
-                <boxGeometry args={[width + 0.04, trackHeight, frameDepth]} />
-                <TiledStandardMaterial {...matFrom(frameMat, "#5e748f")} />
-            </mesh>
-            <mesh position={[0, 0.02, 0]}>
-                <boxGeometry args={[width + 0.02, 0.04, frameDepth]} />
-                <TiledStandardMaterial {...matFrom(frameMat, "#5e748f")} />
-            </mesh>
-
-            {/* sliding panels */}
-            <group position={[0, height / 2, 0]} ref={gL}>
-                <mesh>
-                    <boxGeometry args={[panels === 2 ? width / 2 : width, height, thickness]} />
-                    <TiledStandardMaterial {...matFrom(panelMat, "#c9d6f0")} />
-                </mesh>
-            </group>
-            {panels === 2 && (
-                <group position={[0, height / 2, 0]} ref={gR}>
-                    <mesh>
-                        <boxGeometry args={[width / 2, height, thickness]} />
-                        <TiledStandardMaterial {...matFrom(panelMat, "#c9d6f0")} />
-                    </mesh>
-                </group>
-            )}
-
-            {!!label && (
-                <Text
-                    position={[0, height + trackHeight + 0.18, frameDepth / 2 + 0.01]}
-                    fontSize={0.28}
-                    color={labelColor}
-                    anchorX="center"
-                    anchorY="bottom"
-                    outlineWidth={0.01}
-                    outlineColor="black"
-                >
-                    {label}
-                </Text>
-            )}
-        </group>
-    );
-}
 
 // ---------------- Context ----------------
 const Ctx = createContext(null);
@@ -781,34 +638,16 @@ export function MapEditor3D() {
                                     {/* Door preview — y offset down to floor */}
                                     {hasDoor && (
                                         <group position={[slotX, -wallH / 2, 0]}>
-                                            {/* If GLB URLs present, use them; otherwise box fallback */}
-                                            {(r.doorModel?.frameUrl || r.doorModel?.leftUrl || r.doorModel?.rightUrl) ? (
-                                                <Suspense fallback={null}>
-                                                    <GLBSlidingDoor
-                                                        frameUrl={r.doorModel?.frameUrl || null}
-                                                        leftUrl={r.doorModel?.leftUrl || null}
-                                                        rightUrl={r.doorModel?.rightUrl || null}
-                                                        width={slotW}
-                                                        height={slotH}
-                                                        panels={slotPanels}
-                                                        open={slotOpen}
-                                                        thickness={r.doorModel?.thickness ?? 0.3}
-                                                        slope={r.doorModel?.slope ?? 0}  // e.g. 0.15 for "/" diagonal feel
-                                                    />
-                                                </Suspense>
-                                            ) : (
-                                                <SlidingDoor
-                                                    width={slotW}
-                                                    height={slotH}
-                                                    panels={slotPanels}
-                                                    open={slotOpen}
-                                                    thickness={doorCfg.thickness}
-                                                    panelMat={doorCfg?.mat || r.doorMat || null}
-                                                    frameMat={doorCfg?.frameMat || r.doorFrameMat || null}
-                                                    label={doorCfg?.mat?.label || ""}
-                                                    labelColor={doorCfg?.mat?.labelColor || "#e6edf3"}
-                                                />
-                                            )}
+                                            <Door3D
+                                                width={slotW}
+                                                height={slotH}
+                                                panels={slotPanels}
+                                                open={slotOpen}
+                                                thickness={doorCfg.thickness}
+                                                colorPanel={doorCfg?.mat?.color || r.doorMat?.color}
+                                                colorFrame={doorCfg?.frameMat?.color || r.doorFrameMat?.color}
+                                            />
+
                                         </group>
                                     )}
                                 </group>
@@ -1044,7 +883,7 @@ export function MapEditorUI() {
                 roofMat: { color: "#232a31" },
                 edges: [
                     { side: "N", present: true, door: null },
-                    { side: "E", present: true, door: { width: 2.4, offset: 0, type: "sliding", panels: 2 } },
+                    { side: "E", present: true, door: { width: 4.5, offset: 0, type: "sliding", panels: 2 } },
                     { side: "S", present: true, door: null },
                     { side: "W", present: true, door: null },
                 ],
