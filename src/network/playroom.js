@@ -309,6 +309,10 @@ export function hostRouteAction(fromPlayer, type, target, setEvents) {
         hostHandleBite({ biter: fromPlayer, players, setEvents });
         return true;
     }
+    if (type === "ability" && target === "disguise") {
+            hostHandleDisguise({ player: fromPlayer, setEvents });
+            return true;
+          }
     if (type === "ability" && target === "arrest") {
          const players = (window.playroom?.players?.() || []);
          hostHandleArrest({ officer: fromPlayer, players, setEvents });
@@ -501,7 +505,25 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
     } catch { }
 }
 
-
+const DISGUISE_ROLES = ['Engineer', 'Research', 'Officer', 'Guard', 'FoodSupplier', 'StationDirector'];
+export function hostHandleDisguise({ player, setEvents }) {
+      if (!player?.id) return;
+      // Only Infected may disguise
+          const infected = !!player.getState?.('infected');
+      if (!infected) return;
+    
+          const cur = String(player.getState('disguiseRole') || '');
+      const idx = Math.max(0, DISGUISE_ROLES.indexOf(cur));
+      const next = DISGUISE_ROLES[(idx + 1) % DISGUISE_ROLES.length];
+      player.setState('disguiseRole', next, true);
+    
+          try {
+                if (typeof hostAppendEvent === 'function') {
+                      const name = player.getState?.('name') || 'Infected';
+                      hostAppendEvent(setEvents, `${name} changed appearance.`);
+                    }
+              } catch { }
+    }
 /** Extend the host-side router so ItemsHostLogic can just call one function. */
 
 

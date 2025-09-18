@@ -76,7 +76,10 @@ export default function Players3D({ dead = [] }) {
 
                 // role + visuals
                 const roleState = String(p.getState("role") || "Engineer");
-                const role = ROLE_COMPONENTS[roleState] ? roleState : roleState.toLowerCase(); // ✅ normalize key
+                const disguiseRole = String(p.getState("disguiseRole") || "");
+                const infected = !!p.getState?.("infected");
+                const visualRole = (infected && disguiseRole) ? disguiseRole : roleState;
+                const role = ROLE_COMPONENTS[visualRole] ? visualRole : visualRole.toLowerCase(); // ✅ normalize key
                 const suit = p.getState("suit"); // ✅ only use if provided (let role default color otherwise)
 
                 // movement / carry

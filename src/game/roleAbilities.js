@@ -53,7 +53,14 @@ const INFECTED_ABILITY = {
     damage: 0,                   // infection only (no HP damage here)
     icon: '🧛',
 };
-
+// Infected-only cosmetic: cycle visible character style
+   const INFECTED_DISGUISE = {
+    id: 'disguise',
+    key: 'KeyH',
+    label: 'Disguise (Cycle)',
+    cooldownMs: 500,    // tiny debounce so it feels snappy
+       icon: '🎭',
+   };
 // Keys we’ll use to resolve conflicts when Infected overlays base role
 const KEY_POOL = ['KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK'];
 
@@ -102,8 +109,8 @@ export function getAbilitiesForRole(role) {
     const infected = !!me?.getState?.("infected");
 
     if (infected) {
-        // Prepend Bite so HUD lists it first & we can keep F on it
         abilities.unshift({ ...INFECTED_ABILITY });
+        abilities.unshift({ ...INFECTED_DISGUISE });
         assignUniqueKeys(abilities, /* prioritizeBite */ false);
     }
 

@@ -401,6 +401,17 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
+                / ABILITY: disguise (infected-only cosmetic)
+                            if (type === "ability" && target === "disguise") {
+                                  // Import hostHandleDisguise at top if you prefer; or inline:
+                                      try {
+                                            const { hostHandleDisguise } = await import("../network/playroom");
+                                            hostHandleDisguise({ player: p, setEvents: undefined });
+                                          } catch { }
+                                  processed.current.set(p.id, reqId);
+                                  continue;
+                        +       }
+
                 if (type === "ability" && target === "arrest") {
                     hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
                     processed.current.set(p.id, reqId);
