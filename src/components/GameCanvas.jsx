@@ -219,9 +219,10 @@ export default function GameCanvas({ dead = [] }) {
                 <BeamLasers />
                 <NetworkGunTracers />
                 <CCTVViewer />
-                <CCTVControlPanel />
+                
             </Canvas>
-
+            {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
+                <CCTVControlPanel />
             {/* Input overlay (non-blocking) */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                 <InteractionSystem />
