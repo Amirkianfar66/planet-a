@@ -76,10 +76,9 @@ export default function Players3D({ dead = [] }) {
 
                 // role + visuals
                 const roleState = String(p.getState("role") || "Engineer");
-                const disguiseRole = String(p.getState("disguiseRole") || "");
                 const infected = !!p.getState?.("infected");
-                const visualRole = (infected && disguiseRole) ? disguiseRole : roleState;
-                const role = ROLE_COMPONENTS[visualRole] ? visualRole : visualRole.toLowerCase(); // ✅ normalize key
+                const disguiseOn = infected && !!p.getState?.("disguiseOn");
+                const role = ROLE_COMPONENTS[roleState] ? roleState : roleState.toLowerCase(); // ✅ normalize ke
                 const suit = p.getState("suit"); // ✅ only use if provided (let role default color otherwise)
 
                 // movement / carry
@@ -87,10 +86,11 @@ export default function Players3D({ dead = [] }) {
                 const airborne = !!p.getState("air");
                 const carry = String(p.getState("carry") || "");
 
-                const Comp =
-                    ROLE_COMPONENTS[role] ||
-                    ROLE_COMPONENTS[role.toLowerCase()] || // extra safety
-                    DefaultRole;
+                const Comp = disguiseOn
+                   ? (ROLE_COMPONENTS.InfectedDisguise || DefaultRole)
+                   : (ROLE_COMPONENTS[role] ||
+                      ROLE_COMPONENTS[role.toLowerCase()] ||
+                      DefaultRole);
 
                 const isLocal = myPlayer().id === p.id;
 
