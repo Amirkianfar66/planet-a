@@ -16,7 +16,7 @@ import React, {
 import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { TransformControls, Text, Billboard } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import WorldGLB from "../world/WorldGLB";
 // door preview
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
@@ -28,7 +28,7 @@ import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 // ---- room tools
 import * as RT from "../map/roomTools";
 const WALL_THICKNESS = RT.WALL_THICKNESS ?? 0.6;
-const DEFAULT_WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 2.4;
+const DEFAULT_WALL_HEIGHT = RT.DEFAULT_WALL_HEIGHT ?? 4.5;
 const DEFAULT_SLAB_THICKNESS = RT.DEFAULT_SLAB_THICKNESS ?? 0.12;
 
 const makeRoom = RT.makeRoom;
@@ -118,7 +118,7 @@ function clampDoorProps(door, len, wallH, wallT) {
     const half = Number.isFinite(len) ? Math.max(0, len / 2) : 0;
 
     const rawW = Number(door.width);
-    const fallbackW = 2.4;
+    const fallbackW = 4.5;
     const width = Math.min(
         Math.max(0.4, Number.isFinite(rawW) ? rawW : fallbackW),
         Math.max(0, (Number.isFinite(len) ? len : fallbackW) - 0.1)
@@ -206,7 +206,7 @@ export function MapEditorProvider({
     const [selFloor, setSelFloor] = useState(null); // floor slab index
     const [selectedEdge, setSelectedEdge] = useState(null); // {roomIndex, side}
     const [showGrid, setShowGrid] = useState(true);
-    const [snap, setSnap] = useState(0.5);
+    const [snap, setSnap] = useState(1);
 
     const [showFloors, setShowFloors] = useState(true);
     const [showRoofs, setShowRoofs] = useState(true);
@@ -392,14 +392,14 @@ export function MapEditor3D() {
         drawStart, setDrawStart,
         drawCurr, setDrawCurr,
         showFloors, showRoofs,
-        worldGLB,
+        worldGLB, setSnap,
         // game objects
         editorItems, setEditorItems,
         editorDevices, setEditorDevices,
         selectedObj,
         showGameObjects,
     } = useMapEditor();
-
+    const snapV = (s, v) => (s > 0 ? Math.round(v / s) * s : v);
     const matRoom = useMemo(
         () => new THREE.MeshBasicMaterial({ color: 0x4ea1ff, transparent: true, opacity: 0.18 }),
         []
@@ -412,19 +412,34 @@ export function MapEditor3D() {
         () => new THREE.MeshBasicMaterial({ color: 0x22cc88, transparent: true, opacity: 0.25 }),
         []
     );
-
+    function DisableRotateWhenDrawing({ active }) {
+        const controls = useThree((s) => s.controls); // works when OrbitControls has makeDefault
+        useEffect(() => {
+            if (!controls) return;
+            const prev = controls.enableRotate;
+            controls.enableRotate = !active;         // disable rotate while drawing
+            return () => { controls.enableRotate = prev; };
+        }, [controls, active]);
+        return null;
+    }
     // ground draw
     const onGroundDown = (e) => {
         if (!draw.active) return;
         e.stopPropagation();
         const p = e.point;
-        setDrawStart({ x: p.x, z: p.z });
-        setDrawCurr({ x: p.x, z: p.z });
+        const bypass = e.nativeEvent?.altKey === true; // hold Alt to freehand
+        const s = bypass ? 0 : snap;
+        const x = snapV(s, p.x);
+        const z = snapV(s, p.z);
+        setDrawStart({ x, z });
+        setDrawCurr({ x, z });
     };
     const onGroundMove = (e) => {
         if (!draw.active || !drawStart) return;
         const p = e.point;
-        setDrawCurr({ x: p.x, z: p.z });
+        const bypass = e.nativeEvent?.altKey === true;
+        const s = bypass ? 0 : snap;
+        setDrawCurr({ x: snapV(s, p.x), z: snapV(s, p.z) });
     };
     const onGroundUp = () => {
         if (!draw.active || !drawStart || !drawCurr) return;
@@ -433,15 +448,16 @@ export function MapEditor3D() {
         if (w >= 0.5 && d >= 0.5) {
             const cx = (drawCurr.x + drawStart.x) / 2;
             const cz = (drawCurr.z + drawStart.z) / 2;
-            const snapV = (v) => (snap ? Math.round(v / snap) * snap : v);
+            const s = snap;
+            const SV = (v) => snapV(s, v);
             if (draw.kind === "room") {
                 const room = normalizeRoomSingleDoor(
                     makeRoom({
                         name: `Room ${rooms.length + 1}`,
-                        x: snapV(cx),
-                        z: snapV(cz),
-                        w: snapV(w),
-                        d: snapV(d),
+                        x: SV(cx),
+                        z: SV(cz),
+                        w: SV(w),
+                        d: SV(d),
                         floorY: 0,
                         roofT: DEFAULT_SLAB_THICKNESS,
                         hasFloor: true,
@@ -459,10 +475,10 @@ export function MapEditor3D() {
             } else {
                 const slab = makeSlab({
                     name: `Floor ${floors.length + 1}`,
-                    x: snapV(cx),
-                    z: snapV(cz),
-                    w: snapV(w),
-                    d: snapV(d),
+                    x: SV(cx),
+                    z: SV(cz),
+                    w: SV(w),
+                    d: SV(d),
                     y: 0 + DEFAULT_SLAB_THICKNESS / 2,
                     t: DEFAULT_SLAB_THICKNESS,
                     exported: true,
@@ -523,7 +539,10 @@ export function MapEditor3D() {
 
     return (
         <>
-            {showGrid && <gridHelper args={[120, 60]} position={[0, 0.005, 0]} />}
+            
+            <DisableRotateWhenDrawing active={draw.active} />
+            {showGrid && <gridHelper args={[120, 120]} position={[0, 0.005, 0]} />}
+            
 
             {/* drag-rect capture plane */}
             <mesh
@@ -536,6 +555,8 @@ export function MapEditor3D() {
                 <planeGeometry args={[200, 200]} />
                 <meshBasicMaterial visible={false} />
             </mesh>
+           
+                
 
             {/* World GLB */}
             <Suspense fallback={null}>
@@ -738,7 +759,10 @@ export function MapEditor3D() {
                                                     panels={slotPanels}
                                                     open={slotOpen}
                                                     thickness={doorCfg.thickness}
-                                                    glbUrl={r.doorModel?.url || null}
+                                                    // IMPORTANT: use default single-GLB if nothing set on the room
+                                                    glbUrl={r.doorModel?.url ?? "/models/door.glb"}
+                                                    // optional: plumb through clipName from the UI (accepts "all" or comma list)
+                                                    clipName={r.doorModel?.clipName || "all"}
                                                 />
                                                      </Suspense>
                                                </group>
@@ -1537,34 +1561,34 @@ export function MapEditorUI() {
 
                                     {/* Door GLB (optional per room) */}
                                     <div style={{ gridColumn: "1 / span 2", marginTop: 8 }}>
-                                        <strong>Door GLB (optional)</strong>
+                                        <strong>Door GLB</strong>
                                     </div>
 
-                                    <label>Frame GLB URL</label>
+                                    <label>Single Door GLB URL</label>
                                     <input
-                                        value={r.doorModel?.frameUrl || ""}
+                                        placeholder="/models/door.glb"
+                                        value={r.doorModel?.url ?? "/models/door.glb"}
                                         onChange={(ev) =>
-                                            updateRoom({ doorModel: { ...(r.doorModel || {}), frameUrl: ev.target.value } })
+                                            updateRoom({
+                                                doorModel: { ...(r.doorModel || {}), url: ev.target.value || "/models/door.glb" },
+                                            })
                                         }
                                     />
-                                    <label>Left Panel GLB URL</label>
+
+                                    <label>Animation Clips (optional)</label>
                                     <input
-                                        value={r.doorModel?.leftUrl || ""}
+                                        placeholder={`all  ·  "Open"  ·  "Open_L,Open_R"`}
+                                        value={r.doorModel?.clipName || ""}
                                         onChange={(ev) =>
-                                            updateRoom({ doorModel: { ...(r.doorModel || {}), leftUrl: ev.target.value } })
-                                        }
-                                    />
-                                    <label>Right Panel GLB URL</label>
-                                    <input
-                                        value={r.doorModel?.rightUrl || ""}
-                                        onChange={(ev) =>
-                                            updateRoom({ doorModel: { ...(r.doorModel || {}), rightUrl: ev.target.value } })
+                                            updateRoom({ doorModel: { ...(r.doorModel || {}), clipName: ev.target.value } })
                                         }
                                     />
 
                                     <label>Door Thickness (Z)</label>
                                     <input
-                                        type="number" step={0.01} value={r.doorModel?.thickness ?? 0.3}
+                                        type="number"
+                                        step={0.01}
+                                        value={r.doorModel?.thickness ?? 0.3}
                                         onChange={(ev) =>
                                             updateRoom({
                                                 doorModel: {
@@ -1574,6 +1598,18 @@ export function MapEditorUI() {
                                             })
                                         }
                                     />
+
+                                    <label>Diagonal Slope (Z per open)</label>
+                                    <input
+                                        type="number"
+                                        step={0.01}
+                                        value={r.doorModel?.slope ?? 0}
+                                        onChange={(ev) =>
+                                            updateRoom({ doorModel: { ...(r.doorModel || {}), slope: Number(ev.target.value) } })
+                                        }
+                                    />
+
+
 
                                     <label>Diagonal Slope (Z per open)</label>
                                     <input

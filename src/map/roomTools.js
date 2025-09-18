@@ -2,7 +2,7 @@
 // Utilities for rooms, walls, doors and export packing.
 
 export const WALL_THICKNESS = 0.6;
-export const DEFAULT_WALL_HEIGHT = 2.4;
+export const DEFAULT_WALL_HEIGHT = 4.5;
 export const DEFAULT_SLAB_THICKNESS = 0.12;
 
 // ---- helpers
