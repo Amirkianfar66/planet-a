@@ -317,7 +317,12 @@ export function hostRouteAction(fromPlayer, type, target, setEvents) {
          const players = (window.playroom?.players?.() || []);
          hostHandleArrest({ officer: fromPlayer, players, setEvents });
          return true;
-           }
+    }
+    if (type === "ability" && target === "scan") {
+         const players = (window.playroom?.players?.() || []);
+         hostHandleScan({ officer: fromPlayer, players, setEvents });
+         return true;
+    }
     return false;
 }
 // --- add below existing helpers in src/network/playroom.js ---
@@ -474,9 +479,10 @@ function _frontConeTarget(source, players, range = 2.0, maxAngleDeg = 70) {
 export function hostHandleArrest({ officer, players = [], setEvents }) {
     if (!officer?.id) return;
 
-    // (Optional) enforce Officer role
+    // Station Director is now the only one who can Arrest
     const role = String(officer.getState?.("role") || "");
-    if (role && role !== "Officer") return;
+    if (role && role !== "StationDirector") return;
+
 
     // one arrest per officer (default 1 if unset)
     const arrestsLeft = Number(officer.getState("arrestsLeft"));
@@ -499,9 +505,43 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
 
     try {
         if (typeof hostAppendEvent === "function") {
-            const name = officer.getState?.("name") || "Officer";
+            const name = officer.getState?.("name") || "Station Director";
             hostAppendEvent(setEvents, `${name} arrested a crew member (moved to Lockdown).`);
         }
+    } catch { }
+}
+/** Officer ability: Blood Test (Scan) — reveals if the target is infected */
+export function hostHandleScan({ officer, players = [], setEvents }) {
+    if (!officer?.id) return;
+
+    // Only Officers can scan
+    const role = String(officer.getState?.("role") || "");
+    if (role && role !== "Officer") return;
+
+    const now = Date.now();
+
+    // Simple host-side cooldown mirror (8s)
+    const cdKey = "cd:scanUntil";
+    const until = Number(officer.getState(cdKey) || 0);
+    if (now < until) return;
+    officer.setState(cdKey, now + 8000, true);
+
+    // Short range, front-cone scan
+    const target = _frontConeTarget(officer, players, 2.0, 70);
+    if (!target) return;
+
+    const infected = !!target.getState?.("infected");
+    const tName = target.getState?.("name") || target.getProfile?.().name || "Player";
+    const oName = officer.getState?.("name") || "Officer";
+
+    // Store last scan outcome on officer (handy for UI if you want)
+    officer.setState("lastScanName", tName, true);
+    officer.setState("lastScanInfected", infected ? 1 : 0, true);
+    officer.setState("lastScanAt", now, true);
+
+    // Broadcast a clear event line
+    try {
+        hostAppendEvent(setEvents, `${oName} blood-tested ${tName}: ${infected ? "INFECTED" : "clear"}.`);
     } catch { }
 }
 

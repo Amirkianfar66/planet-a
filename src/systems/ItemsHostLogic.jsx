@@ -1,7 +1,7 @@
 ﻿// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -256,10 +256,10 @@ export default function ItemsHostLogic() {
             if (hasLife === undefined || hasLife === null) {
                 pl.setState?.("life", 100, true);
             }
-            // Default 1 arrest charge for Officers
+            // Default 1 arrest charge for Station Director
             const role = String(pl.getState?.("role") || "");
             const arrests = pl.getState?.("arrestsLeft");
-            if (role === "Officer" && (arrests === undefined || arrests === null)) {
+            if (role === "StationDirector" && (arrests === undefined || arrests === null)) {
                 pl.setState?.("arrestsLeft", 1, true);
             }
 
@@ -351,7 +351,7 @@ export default function ItemsHostLogic() {
                 }
                 const role = String(pl.getState?.("role") || "");
                 const arrests = pl.getState?.("arrestsLeft");
-                if (role === "Officer" && (arrests === undefined || arrests === null)) {
+                if (role === "StationDirector" && (arrests === undefined || arrests === null)) {
                     pl.setState?.("arrestsLeft", 1, true);
                 }
                 // keep oxygen present for late joiners
@@ -413,6 +413,13 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
+
+                // ABILITY: scan (Officer blood test)
+                if (type === "ability" && target === "scan") {
+                      hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
+                      processed.current.set(p.id, reqId);
+                      continue;
+                 }
                 // --------- END ABILITIES ----------
 
                 // CONTAINER (any Tank) — stationary, load-only, must be near
