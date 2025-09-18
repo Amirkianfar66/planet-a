@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useRef } from "react";
+﻿// src/systems/InteractionSystem.jsx
+import React, { useEffect, useRef } from "react";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
@@ -51,11 +52,13 @@ export default function InteractionSystem() {
             if (k === "t") {
                 if (!carryId) return;
                 const yaw = Number(me.getState("yaw") || 0);
-                sendReq("throw", carryId, yaw); return;
+                sendReq("throw", carryId, yaw);
+                return;
             }
 
             if (k === "i") {
                 if (!carryId) return;
+
                 // nearest device
                 let dev = null, best = Infinity;
                 for (const d of DEVICES) {
@@ -63,10 +66,28 @@ export default function InteractionSystem() {
                     const r = Number(d.radius || DEVICE_RADIUS);
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
-                if (dev) sendReq("use", `${dev.id}|${carryId}`, 0);
-                else {
-                    const it = (itemsRef.current || []).find(x => x.id === carryId);
-                    if (it?.type === "food") sendReq("use", `eat|${carryId}`, 0);
+                if (dev) {
+                    // Use item on a device
+                    sendReq("use", `${dev.id}|${carryId}`, 0);
+                    return;
+                }
+
+                // No device nearby — special cases (eat / place CCTV)
+                const worldItem = (itemsRef.current || []).find(x => x.id === carryId);
+                const isCameraIdOnly = /^cam_/.test(String(carryId)); // daily backpack cam ids
+                const isCameraType = worldItem?.type === "cctv";
+                const isFood = worldItem?.type === "food";
+
+                if (isCameraType || isCameraIdOnly) {
+                    // Place CCTV (works even if camera exists only in backpack)
+                    sendReq("use", `place|${carryId}`, 0);
+                    return;
+                }
+
+                if (isFood) {
+                    // Eat food
+                    sendReq("use", `eat|${carryId}`, 0);
+                    return;
                 }
             }
         }

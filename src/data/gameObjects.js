@@ -11,6 +11,7 @@ export const ITEM_TYPES = {
     food_tank: { label: "Food Tank", color: "#10b981" }, // teal
     fuel_tank: { label: "Fuel Tank", color: "#a855f7" }, // purple (match fuel)
     protection_tank: { label: "Protection Tank", color: "#f59e0b" }, // orange (match protection)
+    cctv: { label: "CCTV Camera", color: "#94a3b8" },
 };
 
 // Simple starter content (positions are just examples)
@@ -52,7 +53,7 @@ export const DEVICES = [
     { id: "reactor", type: "reactor", x: 0, z: 0, radius: 2.8, label: "Reactor" },
     { id: "medbay", type: "medbay", x: 4, z: 2, radius: 2.4, label: "MedBay" },
     { id: "shield", type: "shield", x: -2, z: 4, radius: 2.2, label: "Shield Station" },
-    { id: "cctv", type: "cctv", x: -3.5, z: -3, radius: 2.0, label: "CCTV Terminal" },
+    { id: "cctv_console", type: "console", x: -3.5, z: -3, radius: 2.0, label: "CCTV Console" },
 ];
 
 // What can be used on what

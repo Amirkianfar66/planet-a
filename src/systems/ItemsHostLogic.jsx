@@ -6,7 +6,7 @@ import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
 import { useGameClock } from "../systems/dayNightClock";
-import { isOutsideByRoof } from "../map/deckA"; // ✅ NEW: inside/outside by roof
+import { isOutsideByRoof } from "../map/deckA"; // inside/outside by roof
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -118,6 +118,12 @@ const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack,
 
     return true;
 };
+
+/* ---- NEW: role helper for Officer/Guard/Security ---- */
+const isOfficerRole = (r) => {
+    const s = String(r || "").toLowerCase();
+    return s.includes("officer") || s.includes("guard") || s.includes("security");
+};
 /* --- END HELPERS --- */
 
 export default function ItemsHostLogic() {
@@ -192,7 +198,8 @@ export default function ItemsHostLogic() {
                     }
                     return { ...it, x, y, z, vx, vy, vz };
                 }),
-                true);
+                true
+            );
         }, DT * 1000);
         return () => clearInterval(h);
     }, [host, setItems]);
@@ -237,7 +244,7 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(rafId);
     }, [host]);
 
-    // ✅ BASELINE per-player state (life, role charges, oxygen)
+    // BASELINE per-player state (life, role charges, oxygen)
     useEffect(() => {
         if (!host) return;
         const everyone = [...(playersRef.current || [])];
@@ -256,7 +263,7 @@ export default function ItemsHostLogic() {
                 pl.setState?.("arrestsLeft", 1, true);
             }
 
-            // ✅ NEW: ensure oxygen exists (100%)
+            // ensure oxygen exists (100%)
             const oxy = pl.getState?.("oxygen");
             if (oxy === undefined || oxy === null) {
                 pl.setState?.("oxygen", 100, true);
@@ -264,10 +271,10 @@ export default function ItemsHostLogic() {
         }
     }, [host, players]);
 
-    // ✅ OXYGEN DRAIN while OUTSIDE (roofless)
+    // OXYGEN DRAIN while OUTSIDE (roofless)
     useEffect(() => {
         if (!host) return;
-        const DRAIN_PER_TICK = 1;   // % per second (tune as you like)
+        const DRAIN_PER_TICK = 1; // % per second
         const TICK_MS = 1000;
 
         const timer = setInterval(() => {
@@ -293,6 +300,34 @@ export default function ItemsHostLogic() {
 
         return () => clearInterval(timer);
     }, [host]);
+
+    /* -------- NEW: give Officers one CCTV camera at the start of each day -------- */
+    useEffect(() => {
+        if (!host) return;
+
+        const everyone = [...(playersRef.current || [])];
+        const self = myPlayer();
+        if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
+
+        for (const p of everyone) {
+            const role = p.getState?.("role");
+            if (!isOfficerRole(role)) continue;
+
+            const camId = `cam_${p.id}_d${dayNumber}`;
+            const bp = (p.getState?.("backpack") || []);
+            const hasTodayCam = Array.isArray(bp) && bp.some((b) => b.id === camId);
+
+            if (!hasTodayCam) {
+                const nextBp = [...bp, { id: camId, type: "cctv", name: "CCTV Camera" }];
+                p.setState?.("backpack", nextBp, true);
+                // auto-equip if hands free
+                const carry = String(p.getState?.("carry") || "");
+                if (!carry) p.setState?.("carry", camId, true);
+                console.log(`[HOST] Granted daily CCTV to ${p.id}: ${camId}`);
+            }
+        }
+    }, [host, dayNumber]);
+    /* -------- END DAILY CCTV -------- */
 
     // Process client requests (pickup / drop / throw / use / abilities / container)
     useEffect(() => {
@@ -403,10 +438,6 @@ export default function ItemsHostLogic() {
                         });
                     }
 
-                    if (changed) {
-                        // no backpack entry to refresh — tanks are never held
-                    }
-
                     processed.current.set(p.id, reqId);
                     continue;
                 }
@@ -427,7 +458,7 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    // 🚫 Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                    // Tanks are NOT pickable — treat P near any tank as "load one matching item"
                     if (isTankType(it.type)) {
                         const dx = px - it.x,
                             dz = pz - it.z;
@@ -466,7 +497,8 @@ export default function ItemsHostLogic() {
 
                     setItems(
                         (prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
-                        true);
+                        true
+                    );
 
                     const carry = String(p.getState("carry") || "");
                     if (!carry) p.setState("carry", it.id, true);
@@ -506,7 +538,8 @@ export default function ItemsHostLogic() {
                                     }
                                     : j
                             ),
-                        true);
+                        true
+                    );
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                     setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
@@ -543,7 +576,8 @@ export default function ItemsHostLogic() {
                                     }
                                     : j
                             ),
-                        true);
+                        true
+                    );
 
                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                     setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
@@ -552,10 +586,76 @@ export default function ItemsHostLogic() {
                     continue;
                 }
 
-                // USE
+                // USE (includes CCTV place)
                 if (type === "use") {
-                    const [kind, idStr] = String(target).split("|");
+                    const [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
                     const it = findItem(idStr);
+                    const bp = getBackpack(p);
+
+                    // --- NEW: PLACE CCTV from backpack (or while held) ---
+                    if (kind === "place") {
+                        // Allowed if:
+                        //  - item exists and is held by player, OR
+                        //  - camera entry exists in backpack (id match) even if not a world item yet
+                        const heldOk = !!it && it.holder === p.id && it.type === "cctv";
+                        const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
+
+                        if (!heldOk && !bpCam) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        const yaw = Number(p.getState("yaw") || 0);
+                        const fdx = Math.sin(yaw), fdz = Math.cos(yaw);
+
+                        // If camera not a world item yet, spawn it; otherwise move+drop the held one to mounted pose
+                        if (!it) {
+                            setItems((prev) => [
+                                ...prev,
+                                {
+                                    id: idStr,
+                                    type: "cctv",
+                                    name: "CCTV Camera",
+                                    holder: null,
+                                    x: px + fdx * 0.6,
+                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                    z: pz + fdz * 0.6,
+                                    yaw,
+                                    placed: true,
+                                    owner: p.id,
+                                    day: useGameClock.getState().dayNumber,
+                                },
+                            ], true);
+                        } else {
+                            setItems((prev) =>
+                                prev.map((j) =>
+                                    j.id === it.id
+                                        ? {
+                                            ...j,
+                                            holder: null,
+                                            x: px + fdx * 0.6,
+                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                            z: pz + fdz * 0.6,
+                                            vx: 0, vy: 0, vz: 0,
+                                            yaw,
+                                            placed: true,
+                                            owner: p.id,
+                                        }
+                                        : j
+                                ),
+                                true);
+                        }
+
+                        // Remove from backpack and clear carry if needed
+                        setBackpack(p, bp.filter((b) => b.id !== idStr));
+                        if (String(p.getState("carry") || "") === idStr) p.setState("carry", "", true);
+
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    // --- END PLACE CCTV ---
+
+                    // From here down: legacy "use" flows that require a held world item
                     if (!it || it.holder !== p.id) {
                         processed.current.set(p.id, reqId);
                         continue;
@@ -570,11 +670,10 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    // use on device
+                    // use on device (reactor/medbay/shield/etc.)
                     const dev = DEVICES.find((d) => d.id === kind);
                     if (dev) {
-                        const dx = px - dev.x,
-                            dz = pz - dev.z;
+                        const dx = px - dev.x, dz = pz - dev.z;
                         const r = Number(dev.radius || DEVICE_RADIUS);
                         if (dx * dx + dz * dz <= r * r) {
                             const eff = USE_EFFECTS?.[it.type]?.[dev.type];
