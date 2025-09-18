@@ -1,5 +1,4 @@
-﻿// src/dev/SlidingDoorPreview.jsx
-import React, { useEffect, useMemo, useRef } from "react";
+﻿import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
@@ -7,54 +6,53 @@ import { useGLTF, useAnimations } from "@react-three/drei";
 /**
  * SlidingDoor (enhanced)
  *
- * Two modes:
- *  A) Single animated GLB (glbUrl): scrubs clip time by `open` (0..1).
- *  B) Fallback "code-driven" sliding panels (optionally using frame/left/right GLBs).
- *
- * New:
- *  - playerRef: a ref whose .current = [x,y,z] is updated every frame.
- *  - dwellSeconds and closeDelaySeconds for robust re-open behavior.
- *  - elevation to raise the whole door if your map puts y=0 at floor.
+ * Modes:
+ *  A) Single animated GLB (glbUrl): scrubs one or many clips by an 'open' (0..1).
+ *  B) Fallback code panels (optional frame/left/right GLBs or simple boxes).
  *
  * Common props:
  *   position=[0,0,0], rotationY=0, elevation=0
- *   doorWidth=4.5, doorHeight=3, thickness=0.3
- *   panels=2
- *   playerRef (preferred), or playerPosition (static array), or window.__playerPos
+ *   doorWidth=4.5, doorHeight=3, thickness=0.3, panels=2
+ *
+ * Proximity:
+ *   playerRef={ref.current=[x,y,z]}  (preferred), or playerPosition=[x,y,z]
  *   triggerRadius=3, dwellSeconds=1, closeDelaySeconds=0.15
- *   open=0..1 (when no proximity control)
  *   openSpeed=6, closeSpeed=4
  *
- * Animated GLB mode:
+ * GLB mode:
  *   glbUrl="/models/door.glb"
- *   clipName="Open"  // optional; defaults to /open/i or first clip
+ *   clipName="all"                 // scrub all clips
+ *   // or clipNames={["Open_L","Open_R"]}
  */
 
 export function SlidingDoor({
     // placement
     position = [0, 0, 0],
     rotationY = 0,
-    elevation = 0,          // << raise entire door (e.g. 1.5)
+    elevation = 0,
 
     // dimensions / behavior
     doorWidth = 4.5,
     doorHeight = 3,
     thickness = 0.3,
-    panels = 2,
+    panels = 2, // 1 or 2
 
-    // animation control (shared)
-    playerRef = null,       // prefer this: a ref whose current is [x,y,z] (updates each frame)
-    playerPosition = null,  // fallback static array [x,y,z]
+    // proximity control (shared)
+    playerRef = null,       // preferred (ref.current = [x,y,z])
+    playerPosition = null,  // fallback array
     triggerRadius = 3,
     dwellSeconds = 1,
     closeDelaySeconds = 0.15,
-    open = 0,               // used when no proximity source is available
     openSpeed = 6,
     closeSpeed = 4,
 
+    // when NOT using proximity (you can still control via 'open')
+    open = 0,
+
     // ---------- Mode A: SINGLE animated GLB ----------
     glbUrl = null,
-    clipName = null,
+    clipName = null,        // "all" | "Open" | "Left,Right" (comma list)
+    clipNames = null,       // array override, e.g., ["Open_L","Open_R"]
 
     // ---------- Mode B: panel fallback ----------
     frameUrl = null,
@@ -68,51 +66,50 @@ export function SlidingDoor({
     trackHeight = 0.06,
 }) {
     const root = useRef();
-
-    // Shared open smoothing target (0..1)
     const openRef = useRef(0);
+    const targetRef = useRef(0);
+    const dwellRef = useRef(0);
+    const farRef = useRef(closeDelaySeconds);
 
-    // --- PROXIMITY CONTROL (works for both modes) ---
-    const insideTimeRef = useRef(0);   // seconds accumulated while inside radius
-    const outsideTimeRef = useRef(0);  // seconds accumulated while outside radius
-
-    const getLivePlayerPos = () => {
-        if (playerRef && Array.isArray(playerRef.current)) return playerRef.current;
-        if (Array.isArray(playerPosition)) return playerPosition;
-        if (typeof window !== "undefined" && Array.isArray(window.__playerPos)) return window.__playerPos;
-        return null;
-    };
-
-    // Computes a stable targetOpen in [0..1] with dwell + close delay
-    const computeTargetOpen = (dt) => {
-        const pp = getLivePlayerPos();
-        if (!pp) {
-            // No proximity source -> use controlled prop
-            return THREE.MathUtils.clamp(open, 0, 1);
+    // ---- proximity + dwell → target open ----
+    const updateTargetFromProximity = (dt) => {
+        const p = playerRef?.current || playerPosition;
+        if (!p) {
+            // no proximity provided: controlled mode
+            targetRef.current = THREE.MathUtils.clamp(open, 0, 1);
+            return;
         }
-        const dx = (position?.[0] || 0) - pp[0];
-        const dz = (position?.[2] || 0) - pp[2];
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        const inside = dist <= triggerRadius;
 
-        if (inside) {
-            insideTimeRef.current += dt;
-            outsideTimeRef.current = 0;
-            // open only after dwell time
-            if (insideTimeRef.current >= dwellSeconds) return 1;
-            // not yet dwelled enough -> stay as we are
-            return openRef.current;
+        // door world position (handles groups/rotation)
+        const wp = new THREE.Vector3();
+        root.current?.getWorldPosition(wp);
+
+        const dx = p[0] - wp.x;
+        const dz = p[2] - wp.z;
+        const near = (dx * dx + dz * dz) <= (triggerRadius * triggerRadius);
+
+        if (near) {
+            dwellRef.current += dt;
+            farRef.current = 0;
+            if (dwellRef.current >= dwellSeconds) targetRef.current = 1;
         } else {
-            insideTimeRef.current = 0;
-            outsideTimeRef.current += dt;
-            // close after a small delay to avoid flicker at the edge
-            if (outsideTimeRef.current >= closeDelaySeconds) return 0;
-            return openRef.current;
+            dwellRef.current = 0;
+            farRef.current += dt;
+            if (farRef.current >= closeDelaySeconds) targetRef.current = 0;
         }
     };
+
+    // Smooth open → openRef
+    useFrame((_, dt) => {
+        const step = dt || 0.016;
+        updateTargetFromProximity(step);
+        const speed = targetRef.current > openRef.current ? openSpeed : closeSpeed;
+        const k = Math.min(1, step * speed);
+        openRef.current += (targetRef.current - openRef.current) * k;
+    });
 
     // =====================================================================================
-    // MODE A: Single animated GLB (preferred) – scrub animation clip based on openRef.v
+    // MODE A: Single animated GLB (preferred)
     // =====================================================================================
     if (glbUrl) {
         return (
@@ -121,21 +118,19 @@ export function SlidingDoor({
                 rotationY={rotationY}
                 glbUrl={glbUrl}
                 clipName={clipName}
+                clipNames={clipNames}
                 width={doorWidth}
                 height={doorHeight}
                 depth={thickness}
                 openRef={openRef}
-                computeTargetOpen={computeTargetOpen}
-                openSpeed={openSpeed}
-                closeSpeed={closeSpeed}
+                rootRef={root}
             />
         );
     }
 
     // =====================================================================================
-    // MODE B: Panel fallback (legacy / editor preview) – code-moves panels
+    // MODE B: Panel fallback (legacy / editor preview)
     // =====================================================================================
-
     const gL = useRef();   // left panel mover
     const gR = useRef();   // right panel mover
 
@@ -187,32 +182,29 @@ export function SlidingDoor({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rightGltf, panelWidth, doorHeight, thickness]);
 
-    // Smooth open state & panel transforms using proximity dwell
-    useFrame((_, dt) => {
-        const target = computeTargetOpen(dt || 0.016);
-        const speed = target > openRef.current ? openSpeed : closeSpeed;
-        const k = Math.min(1, (dt || 0.016) * speed);
-        openRef.current += (target - openRef.current) * k;
-
+    // Move panels from smoothed openRef
+    useFrame(() => {
         const curr = openRef.current;
         const slide = panelWidth * curr;
         const yRise = slideSlope * slide;
         const seamHalf = panels === 2 ? seam / 2 : 0;
 
-        if (gL.current) gL.current.position.set(-(seamHalf + slide), doorHeight / 2 + yRise, 0);
+        if (gL.current) gL.current.position.set(-(seamHalf + slide), elevation + doorHeight / 2 + yRise, 0);
         if (gR.current) {
-            if (panels === 2) gR.current.position.set((seamHalf + slide), doorHeight / 2 + yRise, 0);
-            else gR.current.position.set(0, doorHeight / 2 + yRise, 0);
+            if (panels === 2) gR.current.position.set((seamHalf + slide), elevation + doorHeight / 2 + yRise, 0);
+            else gR.current.position.set(0, elevation + doorHeight / 2 + yRise, 0);
         }
     });
 
     return (
-        <group ref={root} position={[position[0], position[1] + elevation, position[2]]} rotation={[0, rotationY || 0, 0]}>
-            {/* ----- Frame ----- */}
+        <group ref={root} position={position} rotation={[0, rotationY || 0, 0]}>
+            {/* Frame (fallback) */}
             {frameNode ? (
-                <primitive object={frameNode} />
+                <group position={[0, elevation, 0]}>
+                    <primitive object={frameNode} />
+                </group>
             ) : (
-                <>
+                <group position={[0, elevation, 0]}>
                     {/* Header / sill */}
                     <mesh position={[0, doorHeight + trackHeight / 2, 0]}>
                         <boxGeometry args={[doorWidth + 0.04, trackHeight, frameDepth]} />
@@ -222,10 +214,10 @@ export function SlidingDoor({
                         <boxGeometry args={[doorWidth + 0.02, 0.04, frameDepth]} />
                         <meshStandardMaterial color={colorFrame} roughness={0.9} metalness={0.1} />
                     </mesh>
-                </>
+                </group>
             )}
 
-            {/* ----- Left panel ----- */}
+            {/* Left panel */}
             <group ref={gL}>
                 {leftNode ? (
                     <primitive object={leftNode} />
@@ -237,7 +229,7 @@ export function SlidingDoor({
                 )}
             </group>
 
-            {/* ----- Right / single panel ----- */}
+            {/* Right / single panel */}
             <group ref={gR}>
                 {panels === 2 ? (
                     rightNode ? (
@@ -256,28 +248,26 @@ export function SlidingDoor({
 
 /* =======================================================================================
  * Internal: AnimatedDoorSingleGLB
- * Loads a single GLB and scrubs its animation based on openRef (0..1).
- * Scales to (width, height, depth).
+ * Loads a single GLB and scrubs its animation(s) based on openRef (0..1).
+ * Scales to (width, height, depth). The entire GLB is lifted by `position.y`.
  * ======================================================================================= */
 function AnimatedDoorSingleGLB({
     position,
     rotationY,
     glbUrl,
-    clipName,                 // "all" | "Open" | "Left,Right" | undefined
+    clipName,
+    clipNames = null,
     width = 4.5,
     height = 3,
     depth = 0.3,
     openRef,
-    computeTargetOpen,
-    openSpeed,
-    closeSpeed,
+    rootRef, // to compute world position for proximity checks
 }) {
-    const root = useRef();
     const holder = useRef();
     const gltf = useGLTF(glbUrl);
     const sceneClone = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
 
-    // Center & scale the model to target dims
+    // Center & scale model to target dims (bottom at y=0 inside holder)
     useEffect(() => {
         if (!holder.current || !sceneClone) return;
         while (holder.current.children.length) holder.current.remove(holder.current.children[0]);
@@ -289,7 +279,9 @@ function AnimatedDoorSingleGLB({
         box.getSize(size);
         box.getCenter(center);
 
-        obj.position.sub(center); // center on origin
+        // shift so origin is bottom-center
+        const bottomY = box.min.y;
+        obj.position.set(-center.x, -bottomY, -center.z);
 
         const sx = size.x > 0 ? width / size.x : 1;
         const sy = size.y > 0 ? height / size.y : sx;
@@ -298,85 +290,74 @@ function AnimatedDoorSingleGLB({
         const container = new THREE.Group();
         container.add(obj);
         container.scale.set(sx, sy, sz);
-
         holder.current.add(container);
     }, [sceneClone, width, height, depth]);
 
-    // Prepare multi-clip scrubbing
-    const { mixer, clips } = useAnimations(gltf.animations || [], holder);
+    // Multi-clip scrubbing (e.g., left + right panel)
+    const { mixer } = useAnimations(gltf.animations || [], holder);
+    const actionsRef = useRef([]);
+    const durationsRef = useRef([]);
 
-    const actionsRef = useRef([]);      // [{ action, duration }]
     useEffect(() => {
         if (!mixer || !holder.current) return;
-        actionsRef.current.forEach(({ action }) => action.stop());
+        actionsRef.current.forEach(a => a.stop());
         actionsRef.current = [];
+        durationsRef.current = [];
 
-        const allClips = gltf.animations || [];
+        const all = gltf.animations || [];
 
-        // Choose clips:
-        let selected = [];
-        if (clipName) {
-            const names = Array.isArray(clipName)
-                ? clipName
-                : String(clipName).split(",").map(s => s.trim()).filter(Boolean);
-
+        let wanted = [];
+        if (Array.isArray(clipNames) && clipNames.length) {
+            wanted = clipNames.map(n => all.find(a => a.name === n)).filter(Boolean);
+        }
+        if (!wanted.length && clipName) {
+            const names = String(clipName).split(",").map(s => s.trim()).filter(Boolean);
             if (names.length === 1 && names[0].toLowerCase() === "all") {
-                selected = allClips;
-            } else if (names.length > 0) {
-                selected = allClips.filter(c => names.includes(c.name));
+                wanted = all.slice();
+            } else {
+                wanted = all.filter(c => names.includes(c.name));
             }
         }
-        // Fallback: any clip with "open" in its name (case-insensitive)
-        if (selected.length === 0) {
-            selected = allClips.filter(c => /open/i.test(c.name));
+        if (!wanted.length) {
+            wanted = all.filter(c => /open/i.test(c.name));
         }
-        // Final fallback: first clip only
-        if (selected.length === 0 && allClips.length) {
-            selected = [allClips[0]];
+        if (!wanted.length && all.length) {
+            wanted = [all[0]];
         }
 
-        // Create paused actions for each selected clip
-        selected.forEach((clip) => {
+        wanted.forEach((clip) => {
             const action = mixer.clipAction(clip, holder.current);
             action.clampWhenFinished = true;
             action.enabled = true;
-            action.paused = true;   // we scrub manually
+            action.paused = true;
             action.play();
-            actionsRef.current.push({ action, duration: clip.duration || 1 });
+            actionsRef.current.push(action);
+            durationsRef.current.push(clip.duration || 1);
         });
-    }, [mixer, clips, gltf.animations, clipName]);
+    }, [mixer, gltf.animations, clipName, clipNames]);
 
-    // Smooth open value and scrub ALL selected clips
-    useFrame((_, dt) => {
-        const target = computeTargetOpen(dt || 0.016);
-        const speed = target > openRef.current ? openSpeed : closeSpeed;
-        const k = Math.min(1, (dt || 0.016) * speed);
-        openRef.current += (target - openRef.current) * k;
-
+    // Scrub by openRef for all actions
+    useFrame(() => {
         const v = THREE.MathUtils.clamp(openRef.current, 0, 1);
-        // Set each action's time to its own duration * v
-        actionsRef.current.forEach(({ action, duration }) => {
-            action.time = v * duration;
-        });
-        mixer.update(0); // apply immediately
+        const ds = durationsRef.current;
+        const as = actionsRef.current;
+        for (let i = 0; i < as.length; i++) {
+            as[i].time = v * (ds[i] || 1);
+        }
+        mixer.update(0);
     });
 
     return (
-        <group ref={root} position={position} rotation={[0, rotationY || 0, 0]}>
+        <group ref={rootRef} position={position} rotation={[0, rotationY || 0, 0]}>
             <group ref={holder} />
         </group>
     );
 }
 
-
 export default SlidingDoor;
 
 try {
     if (typeof useGLTF.preload === "function") {
-        useGLTF.preload("/models/door.glb"); // ✅ only this one
-        // remove the others to avoid 404s:
-        // useGLTF.preload("/models/door_panel_l.glb");
-        // useGLTF.preload("/models/door_panel_r.glb");
-        // useGLTF.preload("/models/door_frame.glb");
+        useGLTF.preload("/models/door.glb");
     }
 } catch { }

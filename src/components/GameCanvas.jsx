@@ -1,5 +1,4 @@
-﻿// src/components/GameCanvas.jsx
-import React, { useMemo, Suspense, useRef } from "react";
+﻿import React, { useMemo, Suspense, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -22,10 +21,9 @@ import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
 import { getMaterial } from "../map/materials";
 
-// Uses the enhanced door component (supports single GLB w/ animation)
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 
-// ---------- helper: read player world position (set this from your controller) ----------
+// live player position (updated by your LocalController via window.__playerPos)
 function usePlayerPosRefFromWindow() {
     const ref = useRef([0, 0, 0]);
     useFrame(() => {
@@ -35,7 +33,6 @@ function usePlayerPosRefFromWindow() {
     return ref;
 }
 
-// ---------- label ----------
 function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
     const { texture, aspect } = useMemo(() => {
         const canvas = document.createElement("canvas");
@@ -58,7 +55,6 @@ function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff"
 
     const h = width / (aspect || 4);
     const noRay = useMemo(() => ({ raycast: () => null }), []);
-
     return (
         <mesh {...noRay} position={position} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[width, h]} />
@@ -67,11 +63,10 @@ function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff"
     );
 }
 
-// ---------- scene ----------
 function FloorAndWalls() {
     const noRay = useMemo(() => ({ raycast: () => null }), []);
     const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map((r) => [r.key, r])), []);
-    const playerRef = usePlayerPosRefFromWindow(); // ✅ get player ref OUTSIDE JSX
+    const playerRef = usePlayerPosRefFromWindow();
 
     return (
         <group>
@@ -108,7 +103,7 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Walls (already split in deckA) */}
+            {/* Walls */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
                 const baseY = r?.floorY ?? 0;
@@ -127,20 +122,18 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Doors (GLB with animation). Wrapped in Suspense for async loads */}
+            {/* Doors */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
                             glbUrl="/models/door.glb"
-                            elevation={1.5}       // lifts model so it sits on the floor
+                            clipName="all"        // scrub all clips (or set clipNames={["Open_L","Open_R"]})
+                            elevation={0.1}       // lift so it stands on the floor
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
-                            clipName="all"        // or omit to auto-pick first/‘Open’ clip
-
-                            // Proximity open with dwell
                             playerRef={playerRef}
                             triggerRadius={3}
                             dwellSeconds={1}
