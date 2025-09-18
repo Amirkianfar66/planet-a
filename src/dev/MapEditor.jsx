@@ -731,17 +731,28 @@ export function MapEditor3D() {
                                     {/* Door preview — y offset down to floor */}
                                     {hasDoor && (
                                         <group position={[slotX, -wallH / 2, 0]}>
-                                            <Door3D
-                                                width={slotW}
-                                                height={slotH}
-                                                panels={slotPanels}
-                                                open={slotOpen}
-                                                thickness={doorCfg.thickness}
-                                                colorPanel={doorCfg?.mat?.color || r.doorMat?.color}
-                                                colorFrame={doorCfg?.frameMat?.color || r.doorFrameMat?.color}
-                                            />
-                                        </group>
-                                    )}
+                                                 <Suspense fallback={null}>
+                                                       <Door3D
+                                                           // geometry
+                                                         width={slotW}
+                                                         height={slotH}
+                                                         panels={slotPanels}
+                                                         open={slotOpen}
+                                                         thickness={doorCfg.thickness}
+                                                         // look
+                                                         colorPanel={doorCfg?.mat?.color || r.doorMat?.color}
+                                                         colorFrame={doorCfg?.frameMat?.color || r.doorFrameMat?.color}
+                                                         // GLB model hooks (let Door3D use GLBs when present, fallback otherwise)
+                                                         frameUrl={r.doorModel?.frameUrl || null}
+                                                         leftUrl={r.doorModel?.leftUrl || null}
+                                                         rightUrl={r.doorModel?.rightUrl || null}
+                                                         slope={r.doorModel?.slope ?? 0}
+                                                         // force re-mount when any URL changes
+                                                         key={`${r.doorModel?.frameUrl || ""}|${r.doorModel?.leftUrl || ""}|${r.doorModel?.rightUrl || ""}`}
+                                                       />
+                                                     </Suspense>
+                                               </group>
+                                         )}
                                 </group>
                             );
                         })}

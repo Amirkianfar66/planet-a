@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useMemo, useRef } from "react";
+﻿//dev/ SlidingDoorPreview.jsx
+import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
