@@ -128,7 +128,8 @@ export default function Players3D({ dead = [] }) {
                                 onContextMenuCarry={handleThrowCarry}
                             />
 
-                            {(role === "Guard" || role === "Officer") && (
+                            {/* show sidearm only when NOT disguised and real role is Guard/Officer */}
+                            {!disguiseOn && (roleState === "Guard" || roleState === "Officer") && (
                                 <group position={[0.25, 1.1, 0.15]}>
                                     {/* gun body */}
                                     <mesh position={[0, 0, 0.08]}>

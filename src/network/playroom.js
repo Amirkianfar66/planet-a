@@ -505,25 +505,26 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
     } catch { }
 }
 
-const DISGUISE_ROLES = ['Engineer', 'Research', 'Officer', 'Guard', 'FoodSupplier', 'StationDirector'];
+// Infected: toggle a synced "disguiseOn" flag that clients use to render a special model
 export function hostHandleDisguise({ player, setEvents }) {
-      if (!player?.id) return;
-      // Only Infected may disguise
-          const infected = !!player.getState?.('infected');
-      if (!infected) return;
-    
-          const cur = String(player.getState('disguiseRole') || '');
-      const idx = Math.max(0, DISGUISE_ROLES.indexOf(cur));
-      const next = DISGUISE_ROLES[(idx + 1) % DISGUISE_ROLES.length];
-      player.setState('disguiseRole', next, true);
-    
-          try {
-                if (typeof hostAppendEvent === 'function') {
-                      const name = player.getState?.('name') || 'Infected';
-                      hostAppendEvent(setEvents, `${name} changed appearance.`);
-                    }
-              } catch { }
-    }
+    if (!player?.id) return;
+    const infected = !!player.getState?.('infected');
+    if (!infected) return;
+
+    const currentlyOn = !!player.getState('disguiseOn');
+    player.setState('disguiseOn', !currentlyOn, true);
+
+    // Clean up any legacy state from the old cycling approach (safe no-op if unused)
+    if (player.getState?.('disguiseRole')) player.setState('disguiseRole', '', true);
+
+    try {
+        if (typeof hostAppendEvent === 'function') {
+            const name = player.getState?.('name') || 'Infected';
+            hostAppendEvent(setEvents, `${name} toggled disguise ${!currentlyOn ? 'ON' : 'OFF'}.`);
+        }
+    } catch { }
+}
+
 /** Extend the host-side router so ItemsHostLogic can just call one function. */
 
 

@@ -57,7 +57,7 @@ const INFECTED_ABILITY = {
    const INFECTED_DISGUISE = {
     id: 'disguise',
     key: 'KeyH',
-    label: 'Disguise (Cycle)',
+    label: 'Toggle Disguise',
     cooldownMs: 500,    // tiny debounce so it feels snappy
        icon: '🎭',
    };
