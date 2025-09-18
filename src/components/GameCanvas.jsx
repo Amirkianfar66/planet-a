@@ -103,7 +103,7 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Walls */}
+            {/* Walls (already split in deckA) */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
                 const baseY = r?.floorY ?? 0;
@@ -122,24 +122,32 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Doors */}
+            {/* Doors (GLB with animation + colliders) */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
                             glbUrl="/models/door.glb"
-                            clipName="all"        // scrub all clips (or set clipNames={["Open_L","Open_R"]})
-                            elevation={0.1}       // lift so it stands on the floor
+                            clipName="all"          // scrub all clips if present
+                            elevation={0.1}         // lift a hair so it doesn't sink
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
+
+                            // Proximity open with dwell — inside/outside doesn’t matter
                             playerRef={playerRef}
                             triggerRadius={3}
                             dwellSeconds={1}
                             closeDelaySeconds={0.15}
                             openSpeed={6}
                             closeSpeed={4}
+
+                            // Collider so closed door blocks movement
+                            colliderId={d.id || `door_${i}`}
+                            yaw={d.rotY || 0}
+                            wallThickness={d.thickness ?? 0.6}
+                            collisionOpenThreshold={0.2}
                         />
                     </group>
                 ))}

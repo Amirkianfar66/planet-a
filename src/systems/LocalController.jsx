@@ -102,7 +102,10 @@ function LocalControllerInner() {
     useFrame((_, dt) => {
         if (!dt) return;
         // union of static walls + GLB-baked boxes
-        const colliders = wallAABBs.concat(getStaticAABBs());
+        const doorStore = (typeof window !== "undefined" && window.__doorAABBs) ? window.__doorAABBs : null;
+        const dynamicDoorAABBs = doorStore ? Array.from(doorStore.values()) : [];
+        const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
+
         const p = myPlayer();
 
         // ⬇️ NEW: Lockdown enforcement (no change to normal logic for others)

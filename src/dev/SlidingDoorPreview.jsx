@@ -1,5 +1,4 @@
-﻿//dev/ SlidingDoorPreview.jsx
-import React, { useEffect, useMemo, useRef } from "react";
+﻿import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
@@ -11,20 +10,36 @@ import { useGLTF, useAnimations } from "@react-three/drei";
  *  A) Single animated GLB (glbUrl): scrubs one or many clips by an 'open' (0..1).
  *  B) Fallback code panels (optional frame/left/right GLBs or simple boxes).
  *
- * Common props:
- *   position=[0,0,0], rotationY=0, elevation=0
- *   doorWidth=4.5, doorHeight=3, thickness=0.3, panels=2
- *
  * Proximity:
- *   playerRef={ref.current=[x,y,z]}  (preferred), or playerPosition=[x,y,z]
+ *   playerRef={ref.current=[x,y,z]}  (preferred) OR playerPosition=[x,y,z]
  *   triggerRadius=3, dwellSeconds=1, closeDelaySeconds=0.15
  *   openSpeed=6, closeSpeed=4
  *
- * GLB mode:
- *   glbUrl="/models/door.glb"
- *   clipName="all"                 // scrub all clips
- *   // or clipNames={["Open_L","Open_R"]}
+ * Colliders:
+ *   Publishes an AABB for closed doors into window.__doorAABBs (Map).
+ *   LocalController should merge these into its colliders list.
  */
+
+// ---------------- Collider helpers ----------------
+function ensureDoorColliderStore() {
+    if (typeof window === "undefined") return null;
+    if (!window.__doorAABBs) window.__doorAABBs = new Map();
+    return window.__doorAABBs;
+}
+
+// AABB for a rotated rectangle centered at (cx,cz) with half-extents hx (along width), hz (depth) rotated by yaw.
+function makeDoorAABB(cx, cz, hx, hz, yaw) {
+    const c = Math.abs(Math.cos(yaw));
+    const s = Math.abs(Math.sin(yaw));
+    const ex = c * hx + s * hz;
+    const ez = s * hx + c * hz;
+    return {
+        minX: cx - ex,
+        maxX: cx + ex,
+        minZ: cz - ez,
+        maxZ: cz + ez,
+    };
+}
 
 export function SlidingDoor({
     // placement
@@ -47,7 +62,7 @@ export function SlidingDoor({
     openSpeed = 6,
     closeSpeed = 4,
 
-    // when NOT using proximity (you can still control via 'open')
+    // optional direct control when not using proximity
     open = 0,
 
     // ---------- Mode A: SINGLE animated GLB ----------
@@ -65,6 +80,12 @@ export function SlidingDoor({
     colorFrame = "#5e748f",
     frameDepth = 0.08,
     trackHeight = 0.06,
+
+    // Colliders
+    colliderId = null,             // unique id for this door
+    yaw = 0,                       // world yaw (same rotY you give to the group)
+    wallThickness = 0.6,           // door “depth” across the wall
+    collisionOpenThreshold = 0.2,  // <= this open, we block
 }) {
     const root = useRef();
     const openRef = useRef(0);
@@ -81,7 +102,7 @@ export function SlidingDoor({
             return;
         }
 
-        // door world position (handles groups/rotation)
+        // door world position (handles groups/rotation/elevation)
         const wp = new THREE.Vector3();
         root.current?.getWorldPosition(wp);
 
@@ -107,6 +128,25 @@ export function SlidingDoor({
         const speed = targetRef.current > openRef.current ? openSpeed : closeSpeed;
         const k = Math.min(1, step * speed);
         openRef.current += (targetRef.current - openRef.current) * k;
+    });
+
+    // Publish/remove collider each frame based on openRef
+    useFrame(() => {
+        const store = ensureDoorColliderStore();
+        if (!store || !root.current || !colliderId) return;
+
+        if (openRef.current <= collisionOpenThreshold) {
+            // mostly closed → block
+            const wp = new THREE.Vector3();
+            root.current.getWorldPosition(wp);
+
+            const hx = (doorWidth || 4.5) / 2;
+            const hz = Math.max((wallThickness || 0.6) / 2, 0.3);
+            const aabb = makeDoorAABB(wp.x, wp.z, hx, hz, yaw || rotationY || 0);
+            store.set(colliderId, aabb);
+        } else {
+            store.delete(colliderId);
+        }
     });
 
     // =====================================================================================
@@ -330,7 +370,7 @@ function AnimatedDoorSingleGLB({
             const action = mixer.clipAction(clip, holder.current);
             action.clampWhenFinished = true;
             action.enabled = true;
-            action.paused = true;
+            action.paused = true; // manual scrubbing
             action.play();
             actionsRef.current.push(action);
             durationsRef.current.push(clip.duration || 1);
