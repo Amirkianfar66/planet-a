@@ -212,9 +212,9 @@ function stopShootTimer(playerId) {
 export function hostHandleShoot({ shooter, payload, setEvents, players }) {
     if (!isGuard(shooter)) return;
 
-    const SHOOT_DURATION = 3000;
+    const SHOOT_DURATION = 1000;
     const FIRE_PERIOD = 120;
-    const RANGE = 12;
+    const RANGE = 10;
     const now = nowMs();
 
     const curUntil = Number(shooter.getState("shootingUntil") || 0);
