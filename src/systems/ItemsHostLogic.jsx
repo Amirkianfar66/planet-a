@@ -1,7 +1,7 @@
 ﻿// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -401,7 +401,7 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-                / ABILITY: disguise (infected-only cosmetic)
+                // ABILITY: disguise (infected-only cosmetic)
                             if (type === "ability" && target === "disguise") {
                                   // Import hostHandleDisguise at top if you prefer; or inline:
                                       try {
