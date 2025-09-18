@@ -733,17 +733,12 @@ export function MapEditor3D() {
                                         <group position={[slotX, -wallH / 2, 0]}>
                                                  <Suspense fallback={null}>
                                                 <Door3D
-                                                    width={slotW}
-                                                    height={slotH}
+                                                    doorWidth={slotW}
+                                                    doorHeight={slotH}
                                                     panels={slotPanels}
                                                     open={slotOpen}
                                                     thickness={doorCfg.thickness}
-                                                    colorPanel={doorCfg?.mat?.color || r.doorMat?.color}
-                                                    colorFrame={doorCfg?.frameMat?.color || r.doorFrameMat?.color}
-                                                    frameUrl={r.doorModel?.frameUrl || null}
-                                                    leftUrl={r.doorModel?.leftUrl || null}
-                                                    rightUrl={r.doorModel?.rightUrl || null}
-                                                    slideSlope={r.doorModel?.slope ?? 0}
+                                                    glbUrl={r.doorModel?.url || null}
                                                 />
                                                      </Suspense>
                                                </group>
