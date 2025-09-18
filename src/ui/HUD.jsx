@@ -8,68 +8,6 @@ import { getAbilitiesForRole } from "../game/roleAbilities";
 import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
 
-/* ------- Tiny UI helpers ------- */
-function Key({ children }) {
-    return (
-        <span
-            style={{
-                display: "inline-block",
-                minWidth: 18,
-                padding: "2px 6px",
-                marginRight: 6,
-                borderRadius: 6,
-                border: "1px solid #334155",
-                background: "rgba(15, 23, 42, 0.85)",
-                boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.06)",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                fontSize: 11,
-                lineHeight: "16px",
-                color: "#e2e8f0",
-                textAlign: "center",
-            }}
-        >
-            {children}
-        </span>
-    );
-}
-
-function KeyGuidePanel() {
-    return (
-        <div
-            style={{
-                position: "absolute",
-                top: 12,
-                left: "50%",
-                transform: "translateX(-50%)",
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid #2a3242",
-                background: "rgba(14,17,22,0.9)",
-                color: "#cfe3ff",
-                fontFamily: "ui-sans-serif, system-ui",
-                fontSize: 12,
-                lineHeight: 1.45,
-                pointerEvents: "none",
-                boxShadow: "0 6px 18px rgba(0,0,0,0.35)",
-                backdropFilter: "blur(2px)",
-                maxWidth: 680,
-                textAlign: "center",
-            }}
-        >
-            <div style={{ opacity: 0.85, marginBottom: 4 }}>Controls</div>
-            <div>
-                <Key>W</Key><Key>A</Key><Key>S</Key><Key>D</Key> Move &nbsp;·&nbsp; <Key>Q</Key>/<Key>E</Key> Rotate &nbsp;·&nbsp; Right-mouse: Look
-            </div>
-            <div><Key>Space</Key> Jump</div>
-            <div><Key>P</Key> Interact — Pick Up / Use (at device) / Eat (food)</div>
-            <div><Key>I</Key> Use selected from Backpack &nbsp;·&nbsp; <Key>O</Key> Drop held &nbsp;·&nbsp; <Key>R</Key> Throw held</div>
-            <div>
-                <Key>F</Key> Role Ability &nbsp;·&nbsp; <Key>G</Key> Bite <span style={{ opacity: 0.7 }}>(if infected)</span>
-            </div>
-        </div>
-    );
-}
-
 /* ---------- Ability bar (bottom-right above backpack) --------- */
 function AbilityBar({ role, onUse, disabled = false }) {
     // Track infection so abilities recompute immediately after infection flips
@@ -78,7 +16,7 @@ function AbilityBar({ role, onUse, disabled = false }) {
     useEffect(() => {
         const t = setInterval(() => {
             const flag = !!me?.getState?.("infected");
-            setInfected(prev => (prev === flag ? prev : flag));
+            setInfected((prev) => (prev === flag ? prev : flag));
         }, 200);
         return () => clearInterval(t);
     }, [me]);
@@ -99,7 +37,7 @@ function AbilityBar({ role, onUse, disabled = false }) {
     useEffect(() => {
         if (disabled) return;
         const onKey = (e) => {
-            const hit = abilities.find(ab => (ab.key || "KeyF") === e.code);
+            const hit = abilities.find((ab) => (ab.key || "KeyF") === e.code);
             if (hit) {
                 e.preventDefault();
                 trigger(hit);
@@ -153,7 +91,6 @@ function AbilityBar({ role, onUse, disabled = false }) {
  * HUD – overlay
  * - Left: Status (Life/O2/Energy), Role
  * - Chat: bottom-left
- * - Top-center: Keyboard guide (hidden when dead)
  * - Backpack: bottom-right
  * - Ability bar: above backpack (disabled when dead)
  */
@@ -163,71 +100,76 @@ export default function HUD({ game = {} }) {
     const me = myPlayer();
     const lifeVal = Number(me?.getState?.("life") ?? 100);
     const amDead = Boolean(me?.getState?.("dead"));
-    // ✅ NEW: read local player energy and keep it in state so HUD updates
+
+    // live energy
     const [energyVal, setEnergyVal] = useState(Number(me?.getState?.("energy") ?? 100));
     useEffect(() => {
         const iv = setInterval(() => {
             const v = Number(myPlayer()?.getState?.("energy") ?? 100);
-            setEnergyVal(prev => (prev === v ? prev : v));
+            setEnergyVal((prev) => (prev === v ? prev : v));
         }, 150);
         return () => clearInterval(iv);
     }, []);
 
-    // ✅ NEW: live oxygen from player state (host updates this)
+    // live oxygen
     const [oxygenVal, setOxygenVal] = useState(Number(me?.getState?.("oxygen") ?? 100));
     useEffect(() => {
-          const iv = setInterval(() => {
-                     const v = Number(myPlayer()?.getState?.("oxygen") ?? 100);
-                     setOxygenVal(prev => (prev === v ? prev : v));
-          }, 150);
-              return () => clearInterval(iv);
+        const iv = setInterval(() => {
+            const v = Number(myPlayer()?.getState?.("oxygen") ?? 100);
+            setOxygenVal((prev) => (prev === v ? prev : v));
+        }, 150);
+        return () => clearInterval(iv);
     }, []);
-        // ✅ NEW: track position for outside/inside check
+
+    // track position for outside/inside check
     const [pos, setPos] = useState({
-     x: Number(me?.getState?.("x") || 0),
-                   z: Number(me?.getState?.("z") || 0),
-                });
-   useEffect(() => {
-           const iv = setInterval(() => {
-                   const p = myPlayer();
-                   setPos(prev => {
-                           const nx = Number(p?.getState?.("x") || 0);
-                           const nz = Number(p?.getState?.("z") || 0);
-                           return (prev.x === nx && prev.z === nz) ? prev : { x: nx, z: nz };
-                   });
-           }, 120);
-           return () => clearInterval(iv);
-        }, []);
-   const outside = isOutsideByRoof(pos.x, pos.z); // ✅ NEW
-    // ✅ NEW: keep a live snapshot of the backpack so stacking/counts update immediately
+        x: Number(me?.getState?.("x") || 0),
+        z: Number(me?.getState?.("z") || 0),
+    });
+    useEffect(() => {
+        const iv = setInterval(() => {
+            const p = myPlayer();
+            setPos((prev) => {
+                const nx = Number(p?.getState?.("x") || 0);
+                const nz = Number(p?.getState?.("z") || 0);
+                return prev.x === nx && prev.z === nz ? prev : { x: nx, z: nz };
+            });
+        }, 120);
+        return () => clearInterval(iv);
+    }, []);
+    const outside = isOutsideByRoof(pos.x, pos.z);
+
+    // live backpack snapshot
     const [bpSnapshot, setBpSnapshot] = useState(() => me?.getState?.("backpack") || []);
     useEffect(() => {
-           let mounted = true;
-              const iv = setInterval(() => {
-                      const next = myPlayer()?.getState?.("backpack") || [];
-                      // cheap shallow-ish compare (length + ids/types/qty)
-                      const prev = bpSnapshot;
-                       if (next.length !== prev.length) {
-                               if (mounted) setBpSnapshot(next);
-                              return;
-                           }
-                       for (let i = 0; i < next.length; i++) {
-                               const a = next[i], b = prev[i];
-                               if (a?.id !== b?.id || a?.type !== b?.type || (a?.qty || 0) !== (b?.qty || 0)) {
-                                        if (mounted) setBpSnapshot(next);
-                                        return;
-                                    }
-                            }
-                   }, 120);
-              return () => { mounted = false; clearInterval(iv); };
+        let mounted = true;
+        const iv = setInterval(() => {
+            const next = myPlayer()?.getState?.("backpack") || [];
+            const prev = bpSnapshot;
+            if (next.length !== prev.length) {
+                if (mounted) setBpSnapshot(next);
+                return;
+            }
+            for (let i = 0; i < next.length; i++) {
+                const a = next[i],
+                    b = prev[i];
+                if (a?.id !== b?.id || a?.type !== b?.type || (a?.qty || 0) !== (b?.qty || 0)) {
+                    if (mounted) setBpSnapshot(next);
+                    return;
+                }
+            }
+        }, 120);
+        return () => {
+            mounted = false;
+            clearInterval(iv);
+        };
     }, [bpSnapshot]);
 
     // Prefer data passed in via `game`; fall back to myPlayer() state
     const meProp = game?.me || {};
     const bpFromPlayer = bpSnapshot; // live, host-driven snapshot
     const capFromPlayer = Number(me?.getState?.("capacity")) || 8;
- 
-   // Always prefer the live snapshot so backpack reflects host changes instantly
+
     const items = bpFromPlayer;
     const capacity = Number(meProp.capacity ?? capFromPlayer);
 
@@ -238,24 +180,18 @@ export default function HUD({ game = {} }) {
 
     const handleUseItem = (id) => {
         if (amDead) return; // dead: no using
-
-        // Look up the clicked item in the backpack to decide behavior
         const item = (items || []).find((b) => b.id === id);
 
         if (item?.type === "food_tank") {
-            // Toggle: host tries to load 1 food into the tank (if you have any / not full),
-            // otherwise unloads 1 food back to your backpack.
             requestAction("container", "food_tank", { containerId: id, op: "toggle" });
             return;
         }
 
         if (item?.type === "food") {
-            // Eat one food from backpack
             requestAction("use", `eat|${id}`, 0);
             return;
         }
 
-        // Fallback for other types (keeps previous behavior you had)
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
@@ -272,7 +208,9 @@ export default function HUD({ game = {} }) {
         const px = Number(me?.getState?.("x") || 0);
         const pz = Number(me?.getState?.("z") || 0);
         const ry = Number(me?.getState?.("ry") || me?.getState?.("yaw") || 0); // radians
-        const dx = Math.sin(ry), dz = Math.cos(ry), dy = 0;
+        const dx = Math.sin(ry),
+            dz = Math.cos(ry),
+            dy = 0;
 
         const payload = {
             origin: [px, 1.2, pz],
@@ -280,7 +218,6 @@ export default function HUD({ game = {} }) {
             abilityId: ability.id,
         };
 
-        // type='ability', target=abilityId, value=payload
         requestAction("ability", ability.id, payload);
     };
 
@@ -293,10 +230,7 @@ export default function HUD({ game = {} }) {
                 filter: amDead ? "grayscale(0.8)" : "none",
             }}
         >
-            {/* Keyboard guide (hidden when dead) */}
-            {!amDead && <KeyGuidePanel />}
-
-            {/* Columns for status/role (unchanged layout) */}
+            {/* Columns for status/role */}
             <div
                 style={{
                     position: "absolute",
@@ -310,22 +244,21 @@ export default function HUD({ game = {} }) {
             >
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                    {/* ✅ Use live oxygen + show when outside */}
-                                        <MetersPanel
-                       title={outside ? "Life Support (Outside)" : "Life Support"}
-                                            life={lifeVal}
-                                            energy={energyVal}
-                                            oxygen={oxygenVal}
+                    <MetersPanel
+                        title={outside ? "Life Support (Outside)" : "Life Support"}
+                        life={lifeVal}
+                        energy={energyVal}
+                        oxygen={oxygenVal}
                     />
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>
                 </div>
 
-                {/* CENTER column (free) */}
+                {/* CENTER column */}
                 <div />
 
-                {/* RIGHT column left empty to keep center width stable */}
+                {/* RIGHT column (empty to keep center width stable) */}
                 <div />
             </div>
 
@@ -347,7 +280,7 @@ export default function HUD({ game = {} }) {
                 <BackpackPanel items={items} capacity={capacity} onUse={handleUseItem} onDrop={handleDrop} />
             </div>
 
-            {/* BOTTOM-LEFT: Team chat (pinned). If you want to block typing when dead, add inputDisabled to TeamChatPanel. */}
+            {/* BOTTOM-LEFT: Team chat (pinned) */}
             <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
                 <TeamChatPanel style={{ position: "static" }} />
             </div>
