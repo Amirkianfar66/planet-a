@@ -22,7 +22,8 @@ import DeathSystem from "../systems/DeathSystem.jsx";
 import { getMaterial } from "../map/materials";
 
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
-
+import CCTVViewer from "../systems/CCTVViewer.jsx";
+import CCTVControlPanel from "../ui/CCTVControlPanel.jsx";
 // live player position (updated by your LocalController via window.__playerPos)
 function usePlayerPosRefFromWindow() {
     const ref = useRef([0, 0, 0]);
@@ -217,6 +218,8 @@ export default function GameCanvas({ dead = [] }) {
                 <ThirdPersonCamera />
                 <BeamLasers />
                 <NetworkGunTracers />
+                <CCTVViewer />
+                <CCTVControlPanel />
             </Canvas>
 
             {/* Input overlay (non-blocking) */}
