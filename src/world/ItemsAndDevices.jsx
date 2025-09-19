@@ -230,7 +230,7 @@ function prettyLabel(it) {
 /* ---------- Single floor item ---------- */
 function ItemEntity({ it }) {
     if (!it || it.holder) return null;
-
+    if (it.type === "pet") return null; // Pets handled by Pets3D
     const actionable = canPickUp(it);
     const label = prettyLabel(it);
 
@@ -294,7 +294,11 @@ function ItemEntity({ it }) {
 /* ---------- Main scene block (render-only) ---------- */
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-    const floorItems = useMemo(() => (items || []).filter(i => !i.holder), [items]);
+    // Pets are rendered in <Pets3D />, so exclude them here.
+    const floorItems = useMemo(
+           () => (items || []).filter(i => !i.holder && i.type !== "pet"),
+           [items]
+             );
 
     return (
         <group>
