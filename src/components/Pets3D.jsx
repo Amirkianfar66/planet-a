@@ -10,43 +10,80 @@ function lerpAngle(a, b, t) {
     return a + d * t;
 }
 
-// Renders one pet with local smoothing
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Renders one pet with local smoothing + walk/bob params
 function PetFollower({ pet }) {
     const group = useRef();
+    const inner = useRef(); // child group to apply bob/tilt
 
-    // local visual state (start at network values)
+    // local visual state (smoothed)
     const state = useMemo(() => ({
         x: Number(pet.x || 0),
         y: Number(pet.y ?? 0),
         z: Number(pet.z || 0),
         yaw: Number(pet.yaw || 0),
-    }), [pet.id]); // re-init if pet identity changes
+        prevX: Number(pet.x || 0),
+        prevZ: Number(pet.z || 0),
+        visSpeed: 0,   // m/s (approx)
+        walkPhase: 0,  // radians
+    }), [pet.id]);
 
     useFrame((_, dt) => {
-        // network targets (updated by store)
+        // targets from network/store
         const tx = Number(pet.x || 0);
         const ty = Number(pet.y ?? 0);
         const tz = Number(pet.z || 0);
         const tyaw = Number(pet.yaw || 0);
 
-        // smoothing factors (tune to taste)
-        const posEase = Math.min(1, dt * 12); // ~quick but smooth
+        // smooth toward targets
+        const posEase = Math.min(1, dt * 12);
         const yawEase = Math.min(1, dt * 10);
+
+        const prevX = state.x, prevZ = state.z;
 
         state.x = lerp(state.x, tx, posEase);
         state.y = lerp(state.y, ty, posEase);
         state.z = lerp(state.z, tz, posEase);
         state.yaw = lerpAngle(state.yaw, tyaw, yawEase);
 
+        // instantaneous visual speed (m/s) from smoothed motion
+        const dx = state.x - prevX;
+        const dz = state.z - prevZ;
+        const frameDist = Math.hypot(dx, dz);
+        const speed = (dt > 0) ? frameDist / dt : 0;
+
+        // low-pass filter the speed a bit
+        state.visSpeed = lerp(state.visSpeed, speed, 0.25);
+
+        // advance walk phase based on speed
+        // tune 4.5 for step frequency; higher => faster leg swing
+        state.walkPhase += state.visSpeed * 4.5 * dt;
+
+        // apply transforms
         if (group.current) {
             group.current.position.set(state.x, state.y, state.z);
             group.current.rotation.set(0, state.yaw, 0);
+        }
+
+        // bob amount scales with speed (clamped)
+        const bobAmp = clamp(state.visSpeed * 0.02, 0, 0.08);
+        const bob = Math.sin(state.walkPhase * 2) * bobAmp; // faster bob
+        const tiltPitch = clamp(state.visSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5); // subtle pitch
+        const tiltRoll = clamp(state.visSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase); // subtle roll
+
+        if (inner.current) {
+            // add vertical bob on inner group (so world Y stays smoothed in parent)
+            inner.current.position.y = bob;
+            inner.current.rotation.set(tiltPitch, 0, tiltRoll);
         }
     });
 
     return (
         <group ref={group}>
-            <RobotDog />
+            <group ref={inner}>
+                <RobotDog walkPhase={state.walkPhase} walkSpeed={state.visSpeed} />
+            </group>
         </group>
     );
 }
