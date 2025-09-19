@@ -849,15 +849,18 @@ export default function ItemsHostLogic() {
                         if (mode === "seekCure") {
                             const it = nearestCure(x, z);
                             if (it) {
-                                // park a little offset from the cure so we don't overlap visuals
                                 const dx = it.x - x, dz = it.z - z;
                                 const dist = Math.hypot(dx, dz) || 1;
                                 const desiredYaw = Math.atan2(dx, dz);
                                 lookAtYaw = desiredYaw;
 
-                                const stopDist = 0.7;  // stand-off distance from the item
+                                const stopDist = 0.7;              // stand-off from the item
                                 const wantDist = Math.max(0, dist - stopDist);
-                                const step = Math.min(wantDist, speed * PET_DT);
+
+                                // ⬇️ PUT THESE 3 LINES HERE (replace your previous step calc)
+                                const base = Number(pet.seekSpeed ?? 1.4);               // base walk speed (m/s)
+                                const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // ease when close (0.6..1)
+                                const step = Math.min(wantDist, (base * slow) * PET_DT); // final per-tick step
 
                                 if (wantDist > 0.001) {
                                     x += (dx / dist) * step;
