@@ -521,7 +521,11 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-
+                    // Pets cannot be picked up
+                     if (it.type === "pet") {
+                           processed.current.set(p.id, reqId);
+                           continue;
+                         }
                     // Tanks are NOT pickable — treat P near any tank as "load one matching item"
                     if (isTankType(it.type)) {
                         const dx = px - it.x,
