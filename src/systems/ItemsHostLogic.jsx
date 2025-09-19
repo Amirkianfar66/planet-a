@@ -790,52 +790,119 @@ export default function ItemsHostLogic() {
                 // Fallback
                 processed.current.set(p.id, reqId);
             }
-            // --- PET AI: follow owner unless 'stay' ---
+            // --- PET AI: follow owner / stay / seekCure ---
             {
                 const PET_DT = 0.05; // ~50ms loop cadence
                 const pets = (itemsRef.current || []).filter(i => i.type === "pet");
                 if (pets.length) {
                     const updated = new Map();
 
+                    // helper: shortest-arc yaw interpolation
+                    const lerpAngle = (a, b, t) => {
+                        let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+                        return a + d * t;
+                    };
+
+                    // helper: nearest cure item (free on floor)
+                    const nearestCure = (x, z) => {
+                        let best = null, bestD2 = Infinity;
+                        for (const it of (itemsRef.current || [])) {
+                            if (!it || it.holder) continue;
+                            const t = String(it.type || "").toLowerCase();
+                            if (t !== "cure_red" && t !== "cure_blue") continue;
+                            const dx = it.x - x, dz = it.z - z;
+                            const d2 = dx * dx + dz * dz;
+                            if (d2 < bestD2) { best = it; bestD2 = d2; }
+                        }
+                        return best;
+                    };
+
                     for (const pet of pets) {
                         const owner = (playersRef.current || []).find(pl => pl.id === pet.owner) || myPlayer();
                         const mode = String(owner?.getState?.("petMode") || pet.mode || "follow");
+
                         let { x, y, z } = pet;
                         let yaw = pet.yaw || 0;
+
+                        const speed = pet.speed ?? 2.2;
+                        const hoverY = pet.hover ?? 0.35;
+
+                        // default target is current position
+                        let tgtX = x, tgtZ = z, tgtY = y, lookAtYaw = yaw;
 
                         if (mode === "follow" && owner) {
                             const ox = Number(owner.getState("x") || 0);
                             const oy = Number(owner.getState("y") || 0);
                             const oz = Number(owner.getState("z") || 0);
-
                             const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
+
+                            // behind-right of owner (keeping your formation offsets)
                             const backX = -Math.sin(ry), backZ = -Math.cos(ry);
                             const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
 
-                            const backDist = 2.4; // was 1.2
-                            const rightDist = 1.2; // was 0.6
-                            const tgtX = ox + backX * backDist + rightX * rightDist;
-                            const tgtZ = oz + backZ * backDist + rightZ * rightDist;
-                            const tgtY = Math.max(oy + (pet.hover ?? 0.35), 0.2);
-                            const lerpAngle = (a, b, t) => {
-                          // shortest-arc interpolation in [-PI, PI]
-                                let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-                                return a + d * t;
-                               };
+                            tgtX = ox + backX * 2.4 + rightX * 1.2; // doubled spacing
+                            tgtZ = oz + backZ * 2.4 + rightZ * 1.2; // doubled spacing
+                            tgtY = Math.max(oy + hoverY, 0.2);
+                            lookAtYaw = Math.atan2(ox - x, oz - z); // glance toward owner
+                        }
+
+                        if (mode === "seekCure") {
+                            const it = nearestCure(x, z);
+                            if (it) {
+                                // park a little offset from the cure so we don't overlap visuals
+                                const dx = it.x - x, dz = it.z - z;
+                                const dist = Math.hypot(dx, dz) || 1;
+                                const desiredYaw = Math.atan2(dx, dz);
+                                lookAtYaw = desiredYaw;
+
+                                const stopDist = 0.7;  // stand-off distance from the item
+                                const wantDist = Math.max(0, dist - stopDist);
+                                const step = Math.min(wantDist, speed * PET_DT);
+
+                                if (wantDist > 0.001) {
+                                    x += (dx / dist) * step;
+                                    z += (dz / dist) * step;
+                                }
+                                // slight hover settle
+                                tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
+                            } else if (owner) {
+                                // no cure on map → gracefully fall back to follow position
+                                const ox = Number(owner.getState("x") || 0);
+                                const oy = Number(owner.getState("y") || 0);
+                                const oz = Number(owner.getState("z") || 0);
+                                const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
+                                const backX = -Math.sin(ry), backZ = -Math.cos(ry);
+                                const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
+                                tgtX = ox + backX * 2.4 + rightX * 1.2;
+                                tgtZ = oz + backZ * 2.4 + rightZ * 1.2;
+                                tgtY = Math.max(oy + hoverY, 0.2);
+                                lookAtYaw = Math.atan2(ox - x, oz - z);
+                            }
+                        }
+
+                        if (mode === "stay") {
+                            // just hover and face the owner a bit if available
+                            if (owner) {
+                                const ox = Number(owner.getState("x") || 0);
+                                const oz = Number(owner.getState("z") || 0);
+                                lookAtYaw = Math.atan2(ox - x, oz - z);
+                            }
+                            tgtX = x; tgtZ = z; tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
+                        }
+
+                        // move toward target (follow mode uses tgtX/Z above; seekCure may have already moved x/z)
+                        if (mode !== "seekCure") {
                             const dx = tgtX - x, dz = tgtZ - z;
                             const dist = Math.hypot(dx, dz);
-                            const speed = pet.speed ?? 2.2;
                             const step = Math.min(dist, speed * PET_DT);
-                            if (dist > 0.001) {
-                                x += (dx / dist) * step;
-                                z += (dz / dist) * step;
-                                const desired = Math.atan2(dx, dz);
-                             // ease ~25% of the way per tick (50ms) → ~200ms half-life
-                                yaw = lerpAngle(yaw, desired, 0.25);
-                            }
-                            // smooth vertical
-                            y += (tgtY - y) * 0.2;
+                            if (dist > 0.001) { x += (dx / dist) * step; z += (dz / dist) * step; }
                         }
+
+                        // ease yaw
+                        yaw = lerpAngle(yaw, lookAtYaw, 0.25);
+
+                        // smooth vertical
+                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.2;
 
                         updated.set(pet.id, { x, y, z, yaw, mode });
                     }
@@ -849,6 +916,7 @@ export default function ItemsHostLogic() {
                 }
             }
             // --- END PET AI ---
+
 
             // schedule next tick
             timerId = setTimeout(loop, 50);

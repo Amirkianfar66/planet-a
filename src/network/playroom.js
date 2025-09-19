@@ -553,24 +553,34 @@ export function hostHandleScan({ officer, players = [], setEvents }) {
 /** Research ability: command pet follow/stay. Payload: { mode: "follow" | "stay" }.
  * If no payload, it toggles the current mode.
  */
+/** Research ability: command pet follow/stay/seekCure.
+ * Payload (optional): { mode: "follow" | "stay" | "seekCure" }.
+ * If no payload, cycles follow → seekCure → stay.
+ */
 export function hostHandlePetOrder({ researcher, setEvents, payload }) {
     if (!researcher?.id) return;
 
     const role = String(researcher.getState?.("role") || "");
     if (role !== "Research") return;
 
-    // read desired mode or toggle
-    let desired = (payload && (payload.mode === "follow" || payload.mode === "stay")) ? payload.mode : "toggle";
+    // sanitize desired
+    const allowed = new Set(["follow", "stay", "seekCure"]);
+    let desired = (payload && allowed.has(payload.mode)) ? payload.mode : "toggle";
+
     const cur = String(researcher.getState?.("petMode") || "follow");
-    const next = desired === "toggle" ? (cur === "follow" ? "stay" : "follow") : desired;
+    // cycle: follow -> seekCure -> stay -> follow
+    const next = desired === "toggle"
+        ? (cur === "follow" ? "seekCure" : (cur === "seekCure" ? "stay" : "follow"))
+        : desired;
 
     researcher.setState("petMode", next, true);
 
     try {
         const name = researcher.getState?.("name") || "Research";
-        hostAppendEvent(setEvents, `${name} ordered pet: ${next}.`);
+        hostAppendEvent?.(setEvents, `${name} ordered pet: ${next}.`);
     } catch { }
 }
+
 
 
 // Infected: toggle a synced "disguiseOn" flag that clients use to render a special model
