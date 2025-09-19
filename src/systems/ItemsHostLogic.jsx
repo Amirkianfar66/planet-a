@@ -520,8 +520,28 @@ export default function ItemsHostLogic() {
                     const bp = getBackpack(p);
                     if (!bp.find((b) => b.id === it.id)) {
                         // normal items enter backpack; tanks never do
-                        setBackpack(p, [...bp, { id: it.id, type: it.type }]);
+                        let nextBp = [...bp, { id: it.id, type: it.type }];
+
+                        // SPECIAL: Food Supplier gets +1 extra FOOD when picking up from world
+                        const role = String(p.getState?.("role") || "");
+                        const isFoodSupplier = role === "FoodSupplier";
+                        const isFood = isType(it.type, "food");
+
+                        if (isFoodSupplier && isFood) {
+                            // stack the bonus into a qty entry (doesn't need a world id)
+                            const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
+                            if (idx >= 0) {
+                                const entry = nextBp[idx];
+                                const qty = Number(entry?.qty || 1);
+                                nextBp[idx] = { ...entry, qty: qty + 1, bonus: true };
+                            } else {
+                                nextBp.push({ type: "food", qty: 1, bonus: true });
+                            }
+                        }
+
+                        setBackpack(p, nextBp);
                     }
+
 
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                     processed.current.set(p.id, reqId);
