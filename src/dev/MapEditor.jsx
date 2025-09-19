@@ -538,6 +538,7 @@ export function MapEditor3D() {
         }
     };
     // Download helper
+    const { scene } = useThree();
     function downloadBlob(blob, filename) {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -974,7 +975,7 @@ function computeDoorsWorld(exportRooms) {
 
 
 // ---------------- UI Panel ----------------
-const { scene } = useThree();
+
 export function MapEditorUI() {
     const {
         rooms, setRooms,
