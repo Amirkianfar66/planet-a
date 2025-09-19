@@ -40,12 +40,7 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -102,12 +97,7 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -182,12 +172,7 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -262,12 +247,7 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -379,12 +359,7 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -450,12 +425,7 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -464,7 +434,7 @@
         {
           "id": "room_E",
           "side": "E",
-          "present": false,
+          "present": true,
           "door": null,
           "h": null,
           "t": null,
@@ -473,8 +443,10 @@
         {
           "id": "room_S",
           "side": "S",
-          "present": false,
-          "door": null,
+          "present": true,
+          "door": {
+            "offset": 0
+          },
           "h": null,
           "t": null,
           "mat": null
@@ -528,7 +500,7 @@
         {
           "id": "room_E",
           "side": "E",
-          "present": false,
+          "present": true,
           "door": null,
           "h": null,
           "t": null,
@@ -537,7 +509,7 @@
         {
           "id": "room_S",
           "side": "S",
-          "present": false,
+          "present": true,
           "door": null,
           "h": null,
           "t": null,
@@ -548,12 +520,7 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -606,7 +573,7 @@
         {
           "id": "room_E",
           "side": "E",
-          "present": false,
+          "present": true,
           "door": null,
           "h": null,
           "t": null,
@@ -617,12 +584,7 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -697,12 +659,7 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": -1.9
           },
           "h": null,
           "t": null,
@@ -748,7 +705,7 @@
         {
           "id": "room_E",
           "side": "E",
-          "present": true,
+          "present": false,
           "door": null,
           "h": null,
           "t": null,
@@ -766,7 +723,7 @@
         {
           "id": "room_W",
           "side": "W",
-          "present": true,
+          "present": false,
           "door": null,
           "h": null,
           "t": null,
@@ -778,7 +735,7 @@
       "key": "Corridor",
       "name": "Corridor",
       "type": "Corridor",
-      "x": 19,
+      "x": 19.5,
       "z": -0.5,
       "w": 4,
       "d": 46,
@@ -830,15 +787,8 @@
         {
           "id": "room_W",
           "side": "W",
-          "present": true,
-          "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
-          },
+          "present": false,
+          "door": null,
           "h": null,
           "t": null,
           "mat": null
@@ -849,10 +799,10 @@
       "key": "Storage",
       "name": "Storage",
       "type": "Storage",
-      "x": 16,
-      "z": 26,
-      "w": 10,
-      "d": 8,
+      "x": 15,
+      "z": 27,
+      "w": 13,
+      "d": 8.3,
       "rotDeg": 0,
       "h": 4.5,
       "floorY": 0,
@@ -902,7 +852,9 @@
           "id": "room_W",
           "side": "W",
           "present": true,
-          "door": null,
+          "door": {
+            "offset": 0
+          },
           "h": null,
           "t": null,
           "mat": null
@@ -913,8 +865,8 @@
       "key": "Entrance B",
       "name": "Entrance B",
       "type": "Entrance B",
-      "x": 6,
-      "z": 26,
+      "x": 3.5,
+      "z": 27,
       "w": 10,
       "d": 8,
       "rotDeg": 0,
@@ -958,12 +910,7 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1038,12 +985,7 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1091,12 +1033,7 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1123,11 +1060,11 @@
       ]
     },
     {
-      "key": "Mean Area 1",
-      "name": "Mean Area 1",
-      "type": "Mean Area 1",
+      "key": "Meeting Area",
+      "name": "Meeting Area",
+      "type": "Meeting Area",
       "x": 2.2,
-      "z": 10,
+      "z": 12.4,
       "w": 14,
       "d": 19,
       "rotDeg": 0,
@@ -1187,9 +1124,9 @@
       ]
     },
     {
-      "key": "Mean Area 2",
-      "name": "Mean Area 2",
-      "type": "Mean Area 2",
+      "key": "Main Area",
+      "name": "Main Area",
+      "type": "Main Area",
       "x": 2,
       "z": -9,
       "w": 14,
@@ -1391,14 +1328,14 @@
       "floorY": 0,
       "roofT": 0.12,
       "hasFloor": true,
-      "hasRoof": true,
+      "hasRoof": false,
       "wallT": null,
       "exported": true,
       "wallMat": {
         "color": "#9aa4b2"
       },
       "floorMat": {
-        "color": "#30363d"
+        "color": "#1e6dc8"
       },
       "roofMat": {
         "color": "#232a31"
@@ -1418,12 +1355,7 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1448,6 +1380,66 @@
           "mat": null
         }
       ]
+    },
+    {
+      "key": "",
+      "name": "Room 22",
+      "type": "",
+      "x": -12,
+      "z": 21,
+      "w": 21,
+      "d": 4,
+      "rotDeg": 0,
+      "h": 4.5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        }
+      ]
     }
   ],
   "walls": [
@@ -1467,27 +1459,13 @@
     },
     {
       "x": -5,
-      "z": -12.625,
+      "z": -10,
       "w": 0.5,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "Team C_E_1",
-      "room": "Team C",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": -7.375,
-      "w": 0.5,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "Team C_E_2",
       "room": "Team C",
       "mat": {
         "color": "#9aa4b2"
@@ -1501,7 +1479,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "Team C_S_3",
+      "id": "Team C_S_2",
       "room": "Team C",
       "mat": {
         "color": "#9aa4b2"
@@ -1515,35 +1493,21 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Team C_W_4",
+      "id": "Team C_W_3",
       "room": "Team C",
       "mat": {
         "color": "#9aa4b2"
       }
     },
     {
-      "x": -16.875,
+      "x": -14,
       "z": 7,
-      "w": 1.25,
+      "w": 7,
       "d": 0.5,
       "h": 4.5,
       "side": "N",
       "rotDeg": 0,
       "id": "Kitchen_N_0",
-      "room": "Kitchen",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -11.125,
-      "z": 7,
-      "w": 1.25,
-      "d": 0.5,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "Kitchen_N_1",
       "room": "Kitchen",
       "mat": {
         "color": "#9aa4b2"
@@ -1557,7 +1521,7 @@
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
-      "id": "Kitchen_E_2",
+      "id": "Kitchen_E_1",
       "room": "Kitchen",
       "mat": {
         "color": "#9aa4b2"
@@ -1571,7 +1535,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "Kitchen_S_3",
+      "id": "Kitchen_S_2",
       "room": "Kitchen",
       "mat": {
         "color": "#9aa4b2"
@@ -1585,7 +1549,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Kitchen_W_4",
+      "id": "Kitchen_W_3",
       "room": "Kitchen",
       "mat": {
         "color": "#9aa4b2"
@@ -1607,27 +1571,13 @@
     },
     {
       "x": -5,
-      "z": -18.625,
+      "z": -16,
       "w": 0.5,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "Team D_E_1",
-      "room": "Team D",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": -13.375,
-      "w": 0.5,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "Team D_E_2",
       "room": "Team D",
       "mat": {
         "color": "#9aa4b2"
@@ -1641,7 +1591,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Team D_W_3",
+      "id": "Team D_W_2",
       "room": "Team D",
       "mat": {
         "color": "#9aa4b2"
@@ -1676,28 +1626,14 @@
       }
     },
     {
-      "x": -16.875,
+      "x": -14,
       "z": -7,
-      "w": 1.25,
+      "w": 7,
       "d": 0.5,
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
       "id": "Lab_S_2",
-      "room": "Lab",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -11.125,
-      "z": -7,
-      "w": 1.25,
-      "d": 0.5,
-      "h": 4.5,
-      "side": "S",
-      "rotDeg": 0,
-      "id": "Lab_S_3",
       "room": "Lab",
       "mat": {
         "color": "#9aa4b2"
@@ -1711,7 +1647,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Lab_W_4",
+      "id": "Lab_W_3",
       "room": "Lab",
       "mat": {
         "color": "#9aa4b2"
@@ -1746,28 +1682,14 @@
       }
     },
     {
-      "x": 9.625,
+      "x": 13,
       "z": 13.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "N",
       "rotDeg": 0,
       "id": "Mechanical_N_0",
-      "room": "Mechanical",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 16.375,
-      "z": 13.5,
-      "w": 2.25,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "Mechanical_N_1",
       "room": "Mechanical",
       "mat": {
         "color": "#9aa4b2"
@@ -1781,7 +1703,7 @@
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
-      "id": "Mechanical_E_2",
+      "id": "Mechanical_E_1",
       "room": "Mechanical",
       "mat": {
         "color": "#9aa4b2"
@@ -1795,7 +1717,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "Mechanical_S_3",
+      "id": "Mechanical_S_2",
       "room": "Mechanical",
       "mat": {
         "color": "#9aa4b2"
@@ -1809,16 +1731,16 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Mechanical_W_4",
+      "id": "Mechanical_W_3",
       "room": "Mechanical",
       "mat": {
         "color": "#9aa4b2"
       }
     },
     {
-      "x": 9.625,
+      "x": 13,
       "z": 4.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "N",
@@ -1830,14 +1752,28 @@
       }
     },
     {
-      "x": 16.375,
-      "z": 4.5,
-      "w": 2.25,
+      "x": 17.5,
+      "z": 9,
+      "w": 0.6,
+      "d": 9,
+      "h": 4.5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Electrical_E_1",
+      "room": "Electrical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 13,
+      "z": 13.5,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
-      "side": "N",
+      "side": "S",
       "rotDeg": 0,
-      "id": "Electrical_N_1",
+      "id": "Electrical_S_2",
       "room": "Electrical",
       "mat": {
         "color": "#9aa4b2"
@@ -1851,7 +1787,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Electrical_W_2",
+      "id": "Electrical_W_3",
       "room": "Electrical",
       "mat": {
         "color": "#9aa4b2"
@@ -1872,14 +1808,28 @@
       }
     },
     {
-      "x": 8.5,
-      "z": -22.375,
+      "x": 17.5,
+      "z": -19,
       "w": 0.6,
-      "d": 2.25,
+      "d": 9,
       "h": 4.5,
-      "side": "W",
+      "side": "E",
       "rotDeg": 0,
-      "id": "Control Room_W_1",
+      "id": "Control Room_E_1",
+      "room": "Control Room",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 13,
+      "z": -14.5,
+      "w": 9,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Control Room_S_2",
       "room": "Control Room",
       "mat": {
         "color": "#9aa4b2"
@@ -1887,13 +1837,13 @@
     },
     {
       "x": 8.5,
-      "z": -15.625,
+      "z": -19,
       "w": 0.6,
-      "d": 2.25,
+      "d": 9,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Control Room_W_2",
+      "id": "Control Room_W_3",
       "room": "Control Room",
       "mat": {
         "color": "#9aa4b2"
@@ -1928,23 +1878,23 @@
       }
     },
     {
-      "x": 9.625,
-      "z": -5.5,
-      "w": 2.25,
-      "d": 0.6,
+      "x": 17.5,
+      "z": -10,
+      "w": 0.6,
+      "d": 9,
       "h": 4.5,
-      "side": "S",
+      "side": "E",
       "rotDeg": 0,
-      "id": "Data Centre_S_2",
+      "id": "Data Centre_E_2",
       "room": "Data Centre",
       "mat": {
         "color": "#9aa4b2"
       }
     },
     {
-      "x": 16.375,
+      "x": 13,
       "z": -5.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
@@ -1985,27 +1935,13 @@
     },
     {
       "x": -22.5,
-      "z": -13.625,
+      "z": -1.5,
       "w": 0.6,
-      "d": 19.75,
+      "d": 44,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
       "id": "Corridor_W_1",
-      "room": "Corridor",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -22.5,
-      "z": 10.625,
-      "w": 0.6,
-      "d": 19.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "Corridor_W_2",
       "room": "Corridor",
       "mat": {
         "color": "#9aa4b2"
@@ -2026,35 +1962,7 @@
       }
     },
     {
-      "x": 8.5,
-      "z": -21,
-      "w": 0.6,
-      "d": 5,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "Corridor_E_1",
-      "room": "Corridor",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -18.5,
-      "z": -21,
-      "w": 0.6,
-      "d": 5,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "Corridor_W_2",
-      "room": "Corridor",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 19,
+      "x": 19.5,
       "z": -23.5,
       "w": 4,
       "d": 0.6,
@@ -2068,7 +1976,7 @@
       }
     },
     {
-      "x": 21,
+      "x": 21.5,
       "z": -0.5,
       "w": 0.6,
       "d": 46,
@@ -2082,7 +1990,7 @@
       }
     },
     {
-      "x": 19,
+      "x": 19.5,
       "z": 22.5,
       "w": 4,
       "d": 0.6,
@@ -2096,38 +2004,10 @@
       }
     },
     {
-      "x": 17,
-      "z": -13.125,
+      "x": 21.5,
+      "z": 27,
       "w": 0.6,
-      "d": 20.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "Corridor_W_3",
-      "room": "Corridor",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 17,
-      "z": 12.125,
-      "w": 0.6,
-      "d": 20.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "Corridor_W_4",
-      "room": "Corridor",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 21,
-      "z": 26,
-      "w": 0.6,
-      "d": 8,
+      "d": 8.3,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
@@ -2138,9 +2018,9 @@
       }
     },
     {
-      "x": 16,
-      "z": 30,
-      "w": 10,
+      "x": 15,
+      "z": 31.15,
+      "w": 13,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
@@ -2152,10 +2032,10 @@
       }
     },
     {
-      "x": 11,
-      "z": 26,
+      "x": 8.5,
+      "z": 27,
       "w": 0.6,
-      "d": 8,
+      "d": 8.3,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
@@ -2166,9 +2046,9 @@
       }
     },
     {
-      "x": 2.375,
-      "z": 30,
-      "w": 2.75,
+      "x": 3.5,
+      "z": 31,
+      "w": 10,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
@@ -2180,28 +2060,14 @@
       }
     },
     {
-      "x": 9.625,
-      "z": 30,
-      "w": 2.75,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "S",
-      "rotDeg": 0,
-      "id": "Entrance B_S_1",
-      "room": "Entrance B",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 1,
-      "z": 26,
+      "x": -1.5,
+      "z": 27,
       "w": 0.6,
       "d": 8,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Entrance B_W_2",
+      "id": "Entrance B_W_1",
       "room": "Entrance B",
       "mat": {
         "color": "#9aa4b2"
@@ -2237,27 +2103,13 @@
     },
     {
       "x": -39.5,
-      "z": -3.125,
+      "z": 0,
       "w": 0.6,
-      "d": 1.75,
+      "d": 8,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
       "id": "Entrance A_W_2",
-      "room": "Entrance A",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -39.5,
-      "z": 3.125,
-      "w": 0.6,
-      "d": 1.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "Entrance A_W_3",
       "room": "Entrance A",
       "mat": {
         "color": "#9aa4b2"
@@ -2279,27 +2131,13 @@
     },
     {
       "x": -5,
-      "z": 7.375,
+      "z": 10,
       "w": 0.6,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "Team B_E_1",
-      "room": "Team B",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": 12.625,
-      "w": 0.6,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "Team B_E_2",
       "room": "Team B",
       "mat": {
         "color": "#9aa4b2"
@@ -2313,7 +2151,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Team B_W_3",
+      "id": "Team B_W_2",
       "room": "Team B",
       "mat": {
         "color": "#9aa4b2"
@@ -2335,27 +2173,13 @@
     },
     {
       "x": -5,
-      "z": 13.375,
+      "z": 16,
       "w": 0.6,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "Team A_E_1",
-      "room": "Team A",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": 18.625,
-      "w": 0.6,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "Team A_E_2",
       "room": "Team A",
       "mat": {
         "color": "#9aa4b2"
@@ -2369,7 +2193,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "Team A_S_3",
+      "id": "Team A_S_2",
       "room": "Team A",
       "mat": {
         "color": "#9aa4b2"
@@ -2383,8 +2207,36 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "Team A_W_4",
+      "id": "Team A_W_3",
       "room": "Team A",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -12,
+      "z": 23,
+      "w": 21,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "room_S_0",
+      "room": "",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -22.5,
+      "z": 21,
+      "w": 0.6,
+      "d": 4,
+      "h": 4.5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "room_W_1",
+      "room": "",
       "mat": {
         "color": "#9aa4b2"
       }
@@ -2398,16 +2250,10 @@
       "maxZ": -12.75
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": -12.875,
-      "maxZ": -12.375
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": -7.625,
-      "maxZ": -7.125
+      "minX": -8,
+      "maxX": -2,
+      "minZ": -10.25,
+      "maxZ": -9.75
     },
     {
       "minX": -11,
@@ -2423,12 +2269,6 @@
     },
     {
       "minX": -17.5,
-      "maxX": -16.25,
-      "minZ": 6.75,
-      "maxZ": 7.25
-    },
-    {
-      "minX": -11.75,
       "maxX": -10.5,
       "minZ": 6.75,
       "maxZ": 7.25
@@ -2458,16 +2298,10 @@
       "maxZ": -18.75
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": -18.875,
-      "maxZ": -18.375
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": -13.625,
-      "maxZ": -13.125
+      "minX": -8,
+      "maxX": -2,
+      "minZ": -16.25,
+      "maxZ": -15.75
     },
     {
       "minX": -14,
@@ -2489,12 +2323,6 @@
     },
     {
       "minX": -17.5,
-      "maxX": -16.25,
-      "minZ": -7.25,
-      "maxZ": -6.75
-    },
-    {
-      "minX": -11.75,
       "maxX": -10.5,
       "minZ": -7.25,
       "maxZ": -6.75
@@ -2519,12 +2347,6 @@
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": 13.2,
-      "maxZ": 13.8
-    },
-    {
-      "minX": 15.25,
       "maxX": 17.5,
       "minZ": 13.2,
       "maxZ": 13.8
@@ -2549,15 +2371,21 @@
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
+      "maxX": 17.5,
       "minZ": 4.2,
       "maxZ": 4.8
     },
     {
-      "minX": 15.25,
+      "minX": 13,
+      "maxX": 22,
+      "minZ": 8.7,
+      "maxZ": 9.3
+    },
+    {
+      "minX": 8.5,
       "maxX": 17.5,
-      "minZ": 4.2,
-      "maxZ": 4.8
+      "minZ": 13.2,
+      "maxZ": 13.8
     },
     {
       "minX": 4,
@@ -2572,16 +2400,22 @@
       "maxZ": -23.2
     },
     {
-      "minX": 7.375,
-      "maxX": 9.625,
-      "minZ": -22.675,
-      "maxZ": -22.075
+      "minX": 13,
+      "maxX": 22,
+      "minZ": -19.3,
+      "maxZ": -18.7
     },
     {
-      "minX": 7.375,
-      "maxX": 9.625,
-      "minZ": -15.925,
-      "maxZ": -15.325
+      "minX": 8.5,
+      "maxX": 17.5,
+      "minZ": -14.8,
+      "maxZ": -14.2
+    },
+    {
+      "minX": 4,
+      "maxX": 13,
+      "minZ": -19.3,
+      "maxZ": -18.7
     },
     {
       "minX": 8.5,
@@ -2596,13 +2430,13 @@
       "maxZ": -14.2
     },
     {
-      "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": -5.8,
-      "maxZ": -5.2
+      "minX": 13,
+      "maxX": 22,
+      "minZ": -10.3,
+      "maxZ": -9.7
     },
     {
-      "minX": 15.25,
+      "minX": 8.5,
       "maxX": 17.5,
       "minZ": -5.8,
       "maxZ": -5.2
@@ -2620,16 +2454,10 @@
       "maxZ": -23.2
     },
     {
-      "minX": -32.375,
-      "maxX": -12.625,
-      "minZ": -13.925,
-      "maxZ": -13.325
-    },
-    {
-      "minX": -32.375,
-      "maxX": -12.625,
-      "minZ": 10.325,
-      "maxZ": 10.925
+      "minX": -44.5,
+      "maxX": -0.5,
+      "minZ": -1.8,
+      "maxZ": -1.2
     },
     {
       "minX": -18.5,
@@ -2638,82 +2466,52 @@
       "maxZ": -23.2
     },
     {
-      "minX": 6,
-      "maxX": 11,
-      "minZ": -21.3,
-      "maxZ": -20.7
-    },
-    {
-      "minX": -21,
-      "maxX": -16,
-      "minZ": -21.3,
-      "maxZ": -20.7
-    },
-    {
-      "minX": 17,
-      "maxX": 21,
+      "minX": 17.5,
+      "maxX": 21.5,
       "minZ": -23.8,
       "maxZ": -23.2
     },
     {
-      "minX": -2,
-      "maxX": 44,
+      "minX": -1.5,
+      "maxX": 44.5,
       "minZ": -0.8,
       "maxZ": -0.2
     },
     {
-      "minX": 17,
-      "maxX": 21,
+      "minX": 17.5,
+      "maxX": 21.5,
       "minZ": 22.2,
       "maxZ": 22.8
     },
     {
-      "minX": 6.625,
-      "maxX": 27.375,
-      "minZ": -13.425,
-      "maxZ": -12.825
+      "minX": 17.35,
+      "maxX": 25.65,
+      "minZ": 26.7,
+      "maxZ": 27.3
     },
     {
-      "minX": 6.625,
-      "maxX": 27.375,
-      "minZ": 11.825,
-      "maxZ": 12.425
+      "minX": 8.5,
+      "maxX": 21.5,
+      "minZ": 30.849999999999998,
+      "maxZ": 31.45
     },
     {
-      "minX": 17,
-      "maxX": 25,
-      "minZ": 25.7,
-      "maxZ": 26.3
+      "minX": 4.35,
+      "maxX": 12.65,
+      "minZ": 26.7,
+      "maxZ": 27.3
     },
     {
-      "minX": 11,
-      "maxX": 21,
-      "minZ": 29.7,
-      "maxZ": 30.3
+      "minX": -1.5,
+      "maxX": 8.5,
+      "minZ": 30.7,
+      "maxZ": 31.3
     },
     {
-      "minX": 7,
-      "maxX": 15,
-      "minZ": 25.7,
-      "maxZ": 26.3
-    },
-    {
-      "minX": 1,
-      "maxX": 3.75,
-      "minZ": 29.7,
-      "maxZ": 30.3
-    },
-    {
-      "minX": 8.25,
-      "maxX": 11,
-      "minZ": 29.7,
-      "maxZ": 30.3
-    },
-    {
-      "minX": -3,
-      "maxX": 5,
-      "minZ": 25.7,
-      "maxZ": 26.3
+      "minX": -5.5,
+      "maxX": 2.5,
+      "minZ": 26.7,
+      "maxZ": 27.3
     },
     {
       "minX": -39.5,
@@ -2728,16 +2526,10 @@
       "maxZ": 4.3
     },
     {
-      "minX": -40.375,
-      "maxX": -38.625,
-      "minZ": -3.425,
-      "maxZ": -2.825
-    },
-    {
-      "minX": -40.375,
-      "maxX": -38.625,
-      "minZ": 2.825,
-      "maxZ": 3.425
+      "minX": -43.5,
+      "maxX": -35.5,
+      "minZ": -0.3,
+      "maxZ": 0.3
     },
     {
       "minX": -11,
@@ -2746,16 +2538,10 @@
       "maxZ": 7.3
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 7.075,
-      "maxZ": 7.675
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 12.325,
-      "maxZ": 12.925
+      "minX": -8,
+      "maxX": -2,
+      "minZ": 9.7,
+      "maxZ": 10.3
     },
     {
       "minX": -14,
@@ -2770,16 +2556,10 @@
       "maxZ": 13.3
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 13.075,
-      "maxZ": 13.675
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 18.325,
-      "maxZ": 18.925
+      "minX": -8,
+      "maxX": -2,
+      "minZ": 15.7,
+      "maxZ": 16.3
     },
     {
       "minX": -11,
@@ -2792,6 +2572,18 @@
       "maxX": -8,
       "minZ": 15.7,
       "maxZ": 16.3
+    },
+    {
+      "minX": -22.5,
+      "maxX": -1.5,
+      "minZ": 22.7,
+      "maxZ": 23.3
+    },
+    {
+      "minX": -24.5,
+      "maxX": -20.5,
+      "minZ": 20.7,
+      "maxZ": 21.3
     }
   ],
   "floors": [
@@ -2917,7 +2709,7 @@
       }
     },
     {
-      "x": 19,
+      "x": 19.5,
       "y": 0.06,
       "z": -0.5,
       "w": 4,
@@ -2928,20 +2720,20 @@
       }
     },
     {
-      "x": 16,
+      "x": 15,
       "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
+      "z": 27,
+      "w": 13,
+      "d": 8.3,
       "t": 0.12,
       "mat": {
         "color": "#30363d"
       }
     },
     {
-      "x": 6,
+      "x": 3.5,
       "y": 0.06,
-      "z": 26,
+      "z": 27,
       "w": 10,
       "d": 8,
       "t": 0.12,
@@ -2974,7 +2766,7 @@
     {
       "x": 2.2,
       "y": 0.06,
-      "z": 10,
+      "z": 12.4,
       "w": 14,
       "d": 19,
       "t": 0.12,
@@ -3021,6 +2813,17 @@
       "z": 16,
       "w": 6,
       "d": 6,
+      "t": 0.12,
+      "mat": {
+        "color": "#1e6dc8"
+      }
+    },
+    {
+      "x": -12,
+      "y": 0.06,
+      "z": 21,
+      "w": 21,
+      "d": 4,
       "t": 0.12,
       "mat": {
         "color": "#30363d"
@@ -3098,17 +2901,6 @@
       "z": 9,
       "w": 9,
       "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
       "t": 0.12,
       "mat": {
         "color": "#30363d"
@@ -3159,7 +2951,7 @@
       }
     },
     {
-      "x": 19,
+      "x": 18.9,
       "y": 0.06,
       "z": -0.5,
       "w": 4,
@@ -3172,9 +2964,9 @@
     {
       "x": 16,
       "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
+      "z": 23.8,
+      "w": 13,
+      "d": 13.7,
       "t": 0.12,
       "mat": {
         "color": "#30363d"
@@ -3183,7 +2975,7 @@
     {
       "x": 6,
       "y": 0.06,
-      "z": 26,
+      "z": 25.8,
       "w": 10,
       "d": 8,
       "t": 0.12,
@@ -3197,369 +2989,6 @@
       "z": 0,
       "w": 17,
       "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": 10,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2.2,
-      "y": 0.06,
-      "z": 10,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2,
-      "y": 0.06,
-      "z": -9,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -11,
-      "y": 0.06,
-      "z": 0,
-      "w": 15,
-      "d": 14,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 0,
-      "w": 9,
-      "d": 11,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": 16,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": -10,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -14,
-      "y": 0.06,
-      "z": 13,
-      "w": 7,
-      "d": 12,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": -16,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -14,
-      "y": 0.06,
-      "z": -13,
-      "w": 7,
-      "d": 12,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -7,
-      "y": 0.06,
-      "z": 0,
-      "w": 10,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 18,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 9,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": -19,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": -10,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -20,
-      "y": 0.06,
-      "z": -1.5,
-      "w": 5,
-      "d": 44,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -4,
-      "y": 0.06,
-      "z": -21,
-      "w": 26,
-      "d": 5,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 19,
-      "y": 0.06,
-      "z": -0.5,
-      "w": 4,
-      "d": 46,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 16,
-      "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 6,
-      "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -31,
-      "y": 0.06,
-      "z": 0,
-      "w": 17,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": 10,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2.2,
-      "y": 0.06,
-      "z": 10,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2,
-      "y": 0.06,
-      "z": -9,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -11,
-      "y": 0.06,
-      "z": 0,
-      "w": 15,
-      "d": 14,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 0,
-      "w": 9,
-      "d": 11,
       "t": 0.12,
       "mat": {
         "color": "#30363d"
@@ -3689,7 +3118,7 @@
       }
     },
     {
-      "x": 19,
+      "x": 19.5,
       "y": 4.44,
       "z": -0.5,
       "w": 4,
@@ -3700,20 +3129,20 @@
       }
     },
     {
-      "x": 16,
+      "x": 15,
       "y": 4.44,
-      "z": 26,
-      "w": 10,
-      "d": 8,
+      "z": 27,
+      "w": 13,
+      "d": 8.3,
       "t": 0.12,
       "mat": {
         "color": "#232a31"
       }
     },
     {
-      "x": 6,
+      "x": 3.5,
       "y": 4.44,
-      "z": 26,
+      "z": 27,
       "w": 10,
       "d": 8,
       "t": 0.12,
@@ -3746,7 +3175,7 @@
     {
       "x": 2.2,
       "y": 4.44,
-      "z": 10,
+      "z": 12.4,
       "w": 14,
       "d": 19,
       "t": 0.12,
@@ -3788,11 +3217,11 @@
       }
     },
     {
-      "x": -8,
+      "x": -12,
       "y": 4.44,
-      "z": 16,
-      "w": 6,
-      "d": 6,
+      "z": 21,
+      "w": 21,
+      "d": 4,
       "t": 0.12,
       "mat": {
         "color": "#232a31"
@@ -3806,24 +3235,9 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": -12.625,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Team C_E_door",
-      "roomKey": "Team C",
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": -7.375,
-      "rotY": 0,
-      "width": 0,
+      "z": -10,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -3834,26 +3248,11 @@
       "id": "Kitchen_N_door",
       "roomKey": "Kitchen",
       "side": "N",
-      "x": -16.875,
+      "x": -14,
       "y": 0,
       "z": 7,
       "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Kitchen_N_door",
-      "roomKey": "Kitchen",
-      "side": "N",
-      "x": -11.125,
-      "y": 0,
-      "z": 7,
-      "rotY": 0,
-      "width": 0,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -3866,24 +3265,9 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": -18.625,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Team D_E_door",
-      "roomKey": "Team D",
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": -13.375,
-      "rotY": 0,
-      "width": 0,
+      "z": -16,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -3894,11 +3278,11 @@
       "id": "Lab_S_door",
       "roomKey": "Lab",
       "side": "S",
-      "x": -16.875,
+      "x": -14,
       "y": 0,
       "z": -7,
       "rotY": 0,
-      "width": 0,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -3906,74 +3290,44 @@
       "offset": 0
     },
     {
-      "id": "Lab_S_door",
-      "roomKey": "Lab",
+      "id": "Mechanical_N_door",
+      "roomKey": "Mechanical",
+      "side": "N",
+      "x": 13,
+      "y": 0,
+      "z": 13.5,
+      "rotY": 0,
+      "width": 4.5,
+      "height": 4.38,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Electrical_N_door",
+      "roomKey": "Electrical",
+      "side": "N",
+      "x": 13,
+      "y": 0,
+      "z": 4.5,
+      "rotY": 0,
+      "width": 4.5,
+      "height": 4.38,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Electrical_S_door",
+      "roomKey": "Electrical",
       "side": "S",
-      "x": -11.125,
-      "y": 0,
-      "z": -7,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Mechanical_N_door",
-      "roomKey": "Mechanical",
-      "side": "N",
-      "x": 9.625,
+      "x": 13,
       "y": 0,
       "z": 13.5,
       "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Mechanical_N_door",
-      "roomKey": "Mechanical",
-      "side": "N",
-      "x": 16.375,
-      "y": 0,
-      "z": 13.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Electrical_N_door",
-      "roomKey": "Electrical",
-      "side": "N",
-      "x": 9.625,
-      "y": 0,
-      "z": 4.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Electrical_N_door",
-      "roomKey": "Electrical",
-      "side": "N",
-      "x": 16.375,
-      "y": 0,
-      "z": 4.5,
-      "rotY": 0,
-      "width": 0,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -3986,24 +3340,9 @@
       "side": "W",
       "x": 8.5,
       "y": 0,
-      "z": -22.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Control Room_W_door",
-      "roomKey": "Control Room",
-      "side": "W",
-      "x": 8.5,
-      "y": 0,
-      "z": -15.625,
-      "rotY": 0,
-      "width": 0,
+      "z": -19,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4018,7 +3357,7 @@
       "y": 0,
       "z": -14.5,
       "rotY": 0,
-      "width": 0,
+      "width": 2.15,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4033,7 +3372,7 @@
       "y": 0,
       "z": -14.5,
       "rotY": 0,
-      "width": 0,
+      "width": 2.15,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4044,26 +3383,11 @@
       "id": "Data Centre_S_door",
       "roomKey": "Data Centre",
       "side": "S",
-      "x": 9.625,
+      "x": 13,
       "y": 0,
       "z": -5.5,
       "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Data Centre_S_door",
-      "roomKey": "Data Centre",
-      "side": "S",
-      "x": 16.375,
-      "y": 0,
-      "z": -5.5,
-      "rotY": 0,
-      "width": 0,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4076,54 +3400,24 @@
       "side": "W",
       "x": -22.5,
       "y": 0,
-      "z": -13.625,
-      "rotY": 0,
-      "width": 0,
+      "z": 0.4,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
       "open": 0,
-      "offset": 0
+      "offset": -1.9
     },
     {
-      "id": "Corridor_W_door",
-      "roomKey": "Corridor",
+      "id": "Storage_W_door",
+      "roomKey": "Storage",
       "side": "W",
-      "x": -22.5,
+      "x": 8.5,
       "y": 0,
-      "z": 10.625,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Corridor_W_door",
-      "roomKey": "Corridor",
-      "side": "W",
-      "x": 17,
-      "y": 0,
-      "z": -13.125,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Corridor_W_door",
-      "roomKey": "Corridor",
-      "side": "W",
-      "x": 17,
-      "y": 0,
-      "z": 12.125,
-      "rotY": 0,
-      "width": 0,
+      "z": 27,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4134,26 +3428,11 @@
       "id": "Entrance B_S_door",
       "roomKey": "Entrance B",
       "side": "S",
-      "x": 2.375,
+      "x": 3.5,
       "y": 0,
-      "z": 30,
+      "z": 31,
       "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Entrance B_S_door",
-      "roomKey": "Entrance B",
-      "side": "S",
-      "x": 9.625,
-      "y": 0,
-      "z": 30,
-      "rotY": 0,
-      "width": 0,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4166,24 +3445,9 @@
       "side": "W",
       "x": -39.5,
       "y": 0,
-      "z": -3.125,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Entrance A_W_door",
-      "roomKey": "Entrance A",
-      "side": "W",
-      "x": -39.5,
-      "y": 0,
-      "z": 3.125,
-      "rotY": 0,
-      "width": 0,
+      "z": 0,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4196,24 +3460,9 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": 7.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Team B_E_door",
-      "roomKey": "Team B",
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": 12.625,
-      "rotY": 0,
-      "width": 0,
+      "z": 10,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
@@ -4226,24 +3475,9 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": 13.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "Team A_E_door",
-      "roomKey": "Team A",
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": 18.625,
-      "rotY": 0,
-      "width": 0,
+      "z": 16,
+      "rotY": 1.571,
+      "width": 4.5,
       "height": 4.38,
       "panels": 2,
       "thickness": 0.3,
