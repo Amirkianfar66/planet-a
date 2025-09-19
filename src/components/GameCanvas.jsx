@@ -10,6 +10,7 @@ import {
 
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
+import Pets3D from "./Pets3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
 import ThirdPersonCamera from "../systems/ThirdPersonCamera.jsx";
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
@@ -219,7 +220,7 @@ export default function GameCanvas({ dead = [] }) {
                 <BeamLasers />
                 <NetworkGunTracers />
                 <CCTVViewer />
-                
+                <Pets3D items={items} />
             </Canvas>
             {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
                 <CCTVControlPanel />

@@ -1,7 +1,7 @@
 ﻿// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan, hostHandlePetOrder } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -135,6 +135,8 @@ export default function ItemsHostLogic() {
     const itemsRef = useRef(items);
     useEffect(() => {
         itemsRef.current = items;
+        // lightweight global read hook for host handlers
+        window.__itemsCache__ = () => itemsRef.current || [];
     }, [items]);
 
     const playersRef = useRef(players);
@@ -363,6 +365,45 @@ export default function ItemsHostLogic() {
 
             const list = itemsRef.current || [];
             const findItem = (id) => list.find((i) => i.id === id);
+            // --- SPAWN PETS for each Research who lacks one ---
+            const haveIds = new Set(list.map(i => i.id));
+            const spawnPetIfMissing = (owner) => {
+                const ownerId = owner.id;
+                const already = list.find((i) => i.type === "pet" && i.owner === ownerId);
+                if (already) return;
+
+                const ox = Number(owner.getState("x") || 0);
+                const oy = Number(owner.getState("y") || 0);
+                const oz = Number(owner.getState("z") || 0);
+
+                // unique id
+                let idx = 1, newId = `pet_${ownerId}_${idx}`;
+                while (haveIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
+                haveIds.add(newId);
+
+                // create world item as the pet
+                setItems(prev => ([
+                    ...(prev || []),
+                    {
+                        id: newId,
+                        type: "pet",
+                        name: "Research Bot",
+                        owner: ownerId,
+                        x: ox - 0.8,
+                        y: Math.max(oy + 0.2, 0.2),
+                        z: oz - 0.8,
+                        yaw: Number(owner.getState("yaw") || 0),
+                        mode: owner.getState("petMode") || "follow",
+                        speed: 2.2,       // m/s
+                        hover: 0.35,      // visual lift
+                    }
+                ]), true);
+            };
+
+            for (const pl of everyone) {
+                if (String(pl.getState?.("role") || "") === "Research") spawnPetIfMissing(pl);
+            }
+            // --- END SPAWN ---
 
             // unique id helper (kept)
             const mkId = (prefix) => {
@@ -419,7 +460,16 @@ export default function ItemsHostLogic() {
                       hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
                       processed.current.set(p.id, reqId);
                       continue;
+                }
+
+                 // ABILITY: pet order (Research)
+                if (type === "ability" && target === "pet_order") {
+                        const payload = readActionPayload(p);
+                        hostHandlePetOrder({ researcher: p, setEvents: undefined, payload });
+                        processed.current.set(p.id, reqId);
+                        continue;
                  }
+
                 // --------- END ABILITIES ----------
 
                 // CONTAINER (any Tank) — stationary, load-only, must be near
@@ -736,6 +786,57 @@ export default function ItemsHostLogic() {
                 // Fallback
                 processed.current.set(p.id, reqId);
             }
+            // --- PET AI: follow owner unless 'stay' ---
+            {
+                const PET_DT = 0.05; // ~50ms loop cadence
+                const pets = (itemsRef.current || []).filter(i => i.type === "pet");
+                if (pets.length) {
+                    const updated = new Map();
+
+                    for (const pet of pets) {
+                        const owner = (playersRef.current || []).find(pl => pl.id === pet.owner) || myPlayer();
+                        const mode = String(owner?.getState?.("petMode") || pet.mode || "follow");
+                        let { x, y, z } = pet;
+                        let yaw = pet.yaw || 0;
+
+                        if (mode === "follow" && owner) {
+                            const ox = Number(owner.getState("x") || 0);
+                            const oy = Number(owner.getState("y") || 0);
+                            const oz = Number(owner.getState("z") || 0);
+
+                            const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
+                            const backX = -Math.sin(ry), backZ = -Math.cos(ry);
+                            const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
+
+                            const tgtX = ox + backX * 1.2 + rightX * 0.6;
+                            const tgtZ = oz + backZ * 1.2 + rightZ * 0.6;
+                            const tgtY = Math.max(oy + (pet.hover ?? 0.35), 0.2);
+
+                            const dx = tgtX - x, dz = tgtZ - z;
+                            const dist = Math.hypot(dx, dz);
+                            const speed = pet.speed ?? 2.2;
+                            const step = Math.min(dist, speed * PET_DT);
+                            if (dist > 0.001) {
+                                x += (dx / dist) * step;
+                                z += (dz / dist) * step;
+                                yaw = Math.atan2(dx, dz);
+                            }
+                            // smooth vertical
+                            y += (tgtY - y) * 0.2;
+                        }
+
+                        updated.set(pet.id, { x, y, z, yaw, mode });
+                    }
+
+                    if (updated.size) {
+                        setItems(prev => prev.map(j => {
+                            const u = updated.get(j.id);
+                            return u ? { ...j, ...u } : j;
+                        }), true);
+                    }
+                }
+            }
+            // --- END PET AI ---
 
             // schedule next tick
             timerId = setTimeout(loop, 50);

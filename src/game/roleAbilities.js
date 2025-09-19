@@ -25,7 +25,7 @@ export const ROLE_ABILITIES = {
     ],
     // Research no longer does the blood test (moved to Officer)
     Research: [
-        // keep empty for now or add future research powers
+        { id: 'pet_order', key: 'KeyF', label: 'Pet Command', cooldownMs: 400, icon: '🤖' },
     ],
     StationDirector: [
         {
