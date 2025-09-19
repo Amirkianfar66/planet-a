@@ -15,6 +15,7 @@ import React, {
 } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
 import { TransformControls, Text, Billboard } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import WorldGLB from "../world/WorldGLB";
@@ -536,6 +537,61 @@ export function MapEditor3D() {
             setEditorDevices((prev) => prev.map((d) => (d.id === selectedObj.id ? { ...d, x, y, z } : d)));
         }
     };
+    // Download helper
+    function downloadBlob(blob, filename) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    // Clone a mesh with world transforms baked into geometry
+    function cloneMeshBaked(mesh) {
+        const cloned = new THREE.Mesh(
+            mesh.geometry.clone(),
+            // keep a basic material name (OBJ keeps material name, textures not embedded)
+            mesh.material?.clone?.() ?? new THREE.MeshStandardMaterial({ color: 0xcccccc })
+        );
+        // bake world transform
+        mesh.updateWorldMatrix(true, true);
+        const m = mesh.matrixWorld.clone();
+        cloned.geometry.applyMatrix4(m);
+        // reset transforms to identity on the exported mesh
+        cloned.position.set(0, 0, 0);
+        cloned.rotation.set(0, 0, 0);
+        cloned.scale.set(1, 1, 1);
+        return cloned;
+    }
+
+    // Build an export group of ONLY the content you want
+    function buildExportGroup(scene) {
+        const root = new THREE.Group();
+        scene.updateMatrixWorld(true);
+
+        scene.traverse((o) => {
+            // Skip helpers, gizmos, grid, invisible, and anything explicitly opted out
+            if (o.userData?.export === false) return;
+            if (!o.visible) return;
+            if (o.type === "GridHelper") return;
+            if (o.name?.toLowerCase().includes("gizmo")) return;
+            if (o.name?.toLowerCase().includes("transformcontrols")) return;
+
+            if (o.isMesh && o.geometry) {
+                root.add(cloneMeshBaked(o));
+            }
+        });
+
+        return root;
+    }
+
+    // Main exporter
+    function exportOBJ() {
+        const exporter = new OBJExporter();
+        const group = buildExportGroup(scene);
+        const text = exporter.parse(group); // ASCII .obj string
+        downloadBlob(new Blob([text], { type: "text/plain" }), "map.obj");
+    }
 
     return (
         <>
@@ -918,6 +974,7 @@ function computeDoorsWorld(exportRooms) {
 
 
 // ---------------- UI Panel ----------------
+const { scene } = useThree();
 export function MapEditorUI() {
     const {
         rooms, setRooms,
@@ -1309,6 +1366,7 @@ export function MapEditorUI() {
 
                 <button onClick={saveDraft}>Save Draft</button>
                 <button onClick={download}>Export JSON</button>
+                <button onClick={exportOBJ}>Export OBJ</button>
 
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
                     <button onClick={() => downloadJson(editorItems, "items.json")}>Export Items JSON</button>
@@ -1513,6 +1571,7 @@ export function MapEditorUI() {
                             Put your file at <code>/public/models/world.glb</code> and set URL to <code>/models/world.glb</code>.
                         </div>
                     </div>
+                  
 
                     {/* Edges */}
                     <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
