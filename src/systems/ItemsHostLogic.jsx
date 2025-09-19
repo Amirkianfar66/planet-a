@@ -858,9 +858,11 @@ export default function ItemsHostLogic() {
                                 const wantDist = Math.max(0, dist - stopDist);
 
                                 // ⬇️ PUT THESE 3 LINES HERE (replace your previous step calc)
-                                const base = Number(pet.seekSpeed ?? 1.4);               // base walk speed (m/s)
-                                const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // ease when close (0.6..1)
-                                const step = Math.min(wantDist, (base * slow) * PET_DT); // final per-tick step
+                                const SLOW_FACTOR = 1 / 3;                            // 3× slower
+                                const base = Number(pet.seekSpeed ?? 1.4) * SLOW_FACTOR;
+                                const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // keep the near-target easing
+                                const step = Math.min(wantDist, (base * slow) * PET_DT);
+
 
                                 if (wantDist > 0.001) {
                                     x += (dx / dist) * step;
