@@ -235,6 +235,7 @@ export function MapEditorProvider({
         setRooms((prev) => prev.map((r, i) => ({ ...r, key: r.key || `room_${i}` })));
     }, []);
 
+    const exportOBJRef = useRef(null); 
     const api = useMemo(
         () => ({
             rooms, setRooms,
@@ -255,6 +256,7 @@ export function MapEditorProvider({
             editorDevices, setEditorDevices,
             selectedObj, setSelectedObj,
             showGameObjects, setShowGameObjects,
+            exportOBJRef, // <-- expose it
         }),
         [
             rooms, floors, selected, selFloor, selectedEdge,
@@ -399,6 +401,7 @@ export function MapEditor3D() {
         editorDevices, setEditorDevices,
         selectedObj,
         showGameObjects,
+        exportOBJRef,
     } = useMapEditor();
     const snapV = (s, v) => (s > 0 ? Math.round(v / s) * s : v);
     const matRoom = useMemo(
@@ -593,7 +596,11 @@ export function MapEditor3D() {
         const text = exporter.parse(group); // ASCII .obj string
         downloadBlob(new Blob([text], { type: "text/plain" }), "map.obj");
     }
-
+    // make it available to the UI
+     useEffect(() => {
+           exportOBJRef.current = exportOBJ;
+           return () => { exportOBJRef.current = null; }; // clean up on unmount
+          }, [exportOBJRef, scene]);
     return (
         <>
             
@@ -995,6 +1002,7 @@ export function MapEditorUI() {
         editorDevices, setEditorDevices,
         selectedObj, setSelectedObj,
         showGameObjects, setShowGameObjects,
+        exportOBJRef
     } = useMapEditor();
 
     const r = rooms[selected];
@@ -1367,8 +1375,9 @@ export function MapEditorUI() {
 
                 <button onClick={saveDraft}>Save Draft</button>
                 <button onClick={download}>Export JSON</button>
-                <button onClick={exportOBJ}>Export OBJ</button>
-
+                <button onClick={() => exportOBJRef.current?.()} disabled={!exportOBJRef.current}>
+                    Export OBJ
+                </button>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
                     <button onClick={() => downloadJson(editorItems, "items.json")}>Export Items JSON</button>
                     <button onClick={() => downloadJson(editorDevices, "devices.json")}>Export Devices JSON</button>
