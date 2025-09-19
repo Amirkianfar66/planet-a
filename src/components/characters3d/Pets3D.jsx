@@ -6,6 +6,9 @@ import RobotDog from "./RobotDog.jsx";
 export default function Pets3D() {
     const { items } = useItemsSync();
     const pets = (items || []).filter((i) => String(i.type).toLowerCase() === "pet");
+
+    // 👇 Add this line
+    console.log("PET:", pets);
     if (!pets.length) return null;
 
     return (
