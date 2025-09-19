@@ -690,13 +690,17 @@ export function MapEditor3D() {
                             if (edge && edge.present === false) return null;
 
                             const edgeMat = edge?.mat ? { ...r.wallMat, ...edge.mat } : r.wallMat;
-                            const len = Number(w.len ?? w.w ?? 0);
+
+                            // keep just ONE of these:
+                            const isNS = w.side === "N" || w.side === "S";
+
+                            const len = isNS ? Number(w.w || 0) : Number(w.d || 0);
                             const half = len / 2;
                             const wallH = Number(edge?.h ?? r.h ?? w.h ?? DEFAULT_WALL_HEIGHT);
-                            const wallT = Number(edge?.t ?? r.wallT ?? w.thickness ?? WALL_THICKNESS);
+                            const wallThk = Number(edge?.t ?? r.wallT ?? (isNS ? w.d : w.w) ?? WALL_THICKNESS);
 
                             const doorRaw = coalesceDoor(edge?.door);
-                            const doorCfg = clampDoorProps(doorRaw, len, wallH, wallT);
+                            const doorCfg = clampDoorProps(doorRaw, len, wallH, wallThk);
                             const hasDoor = !!doorCfg;
 
                             const slotW = hasDoor ? doorCfg.width : 0;
@@ -705,12 +709,7 @@ export function MapEditor3D() {
                             const slotOpen = hasDoor ? doorCfg.open : 0;
                             const slotX = hasDoor ? doorCfg.offset : 0;
 
-                            const hasSlot =
-                                !!hasDoor &&
-                                Number.isFinite(slotW) &&
-                                slotW > 0.05 &&
-                                Number.isFinite(len) &&
-                                slotW < len - 0.05;
+                            const hasSlot = !!hasDoor && Number.isFinite(slotW) && slotW > 0.05 && Number.isFinite(len) && slotW < len - 0.05;
 
                             const EPS = 0.0005;
                             const leftLen = hasSlot ? Math.max(0, slotX + half - slotW / 2) : len;
@@ -720,7 +719,7 @@ export function MapEditor3D() {
                                 <group
                                     key={`w_${wi}`}
                                     position={[w.x, wallH / 2 + (r.floorY ?? 0), w.z]}
-                                    rotation={[0, w.rotY || 0, 0]}
+                                    rotation={[0, isNS ? 0 : Math.PI / 2, 0]}
                                     onPointerDown={(e) => {
                                         e.stopPropagation();
                                         setSelected(i);
@@ -730,21 +729,21 @@ export function MapEditor3D() {
                                 >
                                     {!hasSlot && leftLen > 0.005 && (
                                         <mesh position={[0, 0, 0]}>
-                                            <boxGeometry args={[len - EPS, wallH, wallT]} />
+                                            <boxGeometry args={[len - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
 
                                     {hasSlot && leftLen > 0.005 && (
                                         <mesh position={[-(half - leftLen / 2), 0, 0]}>
-                                            <boxGeometry args={[leftLen - EPS, wallH, wallT]} />
+                                            <boxGeometry args={[leftLen - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
 
                                     {hasSlot && rightLen > 0.005 && (
                                         <mesh position={[(half - rightLen / 2), 0, 0]}>
-                                            <boxGeometry args={[rightLen - EPS, wallH, wallT]} />
+                                            <boxGeometry args={[rightLen - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
@@ -752,24 +751,23 @@ export function MapEditor3D() {
                                     {/* Door preview — y offset down to floor */}
                                     {hasDoor && (
                                         <group position={[slotX, -wallH / 2, 0]}>
-                                                 <Suspense fallback={null}>
+                                            <Suspense fallback={null}>
                                                 <Door3D
                                                     doorWidth={slotW}
                                                     doorHeight={slotH}
                                                     panels={slotPanels}
                                                     open={slotOpen}
                                                     thickness={doorCfg.thickness}
-                                                    // IMPORTANT: use default single-GLB if nothing set on the room
                                                     glbUrl={r.doorModel?.url ?? "/models/door.glb"}
-                                                    // optional: plumb through clipName from the UI (accepts "all" or comma list)
                                                     clipName={r.doorModel?.clipName || "all"}
                                                 />
-                                                     </Suspense>
-                                               </group>
-                                         )}
+                                            </Suspense>
+                                        </group>
+                                    )}
                                 </group>
                             );
                         })}
+
 
                         {/* roof slab */}
                         {showRoofs && r.hasRoof !== false && (
@@ -854,41 +852,54 @@ function makeSlab({
 }
 
 // ---- Doors export (world space) ----
+// ---- Doors export (world space) ----
 function computeDoorsWorld(exportRooms) {
     const round = (v) => (typeof v === "number" ? Number(v.toFixed(3)) : v);
     const Y = new THREE.Vector3(0, 1, 0);
     const all = [];
+
     for (let ri = 0; ri < exportRooms.length; ri++) {
         const r = exportRooms[ri];
         const roomRot = THREE.MathUtils.degToRad(r.rotDeg || 0);
-        const walls = wallsForRoomLocal(r, r.wallT ?? WALL_THICKNESS);
+        const segs = wallsForRoomLocal(r, r.wallT ?? WALL_THICKNESS); // returns {x,z,w,d,h,side} per segment
+        // N/S segments: long along local X (len = w, thickness = d)
+        // E/W segments: long along local Z (len = d, thickness = w). :contentReference[oaicite:3]{index=3}
 
-        for (const w of walls) {
-            const edge = r.edges?.find((ed) => ed.side === w.side);
-            const len = Number(w.len || 0);
+        for (const seg of segs) {
+            const edge = r.edges?.find((ed) => ed.side === seg.side);
+            if (edge && edge.present === false) continue;
+
+            const isNS = seg.side === "N" || seg.side === "S";
+            const len = isNS ? Number(seg.w || 0) : Number(seg.d || 0);
+            const wallT = Number(edge?.t ?? r.wallT ?? (isNS ? seg.d : seg.w) ?? WALL_THICKNESS);
+            const wallH = Number(edge?.h ?? r.h ?? seg.h ?? DEFAULT_WALL_HEIGHT);
 
             const door = clampDoorProps(
                 coalesceDoor(edge?.door),
                 len,
-                (r.h ?? DEFAULT_WALL_HEIGHT),
-                (r.wallT ?? WALL_THICKNESS)
+                wallH,
+                wallT
             );
             if (!door) continue;
 
             const { offset, width, height, panels, thickness, open } = door;
-            const rotY = roomRot + (w.rotY || 0);
 
-            // Door center (X/Z) in world space
-            const local = new THREE.Vector3(w.x, 0, w.z);
-            const along = new THREE.Vector3(offset, 0, 0).applyAxisAngle(Y, w.rotY || 0);
+            // Local yaw of the wall line: N/S = 0, E/W = 90°
+            const rotLocal = isNS ? 0 : Math.PI / 2;
+            const rotY = roomRot + rotLocal;
+
+            // Door center: start at segment center, move 'offset' along wall axis,
+            // then rotate by room and translate by room (x,z). :contentReference[oaicite:4]{index=4}
+            const local = new THREE.Vector3(seg.x, 0, seg.z);
+            const along = new THREE.Vector3(offset, 0, 0).applyAxisAngle(Y, rotLocal);
             local.add(along).applyAxisAngle(Y, roomRot);
             local.x += r.x;
             local.z += r.z;
 
             all.push({
-                id: `${r.key || `room_${ri}`}_${w.side}_door`,
+                id: `${r.key || `room_${ri}`}_${seg.side}_door`,
                 roomKey: r.key || null,
-                side: w.side,
+                side: seg.side,
                 x: round(local.x),
                 y: round(r.floorY ?? 0),
                 z: round(local.z),
@@ -904,6 +915,7 @@ function computeDoorsWorld(exportRooms) {
     }
     return all;
 }
+
 
 // ---------------- UI Panel ----------------
 export function MapEditorUI() {
