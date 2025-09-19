@@ -208,6 +208,7 @@ export default function GameCanvas({ dead = [] }) {
                 <FloorAndWalls />
 
                 {/* Items & players */}
+                <Pets3D /> 
                 <ItemsAndDevices />
                 <Players3D dead={dead} />
 
