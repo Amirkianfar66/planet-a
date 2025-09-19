@@ -815,7 +815,11 @@ export default function ItemsHostLogic() {
                             const tgtX = ox + backX * 1.2 + rightX * 0.6;
                             const tgtZ = oz + backZ * 1.2 + rightZ * 0.6;
                             const tgtY = Math.max(oy + (pet.hover ?? 0.35), 0.2);
-
+                            const lerpAngle = (a, b, t) => {
+                          // shortest-arc interpolation in [-PI, PI]
+                                let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+                                return a + d * t;
+                               };
                             const dx = tgtX - x, dz = tgtZ - z;
                             const dist = Math.hypot(dx, dz);
                             const speed = pet.speed ?? 2.2;
@@ -823,7 +827,9 @@ export default function ItemsHostLogic() {
                             if (dist > 0.001) {
                                 x += (dx / dist) * step;
                                 z += (dz / dist) * step;
-                                yaw = Math.atan2(dx, dz);
+                                const desired = Math.atan2(dx, dz);
+                             // ease ~25% of the way per tick (50ms) → ~200ms half-life
+                                yaw = lerpAngle(yaw, desired, 0.25);
                             }
                             // smooth vertical
                             y += (tgtY - y) * 0.2;
