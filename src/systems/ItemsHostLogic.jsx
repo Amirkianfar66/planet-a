@@ -517,30 +517,39 @@ export default function ItemsHostLogic() {
                     const carry = String(p.getState("carry") || "");
                     if (!carry) p.setState("carry", it.id, true);
 
+                    // add to backpack (with role bonuses)
                     const bp = getBackpack(p);
                     if (!bp.find((b) => b.id === it.id)) {
-                        // normal items enter backpack; tanks never do
+                        // put the picked world item in as usual
                         let nextBp = [...bp, { id: it.id, type: it.type }];
 
-                        // SPECIAL: Food Supplier gets +1 extra FOOD when picking up from world
                         const role = String(p.getState?.("role") || "");
-                        const isFoodSupplier = role === "FoodSupplier";
-                        const isFood = isType(it.type, "food");
 
-                        if (isFoodSupplier && isFood) {
-                            // stack the bonus into a qty entry (doesn't need a world id)
+                        // --- FoodSupplier bonus: +1 FOOD (stacked, no extra slot)
+                        if (role === "FoodSupplier" && isType(it.type, "food")) {
                             const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
                             if (idx >= 0) {
                                 const entry = nextBp[idx];
-                                const qty = Number(entry?.qty || 1);
-                                nextBp[idx] = { ...entry, qty: qty + 1, bonus: true };
+                                nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
                             } else {
                                 nextBp.push({ type: "food", qty: 1, bonus: true });
                             }
                         }
 
+                        // --- Engineer bonus: +1 FUEL (stacked, no extra slot)
+                        if (role === "Engineer" && isType(it.type, "fuel")) {
+                            const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
+                            if (idx >= 0) {
+                                const entry = nextBp[idx];
+                                nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
+                            } else {
+                                nextBp.push({ type: "fuel", qty: 1, bonus: true });
+                            }
+                        }
+
                         setBackpack(p, nextBp);
                     }
+
 
 
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
