@@ -296,7 +296,7 @@ export default function ItemsAndDevices() {
     const { items } = useItemsSync();
     // Pets are rendered in <Pets3D />, so exclude them here.
     const floorItems = useMemo(
-           () => (items || []).filter(i => !i.holder && i.type !== "pet"),
+        () => (items || []).filter((i) => !i.holder && String(i.type).toLowerCase() !== "pet"),
            [items]
              );
 
