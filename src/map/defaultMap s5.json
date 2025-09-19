@@ -32,7 +32,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -41,7 +40,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -50,7 +48,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -59,7 +56,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -96,7 +92,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -105,7 +100,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -114,7 +108,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -123,7 +116,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -160,7 +152,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -169,7 +160,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -178,7 +168,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -187,7 +176,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -224,7 +212,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -233,7 +220,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -242,7 +228,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -251,7 +236,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -288,7 +272,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -297,7 +280,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -306,7 +288,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -315,7 +296,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -352,7 +332,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -361,7 +340,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -370,7 +348,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -379,7 +356,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -416,7 +392,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -425,7 +400,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -434,7 +408,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -443,7 +416,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -479,15 +451,9 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -496,7 +462,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -505,7 +470,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -514,7 +478,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -679,7 +642,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -688,7 +650,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -697,7 +658,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -706,7 +666,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -742,15 +701,9 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -759,7 +712,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -768,7 +720,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -777,7 +728,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -813,15 +763,9 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -830,7 +774,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -839,7 +782,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -848,7 +790,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -885,7 +826,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -894,7 +834,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -903,7 +842,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -912,7 +850,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -957,12 +894,7 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1046,12 +978,7 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1090,12 +1017,7 @@
           "side": "N",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1115,12 +1037,7 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
           "t": null,
@@ -1169,7 +1086,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1178,7 +1094,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1186,15 +1101,9 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 11.8,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 11.8
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1203,7 +1112,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1240,7 +1148,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1249,7 +1156,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1258,7 +1164,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1266,15 +1171,9 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1311,7 +1210,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1320,7 +1218,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1329,7 +1226,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1338,7 +1234,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1375,7 +1270,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1384,7 +1278,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1393,7 +1286,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1401,15 +1293,9 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1446,7 +1332,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1455,7 +1340,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1464,7 +1348,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1473,7 +1356,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1510,7 +1392,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1519,7 +1400,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1527,15 +1407,9 @@
           "side": "S",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1544,7 +1418,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1581,7 +1454,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1590,7 +1462,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1599,7 +1470,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1607,15 +1477,9 @@
           "side": "W",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1652,7 +1516,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1660,15 +1523,9 @@
           "side": "E",
           "present": true,
           "door": {
-            "width": 4.5,
-            "offset": 0,
-            "height": 4.38,
-            "panels": 2,
-            "type": "sliding",
-            "open": 0
+            "offset": 0
           },
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1677,7 +1534,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1686,7 +1542,6 @@
           "present": true,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1723,7 +1578,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1732,7 +1586,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1741,7 +1594,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1750,7 +1602,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1851,7 +1702,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1860,7 +1710,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1869,7 +1718,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1878,7 +1726,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -1915,7 +1762,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1924,7 +1770,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1933,7 +1778,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         },
         {
@@ -1942,7 +1786,6 @@
           "present": false,
           "door": null,
           "h": null,
-          "t": null,
           "mat": null
         }
       ]
@@ -2342,28 +2185,14 @@
       }
     },
     {
-      "x": -16.875,
+      "x": -14,
       "z": 7,
-      "w": 1.25,
+      "w": 7,
       "d": 0.5,
       "h": 4.5,
       "side": "N",
       "rotDeg": 0,
       "id": "room_N_0",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -11.125,
-      "z": 7,
-      "w": 1.25,
-      "d": 0.5,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "room_N_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2377,7 +2206,7 @@
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
-      "id": "room_E_2",
+      "id": "room_E_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2391,7 +2220,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "room_S_3",
+      "id": "room_S_2",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2405,7 +2234,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_4",
+      "id": "room_W_3",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2538,28 +2367,14 @@
       }
     },
     {
-      "x": 9.625,
+      "x": 13,
       "z": 13.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "N",
       "rotDeg": 0,
       "id": "room_N_0",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 16.375,
-      "z": 13.5,
-      "w": 2.25,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "room_N_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2573,7 +2388,7 @@
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
-      "id": "room_E_2",
+      "id": "room_E_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2587,7 +2402,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "room_S_3",
+      "id": "room_S_2",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2601,35 +2416,21 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_4",
+      "id": "room_W_3",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
       }
     },
     {
-      "x": 9.625,
+      "x": 13,
       "z": 4.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "N",
       "rotDeg": 0,
       "id": "room_N_0",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 16.375,
-      "z": 4.5,
-      "w": 2.25,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "room_N_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2643,7 +2444,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_2",
+      "id": "room_W_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2721,27 +2522,13 @@
     },
     {
       "x": -5,
-      "z": 13.375,
+      "z": 16,
       "w": 0.5,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "room_copy_copy_E_1",
-      "room": "room_copy_copy",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": 18.625,
-      "w": 0.5,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "room_copy_copy_E_2",
       "room": "room_copy_copy",
       "mat": {
         "color": "#9aa4b2"
@@ -2755,7 +2542,7 @@
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "room_copy_copy_S_3",
+      "id": "room_copy_copy_S_2",
       "room": "room_copy_copy",
       "mat": {
         "color": "#9aa4b2"
@@ -2769,7 +2556,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_copy_copy_W_4",
+      "id": "room_copy_copy_W_3",
       "room": "room_copy_copy",
       "mat": {
         "color": "#9aa4b2"
@@ -2791,9 +2578,9 @@
     },
     {
       "x": 8.5,
-      "z": -22.375,
+      "z": -19,
       "w": 0.6,
-      "d": 2.25,
+      "d": 9,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
@@ -2804,23 +2591,9 @@
       }
     },
     {
-      "x": 8.5,
-      "z": -15.625,
-      "w": 0.6,
-      "d": 2.25,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "room_copy_4_W_2",
-      "room": "room_copy_4",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 9.625,
+      "x": 13,
       "z": -14.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "N",
@@ -2832,42 +2605,14 @@
       }
     },
     {
-      "x": 16.375,
-      "z": -14.5,
-      "w": 2.25,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "N",
-      "rotDeg": 0,
-      "id": "room_copy_4_copy_N_1",
-      "room": "room_copy_4_copy",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 9.625,
+      "x": 13,
       "z": -5.5,
-      "w": 2.25,
+      "w": 9,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
-      "id": "room_copy_4_copy_S_2",
-      "room": "room_copy_4_copy",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 16.375,
-      "z": -5.5,
-      "w": 2.25,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "S",
-      "rotDeg": 0,
-      "id": "room_copy_4_copy_S_3",
+      "id": "room_copy_4_copy_S_1",
       "room": "room_copy_4_copy",
       "mat": {
         "color": "#9aa4b2"
@@ -2881,35 +2626,21 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_copy_4_copy_W_4",
+      "id": "room_copy_4_copy_W_2",
       "room": "room_copy_4_copy",
       "mat": {
         "color": "#9aa4b2"
       }
     },
     {
-      "x": -9.975,
+      "x": -7,
       "z": 22.5,
-      "w": 25.05,
+      "w": 31,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
       "id": "room_S_0",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 7.775,
-      "z": 22.5,
-      "w": 1.4499999999999993,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "S",
-      "rotDeg": 0,
-      "id": "room_S_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2923,7 +2654,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_2",
+      "id": "room_W_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -2945,27 +2676,13 @@
     },
     {
       "x": -22.5,
-      "z": -13.625,
+      "z": -1.5,
       "w": 0.6,
-      "d": 19.75,
+      "d": 44,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
       "id": "room_W_1",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -22.5,
-      "z": 10.625,
-      "w": 0.6,
-      "d": 19.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "room_W_2",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3057,27 +2774,13 @@
     },
     {
       "x": 17,
-      "z": -13.125,
+      "z": -0.5,
       "w": 0.6,
-      "d": 20.75,
+      "d": 46,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
       "id": "room_W_3",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 17,
-      "z": 12.125,
-      "w": 0.6,
-      "d": 20.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "room_W_4",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3126,28 +2829,14 @@
       }
     },
     {
-      "x": 2.375,
+      "x": 6,
       "z": 30,
-      "w": 2.75,
+      "w": 10,
       "d": 0.6,
       "h": 4.5,
       "side": "S",
       "rotDeg": 0,
       "id": "room_S_0",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": 9.625,
-      "z": 30,
-      "w": 2.75,
-      "d": 0.6,
-      "h": 4.5,
-      "side": "S",
-      "rotDeg": 0,
-      "id": "room_S_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3161,7 +2850,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_2",
+      "id": "room_W_1",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3197,27 +2886,13 @@
     },
     {
       "x": -39.5,
-      "z": -3.125,
+      "z": 0,
       "w": 0.6,
-      "d": 1.75,
+      "d": 8,
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
       "id": "room_W_2",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -39.5,
-      "z": 3.125,
-      "w": 0.6,
-      "d": 1.75,
-      "h": 4.5,
-      "side": "W",
-      "rotDeg": 0,
-      "id": "room_W_3",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3239,27 +2914,13 @@
     },
     {
       "x": -5,
-      "z": 7.375,
+      "z": 10,
       "w": 0.6,
-      "d": 0.75,
+      "d": 6,
       "h": 4.5,
       "side": "E",
       "rotDeg": 0,
       "id": "room_E_1",
-      "room": "",
-      "mat": {
-        "color": "#9aa4b2"
-      }
-    },
-    {
-      "x": -5,
-      "z": 12.625,
-      "w": 0.6,
-      "d": 0.75,
-      "h": 4.5,
-      "side": "E",
-      "rotDeg": 0,
-      "id": "room_E_2",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3273,7 +2934,7 @@
       "h": 4.5,
       "side": "W",
       "rotDeg": 0,
-      "id": "room_W_3",
+      "id": "room_W_2",
       "room": "",
       "mat": {
         "color": "#9aa4b2"
@@ -3451,12 +3112,6 @@
     },
     {
       "minX": -17.5,
-      "maxX": -16.25,
-      "minZ": 6.75,
-      "maxZ": 7.25
-    },
-    {
-      "minX": -11.75,
       "maxX": -10.5,
       "minZ": 6.75,
       "maxZ": 7.25
@@ -3535,12 +3190,6 @@
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": 13.2,
-      "maxZ": 13.8
-    },
-    {
-      "minX": 15.25,
       "maxX": 17.5,
       "minZ": 13.2,
       "maxZ": 13.8
@@ -3565,12 +3214,6 @@
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": 4.2,
-      "maxZ": 4.8
-    },
-    {
-      "minX": 15.25,
       "maxX": 17.5,
       "minZ": 4.2,
       "maxZ": 4.8
@@ -3612,16 +3255,10 @@
       "maxZ": 13.25
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 13.125,
-      "maxZ": 13.625
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 18.375,
-      "maxZ": 18.875
+      "minX": -8,
+      "maxX": -2,
+      "minZ": 15.75,
+      "maxZ": 16.25
     },
     {
       "minX": -11,
@@ -3642,37 +3279,19 @@
       "maxZ": -23.2
     },
     {
-      "minX": 7.375,
-      "maxX": 9.625,
-      "minZ": -22.675,
-      "maxZ": -22.075
-    },
-    {
-      "minX": 7.375,
-      "maxX": 9.625,
-      "minZ": -15.925,
-      "maxZ": -15.325
+      "minX": 4,
+      "maxX": 13,
+      "minZ": -19.3,
+      "maxZ": -18.7
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": -14.8,
-      "maxZ": -14.2
-    },
-    {
-      "minX": 15.25,
       "maxX": 17.5,
       "minZ": -14.8,
       "maxZ": -14.2
     },
     {
       "minX": 8.5,
-      "maxX": 10.75,
-      "minZ": -5.8,
-      "maxZ": -5.2
-    },
-    {
-      "minX": 15.25,
       "maxX": 17.5,
       "minZ": -5.8,
       "maxZ": -5.2
@@ -3685,12 +3304,6 @@
     },
     {
       "minX": -22.5,
-      "maxX": 2.5500000000000007,
-      "minZ": 22.2,
-      "maxZ": 22.8
-    },
-    {
-      "minX": 7.050000000000001,
       "maxX": 8.5,
       "minZ": 22.2,
       "maxZ": 22.8
@@ -3708,16 +3321,10 @@
       "maxZ": -23.2
     },
     {
-      "minX": -32.375,
-      "maxX": -12.625,
-      "minZ": -13.925,
-      "maxZ": -13.325
-    },
-    {
-      "minX": -32.375,
-      "maxX": -12.625,
-      "minZ": 10.325,
-      "maxZ": 10.925
+      "minX": -44.5,
+      "maxX": -0.5,
+      "minZ": -1.8,
+      "maxZ": -1.2
     },
     {
       "minX": -17.5,
@@ -3756,16 +3363,10 @@
       "maxZ": 22.8
     },
     {
-      "minX": 6.625,
-      "maxX": 27.375,
-      "minZ": -13.425,
-      "maxZ": -12.825
-    },
-    {
-      "minX": 6.625,
-      "maxX": 27.375,
-      "minZ": 11.825,
-      "maxZ": 12.425
+      "minX": -6,
+      "maxX": 40,
+      "minZ": -0.8,
+      "maxZ": -0.2
     },
     {
       "minX": 17,
@@ -3787,12 +3388,6 @@
     },
     {
       "minX": 1,
-      "maxX": 3.75,
-      "minZ": 29.7,
-      "maxZ": 30.3
-    },
-    {
-      "minX": 8.25,
       "maxX": 11,
       "minZ": 29.7,
       "maxZ": 30.3
@@ -3816,16 +3411,10 @@
       "maxZ": 4.3
     },
     {
-      "minX": -40.375,
-      "maxX": -38.625,
-      "minZ": -3.425,
-      "maxZ": -2.825
-    },
-    {
-      "minX": -40.375,
-      "maxX": -38.625,
-      "minZ": 2.825,
-      "maxZ": 3.425
+      "minX": -43.5,
+      "maxX": -35.5,
+      "minZ": -0.3,
+      "maxZ": 0.3
     },
     {
       "minX": -11,
@@ -3834,16 +3423,10 @@
       "maxZ": 7.3
     },
     {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 7.075,
-      "maxZ": 7.675
-    },
-    {
-      "minX": -5.375,
-      "maxX": -4.625,
-      "minZ": 12.325,
-      "maxZ": 12.925
+      "minX": -8,
+      "maxX": -2,
+      "minZ": 9.7,
+      "maxZ": 10.3
     },
     {
       "minX": -14,
@@ -3853,325 +3436,6 @@
     }
   ],
   "floors": [
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": -10,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -14,
-      "y": 0.06,
-      "z": 13,
-      "w": 7,
-      "d": 12,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": -16,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -14,
-      "y": 0.06,
-      "z": -13,
-      "w": 7,
-      "d": 12,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -7,
-      "y": 0.06,
-      "z": 0,
-      "w": 10,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 18,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 9,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 0,
-      "y": 0.06,
-      "z": 0,
-      "w": 4,
-      "d": 3,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": 16,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": -19,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": -10,
-      "w": 9,
-      "d": 9,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -7,
-      "y": 0.06,
-      "z": 20.5,
-      "w": 31,
-      "d": 4,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -20,
-      "y": 0.06,
-      "z": -1.5,
-      "w": 5,
-      "d": 44,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -4.5,
-      "y": 0.06,
-      "z": -21.5,
-      "w": 26,
-      "d": 4,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 19,
-      "y": 0.06,
-      "z": -0.5,
-      "w": 4,
-      "d": 46,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 16,
-      "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 6,
-      "y": 0.06,
-      "z": 26,
-      "w": 10,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -31,
-      "y": 0.06,
-      "z": 0,
-      "w": 17,
-      "d": 8,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -8,
-      "y": 0.06,
-      "z": 10,
-      "w": 6,
-      "d": 6,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2.2,
-      "y": 0.06,
-      "z": 10,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 2,
-      "y": 0.06,
-      "z": -9,
-      "w": 14,
-      "d": 19,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": -11,
-      "y": 0.06,
-      "z": 0,
-      "w": 15,
-      "d": 14,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
-    {
-      "x": 13,
-      "y": 0.06,
-      "z": 0,
-      "w": 9,
-      "d": 11,
-      "t": 0.12,
-      "mat": {
-        "color": "#30363d"
-      }
-    },
     {
       "x": 0,
       "y": 0.06,
@@ -4796,22 +4060,7 @@
       "id": "room_7_N_door",
       "roomKey": null,
       "side": "N",
-      "x": -16.875,
-      "y": 0,
-      "z": 7,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_7_N_door",
-      "roomKey": null,
-      "side": "N",
-      "x": -11.125,
+      "x": -14,
       "y": 0,
       "z": 7,
       "rotY": 0,
@@ -4826,22 +4075,7 @@
       "id": "room_11_N_door",
       "roomKey": null,
       "side": "N",
-      "x": 9.625,
-      "y": 0,
-      "z": 13.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_11_N_door",
-      "roomKey": null,
-      "side": "N",
-      "x": 16.375,
+      "x": 13,
       "y": 0,
       "z": 13.5,
       "rotY": 0,
@@ -4856,22 +4090,7 @@
       "id": "room_12_N_door",
       "roomKey": null,
       "side": "N",
-      "x": 9.625,
-      "y": 0,
-      "z": 4.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_12_N_door",
-      "roomKey": null,
-      "side": "N",
-      "x": 16.375,
+      "x": 13,
       "y": 0,
       "z": 4.5,
       "rotY": 0,
@@ -4888,22 +4107,7 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": 13.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_copy_copy_E_door",
-      "roomKey": "room_copy_copy",
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": 18.625,
+      "z": 16,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
@@ -4918,22 +4122,7 @@
       "side": "W",
       "x": 8.5,
       "y": 0,
-      "z": -22.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_copy_4_W_door",
-      "roomKey": "room_copy_4",
-      "side": "W",
-      "x": 8.5,
-      "y": 0,
-      "z": -15.625,
+      "z": -19,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
@@ -4946,22 +4135,7 @@
       "id": "room_copy_4_copy_N_door",
       "roomKey": "room_copy_4_copy",
       "side": "N",
-      "x": 9.625,
-      "y": 0,
-      "z": -14.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_copy_4_copy_N_door",
-      "roomKey": "room_copy_4_copy",
-      "side": "N",
-      "x": 16.375,
+      "x": 13,
       "y": 0,
       "z": -14.5,
       "rotY": 0,
@@ -4976,22 +4150,7 @@
       "id": "room_copy_4_copy_S_door",
       "roomKey": "room_copy_4_copy",
       "side": "S",
-      "x": 9.625,
-      "y": 0,
-      "z": -5.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_copy_4_copy_S_door",
-      "roomKey": "room_copy_4_copy",
-      "side": "S",
-      "x": 16.375,
+      "x": 13,
       "y": 0,
       "z": -5.5,
       "rotY": 0,
@@ -5006,22 +4165,7 @@
       "id": "room_17_S_door",
       "roomKey": null,
       "side": "S",
-      "x": -9.975,
-      "y": 0,
-      "z": 22.5,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_17_S_door",
-      "roomKey": null,
-      "side": "S",
-      "x": 7.775,
+      "x": -7,
       "y": 0,
       "z": 22.5,
       "rotY": 0,
@@ -5038,22 +4182,7 @@
       "side": "W",
       "x": -22.5,
       "y": 0,
-      "z": -13.625,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_18_W_door",
-      "roomKey": null,
-      "side": "W",
-      "x": -22.5,
-      "y": 0,
-      "z": 10.625,
+      "z": -1.5,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
@@ -5068,22 +4197,7 @@
       "side": "W",
       "x": 17,
       "y": 0,
-      "z": -13.125,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_20_W_door",
-      "roomKey": null,
-      "side": "W",
-      "x": 17,
-      "y": 0,
-      "z": 12.125,
+      "z": -0.5,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
@@ -5096,22 +4210,7 @@
       "id": "room_22_S_door",
       "roomKey": null,
       "side": "S",
-      "x": 2.375,
-      "y": 0,
-      "z": 30,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_22_S_door",
-      "roomKey": null,
-      "side": "S",
-      "x": 9.625,
+      "x": 6,
       "y": 0,
       "z": 30,
       "rotY": 0,
@@ -5128,22 +4227,7 @@
       "side": "W",
       "x": -39.5,
       "y": 0,
-      "z": -3.125,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_23_W_door",
-      "roomKey": null,
-      "side": "W",
-      "x": -39.5,
-      "y": 0,
-      "z": 3.125,
+      "z": 0,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
@@ -5158,22 +4242,7 @@
       "side": "E",
       "x": -5,
       "y": 0,
-      "z": 7.375,
-      "rotY": 0,
-      "width": 0,
-      "height": 4.38,
-      "panels": 2,
-      "thickness": 0.3,
-      "open": 0,
-      "offset": 0
-    },
-    {
-      "id": "room_24_E_door",
-      "roomKey": null,
-      "side": "E",
-      "x": -5,
-      "y": 0,
-      "z": 12.625,
+      "z": 10,
       "rotY": 0,
       "width": 0,
       "height": 4.38,
