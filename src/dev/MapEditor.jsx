@@ -17,12 +17,16 @@ import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { OBJExporter } from "three/examples/jsm/exporters/OBJExporter.js";
 import { TransformControls, Text, Billboard } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
+import { useThree } from "@react-three/fiber";
 import WorldGLB from "../world/WorldGLB";
 // door preview
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 // game objects data
-import { ITEM_TYPES, INITIAL_ITEMS as SEED_ITEMS, DEVICES as SEED_DEVICES } from "../data/gameObjects";
+import {
+    ITEM_TYPES,
+    INITIAL_ITEMS as SEED_ITEMS,
+    DEVICES as SEED_DEVICES,
+} from "../data/gameObjects";
 // (runtime renderer kept untouched)
 import ItemsAndDevices from "../world/ItemsAndDevices.jsx";
 
@@ -110,7 +114,7 @@ const DEFAULT_DOOR = { offset: 0 };
 function coalesceDoor(door) {
     if (!door) return null;
     if (Array.isArray(door)) return { ...door[0] }; // legacy
-    if (door === true) return { ...DEFAULT_DOOR };   // legacy
+    if (door === true) return { ...DEFAULT_DOOR }; // legacy
     if (typeof door === "object") return { ...door };
     return null;
 }
@@ -127,7 +131,7 @@ function clampDoorProps(door, len, wallH, wallT) {
     const rawH = Number(door.height);
     const height = Math.max(
         0.5,
-        Number.isFinite(rawH) ? rawH : ((Number.isFinite(wallH) ? wallH : DEFAULT_WALL_HEIGHT) - 0.12)
+        Number.isFinite(rawH) ? rawH : (Number.isFinite(wallH) ? wallH : DEFAULT_WALL_HEIGHT) - 0.12
     );
     const rawPanels = Number(door.panels);
     const panels = Math.max(1, Math.min(2, Number.isFinite(rawPanels) ? rawPanels : 2));
@@ -142,7 +146,7 @@ function clampDoorProps(door, len, wallH, wallT) {
     const rawT = Number(door.thickness);
     const thickness = Math.min(
         0.3,
-        Number.isFinite(rawT) ? rawT : ((Number.isFinite(wallT) ? wallT : WALL_THICKNESS) * 0.9)
+        Number.isFinite(rawT) ? rawT : (Number.isFinite(wallT) ? wallT : WALL_THICKNESS) * 0.9
     );
     return { ...door, width, height, panels, open, offset, thickness };
 }
@@ -235,34 +239,69 @@ export function MapEditorProvider({
         setRooms((prev) => prev.map((r, i) => ({ ...r, key: r.key || `room_${i}` })));
     }, []);
 
-    const exportOBJRef = useRef(null); 
+    // Exporter Refs (combined and split)
+    const exportOBJRef = useRef(null); // combined OBJ
+    const exportSplitRef = useRef(null); // 5 OBJs by kind
+
     const api = useMemo(
         () => ({
-            rooms, setRooms,
-            floors, setFloors,
-            selected, setSelected,
-            selFloor, setSelFloor,
-            selectedEdge, setSelectedEdge,
-            showGrid, setShowGrid,
-            snap, setSnap,
-            draw, setDraw,
-            drawStart, setDrawStart,
-            drawCurr, setDrawCurr,
-            showFloors, setShowFloors,
-            showRoofs, setShowRoofs,
-            worldGLB, setWorldGLB,
+            rooms,
+            setRooms,
+            floors,
+            setFloors,
+            selected,
+            setSelected,
+            selFloor,
+            setSelFloor,
+            selectedEdge,
+            setSelectedEdge,
+            showGrid,
+            setShowGrid,
+            snap,
+            setSnap,
+            draw,
+            setDraw,
+            drawStart,
+            setDrawStart,
+            drawCurr,
+            setDrawCurr,
+            showFloors,
+            setShowFloors,
+            showRoofs,
+            setShowRoofs,
+            worldGLB,
+            setWorldGLB,
 
-            editorItems, setEditorItems,
-            editorDevices, setEditorDevices,
-            selectedObj, setSelectedObj,
-            showGameObjects, setShowGameObjects,
-            exportOBJRef, // <-- expose it
+            editorItems,
+            setEditorItems,
+            editorDevices,
+            setEditorDevices,
+            selectedObj,
+            setSelectedObj,
+            showGameObjects,
+            setShowGameObjects,
+
+            exportOBJRef,
+            exportSplitRef,
         }),
         [
-            rooms, floors, selected, selFloor, selectedEdge,
-            showGrid, snap, draw, drawStart, drawCurr,
-            showFloors, showRoofs, worldGLB,
-            editorItems, editorDevices, selectedObj, showGameObjects,
+            rooms,
+            floors,
+            selected,
+            selFloor,
+            selectedEdge,
+            showGrid,
+            snap,
+            draw,
+            drawStart,
+            drawCurr,
+            showFloors,
+            showRoofs,
+            worldGLB,
+            editorItems,
+            editorDevices,
+            selectedObj,
+            showGameObjects,
         ]
     );
 
@@ -277,20 +316,42 @@ function EditorItemMesh({ type }) {
         case "food":
             return (
                 <group>
-                    <mesh><boxGeometry args={[0.36, 0.22, 0.30]} /><meshStandardMaterial color={color} /></mesh>
-                    <mesh position={[0, 0.13, 0]}><boxGeometry args={[0.38, 0.02, 0.32]} /><meshStandardMaterial color="#0f172a" /></mesh>
+                    <mesh>
+                        <boxGeometry args={[0.36, 0.22, 0.3]} />
+                        <meshStandardMaterial color={color} />
+                    </mesh>
+                    <mesh position={[0, 0.13, 0]}>
+                        <boxGeometry args={[0.38, 0.02, 0.32]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
                 </group>
             );
         case "fuel":
-            return <mesh><boxGeometry args={[0.12, 0.6, 0.12]} /><meshStandardMaterial color={color} /></mesh>;
+            return (
+                <mesh>
+                    <boxGeometry args={[0.12, 0.6, 0.12]} />
+                    <meshStandardMaterial color={color} />
+                </mesh>
+            );
         case "protection":
-            return <mesh><icosahedronGeometry args={[0.22, 0]} /><meshStandardMaterial color={color} metalness={0.2} roughness={0.4} /></mesh>;
+            return (
+                <mesh>
+                    <icosahedronGeometry args={[0.22, 0]} />
+                    <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
+                </mesh>
+            );
         case "cure_red":
         case "cure_blue":
             return (
                 <group>
-                    <mesh><cylinderGeometry args={[0.12, 0.12, 0.34, 18]} /><meshStandardMaterial color={color} /></mesh>
-                    <mesh position={[0, 0.20, 0]}><cylinderGeometry args={[0.06, 0.06, 0.12, 18]} /><meshStandardMaterial color="#0f172a" /></mesh>
+                    <mesh>
+                        <cylinderGeometry args={[0.12, 0.12, 0.34, 18]} />
+                        <meshStandardMaterial color={color} />
+                    </mesh>
+                    <mesh position={[0, 0.2, 0]}>
+                        <cylinderGeometry args={[0.06, 0.06, 0.12, 18]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
                 </group>
             );
         case "food_tank":
@@ -298,13 +359,27 @@ function EditorItemMesh({ type }) {
         case "protection_tank":
             return (
                 <group scale={[4, 4, 4]}>
-                    <mesh><cylinderGeometry args={[0.22, 0.22, 0.34, 20]} /><meshStandardMaterial color={color} metalness={0.2} roughness={0.4} /></mesh>
-                    <mesh position={[0, 0.19, 0]}><cylinderGeometry args={[0.23, 0.23, 0.03, 20]} /><meshStandardMaterial color="#0f172a" /></mesh>
-                    <mesh position={[0, -0.19, 0]}><cylinderGeometry args={[0.21, 0.21, 0.02, 20]} /><meshStandardMaterial color="#0b1220" /></mesh>
+                    <mesh>
+                        <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
+                        <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 0.19, 0]}>
+                        <cylinderGeometry args={[0.23, 0.23, 0.03, 20]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
+                    <mesh position={[0, -0.19, 0]}>
+                        <cylinderGeometry args={[0.21, 0.21, 0.02, 20]} />
+                        <meshStandardMaterial color="#0b1220" />
+                    </mesh>
                 </group>
             );
         default:
-            return <mesh><boxGeometry args={[0.3, 0.3, 0.3]} /><meshStandardMaterial color="#9ca3af" /></mesh>;
+            return (
+                <mesh>
+                    <boxGeometry args={[0.3, 0.3, 0.3]} />
+                    <meshStandardMaterial color="#9ca3af" />
+                </mesh>
+            );
     }
 }
 
@@ -322,6 +397,7 @@ function EditorGameObjects() {
                     <group
                         key={d.id}
                         position={[d.x ?? 0, (d.y || 0) + 0.5, d.z ?? 0]}
+                        userData={{ exportKind: "item" }}
                         onPointerDown={(e) => {
                             e.stopPropagation();
                             setSelectedObj({ kind: "device", id: d.id });
@@ -355,6 +431,7 @@ function EditorGameObjects() {
                     <group
                         key={it.id}
                         position={[it.x ?? 0, (it.y || 0) + 0.25, it.z ?? 0]}
+                        userData={{ exportKind: "item" }}
                         onPointerDown={(e) => {
                             e.stopPropagation();
                             setSelectedObj({ kind: "item", id: it.id });
@@ -366,7 +443,11 @@ function EditorGameObjects() {
                         <group scale={[ringScale, 1, ringScale]}>
                             <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                                 <ringGeometry args={[0.35, 0.42, 24]} />
-                                <meshBasicMaterial color={selected ? "#4ade80" : "#64748b"} transparent opacity={selected ? 0.85 : 0.4} />
+                                <meshBasicMaterial
+                                    color={selected ? "#4ade80" : "#64748b"}
+                                    transparent
+                                    opacity={selected ? 0.85 : 0.4}
+                                />
                             </mesh>
                         </group>
 
@@ -385,24 +466,37 @@ function EditorGameObjects() {
 // ---------------- 3D Layer ----------------
 export function MapEditor3D() {
     const {
-        rooms, setRooms,
-        floors, setFloors,
-        selected, setSelected,
-        selFloor, setSelFloor,
+        rooms,
+        setRooms,
+        floors,
+        setFloors,
+        selected,
+        setSelected,
+        selFloor,
+        setSelFloor,
         setSelectedEdge,
-        showGrid, snap,
-        draw, setDraw,
-        drawStart, setDrawStart,
-        drawCurr, setDrawCurr,
-        showFloors, showRoofs,
-        worldGLB, setSnap,
+        showGrid,
+        snap,
+        draw,
+        setDraw,
+        drawStart,
+        setDrawStart,
+        drawCurr,
+        setDrawCurr,
+        showFloors,
+        showRoofs,
+        worldGLB,
         // game objects
-        editorItems, setEditorItems,
-        editorDevices, setEditorDevices,
+        editorItems,
+        setEditorItems,
+        editorDevices,
+        setEditorDevices,
         selectedObj,
         showGameObjects,
         exportOBJRef,
+        exportSplitRef,
     } = useMapEditor();
+
     const snapV = (s, v) => (s > 0 ? Math.round(v / s) * s : v);
     const matRoom = useMemo(
         () => new THREE.MeshBasicMaterial({ color: 0x4ea1ff, transparent: true, opacity: 0.18 }),
@@ -416,16 +510,20 @@ export function MapEditor3D() {
         () => new THREE.MeshBasicMaterial({ color: 0x22cc88, transparent: true, opacity: 0.25 }),
         []
     );
+
     function DisableRotateWhenDrawing({ active }) {
         const controls = useThree((s) => s.controls); // works when OrbitControls has makeDefault
         useEffect(() => {
             if (!controls) return;
             const prev = controls.enableRotate;
-            controls.enableRotate = !active;         // disable rotate while drawing
-            return () => { controls.enableRotate = prev; };
+            controls.enableRotate = !active; // disable rotate while drawing
+            return () => {
+                controls.enableRotate = prev;
+            };
         }, [controls, active]);
         return null;
     }
+
     // ground draw
     const onGroundDown = (e) => {
         if (!draw.active) return;
@@ -540,8 +638,10 @@ export function MapEditor3D() {
             setEditorDevices((prev) => prev.map((d) => (d.id === selectedObj.id ? { ...d, x, y, z } : d)));
         }
     };
-    // Download helper
+
+    // ---------- Export helpers ----------
     const { scene } = useThree();
+
     function downloadBlob(blob, filename) {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -550,63 +650,108 @@ export function MapEditor3D() {
         URL.revokeObjectURL(a.href);
     }
 
-    // Clone a mesh with world transforms baked into geometry
-    function cloneMeshBaked(mesh) {
-        const cloned = new THREE.Mesh(
-            mesh.geometry.clone(),
-            // keep a basic material name (OBJ keeps material name, textures not embedded)
-            mesh.material?.clone?.() ?? new THREE.MeshStandardMaterial({ color: 0xcccccc })
-        );
-        // bake world transform
-        mesh.updateWorldMatrix(true, true);
-        const m = mesh.matrixWorld.clone();
-        cloned.geometry.applyMatrix4(m);
-        // reset transforms to identity on the exported mesh
-        cloned.position.set(0, 0, 0);
-        cloned.rotation.set(0, 0, 0);
-        cloned.scale.set(1, 1, 1);
-        return cloned;
+    // resolve kind by walking up parents so children can inherit
+    function resolveExportKind(node) {
+        let cur = node;
+        while (cur) {
+            const k = cur.userData && cur.userData.exportKind;
+            if (k) return k;
+            cur = cur.parent;
+        }
+        return null;
     }
 
-    // Build an export group of ONLY the content you want
-    function buildExportGroup(scene) {
+    // Bake one mesh to world space
+    function bakeMesh(o) {
+        const baked = new THREE.Mesh(
+            o.geometry.clone(),
+            (o.material && o.material.clone && o.material.clone()) ||
+            new THREE.MeshStandardMaterial({ color: 0xcccccc })
+        );
+        o.updateWorldMatrix(true, true);
+        baked.geometry.applyMatrix4(o.matrixWorld);
+        baked.position.set(0, 0, 0);
+        baked.rotation.set(0, 0, 0);
+        baked.scale.set(1, 1, 1);
+        return baked;
+    }
+
+    // Build a single export group, optional filter
+    function buildExportGroup(scene, predicate = () => true) {
         const root = new THREE.Group();
         scene.updateMatrixWorld(true);
-
         scene.traverse((o) => {
-            // Skip helpers, gizmos, grid, invisible, and anything explicitly opted out
-            if (o.userData?.export === false) return;
             if (!o.visible) return;
+            if (o.userData?.export === false) return;
             if (o.type === "GridHelper") return;
-            if (o.name?.toLowerCase().includes("gizmo")) return;
-            if (o.name?.toLowerCase().includes("transformcontrols")) return;
-
-            if (o.isMesh && o.geometry) {
-                root.add(cloneMeshBaked(o));
-            }
+            const name = (o.name || "").toLowerCase();
+            if (name.includes("gizmo") || name.includes("transformcontrols")) return;
+            if (!o.isMesh || !o.geometry) return;
+            if (!predicate(o)) return;
+            root.add(bakeMesh(o));
         });
-
         return root;
     }
 
-    // Main exporter
+    // Build 5 groups by exportKind
+    function buildGroupsByKind(scene) {
+        const groups = {
+            wall: new THREE.Group(),
+            floor: new THREE.Group(),
+            roof: new THREE.Group(),
+            door: new THREE.Group(),
+            item: new THREE.Group(),
+        };
+        scene.updateMatrixWorld(true);
+        scene.traverse((o) => {
+            if (!o.visible) return;
+            if (o.userData?.export === false) return;
+            if (o.type === "GridHelper") return;
+            const nm = (o.name || "").toLowerCase();
+            if (nm.includes("gizmo") || nm.includes("transformcontrols")) return;
+            if (!o.isMesh || !o.geometry) return;
+            const kind = resolveExportKind(o);
+            if (!kind || !groups[kind]) return;
+            const baked = bakeMesh(o);
+            baked.name = `mesh_${kind}`;
+            groups[kind].add(baked);
+        });
+        return groups;
+    }
+
+    // Main exporter (combined)
     function exportOBJ() {
         const exporter = new OBJExporter();
         const group = buildExportGroup(scene);
         const text = exporter.parse(group); // ASCII .obj string
         downloadBlob(new Blob([text], { type: "text/plain" }), "map.obj");
     }
-    // make it available to the UI
-     useEffect(() => {
-           exportOBJRef.current = exportOBJ;
-           return () => { exportOBJRef.current = null; }; // clean up on unmount
-          }, [exportOBJRef, scene]);
+
+    // Split exporter (5 files)
+    function exportOBJsByKind() {
+        const exporter = new OBJExporter();
+        const groups = buildGroupsByKind(scene);
+        Object.entries(groups).forEach(([kind, group]) => {
+            if (group.children.length === 0) return;
+            const objText = exporter.parse(group);
+            downloadBlob(new Blob([objText], { type: "text/plain" }), `map_${kind}.obj`);
+        });
+    }
+
+    // make exporters available to the UI
+    useEffect(() => {
+        exportOBJRef.current = exportOBJ; // combined
+        exportSplitRef.current = exportOBJsByKind; // split 5 files
+        return () => {
+            exportOBJRef.current = null;
+            exportSplitRef.current = null;
+        };
+    }, [exportOBJRef, exportSplitRef, scene]);
+
     return (
         <>
-            
             <DisableRotateWhenDrawing active={draw.active} />
             {showGrid && <gridHelper args={[120, 120]} position={[0, 0.005, 0]} />}
-            
 
             {/* drag-rect capture plane */}
             <mesh
@@ -619,8 +764,6 @@ export function MapEditor3D() {
                 <planeGeometry args={[200, 200]} />
                 <meshBasicMaterial visible={false} />
             </mesh>
-           
-                
 
             {/* World GLB */}
             <Suspense fallback={null}>
@@ -645,11 +788,7 @@ export function MapEditor3D() {
             {draw.active && drawStart && drawCurr && (
                 <mesh
                     rotation={[-Math.PI / 2, 0, 0]}
-                    position={[
-                        (drawStart.x + drawCurr.x) / 2,
-                        0.02,
-                        (drawStart.z + drawCurr.z) / 2,
-                    ]}
+                    position={[(drawStart.x + drawCurr.x) / 2, 0.02, (drawStart.z + drawCurr.z) / 2]}
                 >
                     <planeGeometry
                         args={[
@@ -679,6 +818,7 @@ export function MapEditor3D() {
                             (f.t ?? DEFAULT_SLAB_THICKNESS) / 2 + (f.y ?? 0) - DEFAULT_SLAB_THICKNESS / 2,
                             0,
                         ]}
+                        userData={{ exportKind: "floor" }}
                     >
                         <boxGeometry args={[f.w, f.t ?? DEFAULT_SLAB_THICKNESS, f.d]} />
                         <TiledStandardMaterial {...matFrom(f.mat, "#30363d")} />
@@ -709,6 +849,7 @@ export function MapEditor3D() {
                         {showFloors && r.hasFloor !== false && (
                             <mesh
                                 position={[0, floorYCenter, 0]}
+                                userData={{ exportKind: "floor" }}
                                 onPointerDown={(e) => {
                                     e.stopPropagation();
                                     setSelected(i);
@@ -755,9 +896,7 @@ export function MapEditor3D() {
 
                             const edgeMat = edge?.mat ? { ...r.wallMat, ...edge.mat } : r.wallMat;
 
-                            // keep just ONE of these:
                             const isNS = w.side === "N" || w.side === "S";
-
                             const len = isNS ? Number(w.w || 0) : Number(w.d || 0);
                             const half = len / 2;
                             const wallH = Number(edge?.h ?? r.h ?? w.h ?? DEFAULT_WALL_HEIGHT);
@@ -773,7 +912,12 @@ export function MapEditor3D() {
                             const slotOpen = hasDoor ? doorCfg.open : 0;
                             const slotX = hasDoor ? doorCfg.offset : 0;
 
-                            const hasSlot = !!hasDoor && Number.isFinite(slotW) && slotW > 0.05 && Number.isFinite(len) && slotW < len - 0.05;
+                            const hasSlot =
+                                !!hasDoor &&
+                                Number.isFinite(slotW) &&
+                                slotW > 0.05 &&
+                                Number.isFinite(len) &&
+                                slotW < len - 0.05;
 
                             const EPS = 0.0005;
                             const leftLen = hasSlot ? Math.max(0, slotX + half - slotW / 2) : len;
@@ -792,21 +936,21 @@ export function MapEditor3D() {
                                     }}
                                 >
                                     {!hasSlot && leftLen > 0.005 && (
-                                        <mesh position={[0, 0, 0]}>
+                                        <mesh position={[0, 0, 0]} userData={{ exportKind: "wall" }}>
                                             <boxGeometry args={[len - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
 
                                     {hasSlot && leftLen > 0.005 && (
-                                        <mesh position={[-(half - leftLen / 2), 0, 0]}>
+                                        <mesh position={[-(half - leftLen / 2), 0, 0]} userData={{ exportKind: "wall" }}>
                                             <boxGeometry args={[leftLen - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
                                     )}
 
                                     {hasSlot && rightLen > 0.005 && (
-                                        <mesh position={[(half - rightLen / 2), 0, 0]}>
+                                        <mesh position={[(half - rightLen / 2), 0, 0]} userData={{ exportKind: "wall" }}>
                                             <boxGeometry args={[rightLen - EPS, wallH, wallThk]} />
                                             <TiledStandardMaterial {...matFrom(edgeMat, "#9aa4b2")} />
                                         </mesh>
@@ -814,7 +958,7 @@ export function MapEditor3D() {
 
                                     {/* Door preview — y offset down to floor */}
                                     {hasDoor && (
-                                        <group position={[slotX, -wallH / 2, 0]}>
+                                        <group position={[slotX, -wallH / 2, 0]} userData={{ exportKind: "door" }}>
                                             <Suspense fallback={null}>
                                                 <Door3D
                                                     doorWidth={slotW}
@@ -832,11 +976,11 @@ export function MapEditor3D() {
                             );
                         })}
 
-
                         {/* roof slab */}
                         {showRoofs && r.hasRoof !== false && (
                             <mesh
                                 position={[0, roofYCenter, 0]}
+                                userData={{ exportKind: "roof" }}
                                 onPointerDown={(e) => {
                                     e.stopPropagation();
                                     setSelected(i);
@@ -911,11 +1055,18 @@ function makeSlab({
 } = {}) {
     return {
         id: `slab_${Math.random().toString(36).slice(2, 8)}`,
-        name, x, z, w, d, t, y, exported, mat,
+        name,
+        x,
+        z,
+        w,
+        d,
+        t,
+        y,
+        exported,
+        mat,
     };
 }
 
-// ---- Doors export (world space) ----
 // ---- Doors export (world space) ----
 function computeDoorsWorld(exportRooms) {
     const round = (v) => (typeof v === "number" ? Number(v.toFixed(3)) : v);
@@ -926,8 +1077,6 @@ function computeDoorsWorld(exportRooms) {
         const r = exportRooms[ri];
         const roomRot = THREE.MathUtils.degToRad(r.rotDeg || 0);
         const segs = wallsForRoomLocal(r, r.wallT ?? WALL_THICKNESS); // returns {x,z,w,d,h,side} per segment
-        // N/S segments: long along local X (len = w, thickness = d)
-        // E/W segments: long along local Z (len = d, thickness = w). :contentReference[oaicite:3]{index=3}
 
         for (const seg of segs) {
             const edge = r.edges?.find((ed) => ed.side === seg.side);
@@ -938,12 +1087,7 @@ function computeDoorsWorld(exportRooms) {
             const wallT = Number(edge?.t ?? r.wallT ?? (isNS ? seg.d : seg.w) ?? WALL_THICKNESS);
             const wallH = Number(edge?.h ?? r.h ?? seg.h ?? DEFAULT_WALL_HEIGHT);
 
-            const door = clampDoorProps(
-                coalesceDoor(edge?.door),
-                len,
-                wallH,
-                wallT
-            );
+            const door = clampDoorProps(coalesceDoor(edge?.door), len, wallH, wallT);
             if (!door) continue;
 
             const { offset, width, height, panels, thickness, open } = door;
@@ -953,7 +1097,7 @@ function computeDoorsWorld(exportRooms) {
             const rotY = roomRot + rotLocal;
 
             // Door center: start at segment center, move 'offset' along wall axis,
-            // then rotate by room and translate by room (x,z). :contentReference[oaicite:4]{index=4}
+            // then rotate by room and translate by room (x,z).
             const local = new THREE.Vector3(seg.x, 0, seg.z);
             const along = new THREE.Vector3(offset, 0, 0).applyAxisAngle(Y, rotLocal);
             local.add(along).applyAxisAngle(Y, roomRot);
@@ -980,29 +1124,45 @@ function computeDoorsWorld(exportRooms) {
     return all;
 }
 
-
 // ---------------- UI Panel ----------------
-
 export function MapEditorUI() {
     const {
-        rooms, setRooms,
-        floors, setFloors,
-        selected, setSelected,
-        selFloor, setSelFloor,
-        selectedEdge, setSelectedEdge,
-        showGrid, setShowGrid,
-        snap, setSnap,
-        draw, setDraw,
-        showFloors, setShowFloors,
-        showRoofs, setShowRoofs,
-        worldGLB, setWorldGLB,
+        rooms,
+        setRooms,
+        floors,
+        setFloors,
+        selected,
+        setSelected,
+        selFloor,
+        setSelFloor,
+        selectedEdge,
+        setSelectedEdge,
+        showGrid,
+        setShowGrid,
+        snap,
+        setSnap,
+        draw,
+        setDraw,
+        showFloors,
+        setShowFloors,
+        showRoofs,
+        setShowRoofs,
+        worldGLB,
+        setWorldGLB,
 
         // editor game objects
-        editorItems, setEditorItems,
-        editorDevices, setEditorDevices,
-        selectedObj, setSelectedObj,
-        showGameObjects, setShowGameObjects,
-        exportOBJRef
+        editorItems,
+        setEditorItems,
+        editorDevices,
+        setEditorDevices,
+        selectedObj,
+        setSelectedObj,
+        showGameObjects,
+        setShowGameObjects,
+
+        // exporters
+        exportOBJRef,
+        exportSplitRef,
     } = useMapEditor();
 
     const r = rooms[selected];
@@ -1037,7 +1197,8 @@ export function MapEditorUI() {
 
     const uniqueKey = (desired) => {
         if (!desired) return "";
-        let k = desired, n = 2;
+        let k = desired,
+            n = 2;
         const has = (kk) => rooms.some((rr) => rr.key === kk);
         while (has(k)) k = `${desired}_${n++}`;
         return k;
@@ -1052,8 +1213,11 @@ export function MapEditorUI() {
                 exported: true,
                 hasFloor: true,
                 hasRoof: true,
-                x, z,
-                w: 4.5, d: 3.0, h: 2.4,
+                x,
+                z,
+                w: 4.5,
+                d: 3.0,
+                h: 2.4,
                 wallMat: { color: "#9aa4b2" },
                 floorMat: { color: "#30363d" },
                 roofMat: { color: "#232a31" },
@@ -1075,8 +1239,11 @@ export function MapEditorUI() {
                 exported: true,
                 hasFloor: true,
                 hasRoof: true,
-                x, z,
-                w: 6.0, d: 4.0, h: 2.4,
+                x,
+                z,
+                w: 6.0,
+                d: 4.0,
+                h: 2.4,
                 wallMat: { color: "#9aa4b2" },
                 floorMat: { color: "#30363d" },
                 roofMat: { color: "#232a31" },
@@ -1098,8 +1265,13 @@ export function MapEditorUI() {
                 makeRoom({
                     key: `room_${idx}`,
                     name: `Room ${idx + 1}`,
-                    x: 0, z: 0, w: 4, d: 3,
-                    exported: true, hasFloor: true, hasRoof: true,
+                    x: 0,
+                    z: 0,
+                    w: 4,
+                    d: 3,
+                    exported: true,
+                    hasFloor: true,
+                    hasRoof: true,
                     wallMat: { color: "#9aa4b2" },
                     floorMat: { color: "#30363d" },
                     roofMat: { color: "#232a31" },
@@ -1159,8 +1331,12 @@ export function MapEditorUI() {
             ...prev,
             makeSlab({
                 name: `Floor ${idx + 1}`,
-                x: 0, z: 0, w: 6, d: 6,
-                t: DEFAULT_SLAB_THICKNESS, y: 0,
+                x: 0,
+                z: 0,
+                w: 6,
+                d: 6,
+                t: DEFAULT_SLAB_THICKNESS,
+                y: 0,
                 exported: true,
                 mat: { color: "#30363d" },
             }),
@@ -1217,7 +1393,14 @@ export function MapEditorUI() {
         const freeFloors = floors
             .filter((s) => s.exported !== false)
             .map((s) => ({
-                x: s.x, y: s.y ?? 0, z: s.z, w: s.w, d: s.d, t: s.t ?? DEFAULT_SLAB_THICKNESS, name: s.name, mat: s.mat || null,
+                x: s.x,
+                y: s.y ?? 0,
+                z: s.z,
+                w: s.w,
+                d: s.d,
+                t: s.t ?? DEFAULT_SLAB_THICKNESS,
+                name: s.name,
+                mat: s.mat || null,
             }));
 
         const doors = computeDoorsWorld(exportRooms);
@@ -1299,6 +1482,7 @@ export function MapEditorUI() {
             : selectedObj?.kind === "device"
                 ? editorDevices.find((d) => d.id === selectedObj.id)
                 : null;
+
     // Reset: clear rooms & floors only (and persist the empty draft)
     const newMap = () => {
         if (!confirm("Start a new map? This will remove ALL rooms and free floors.")) return;
@@ -1307,36 +1491,60 @@ export function MapEditorUI() {
         setSelected(null);
         setSelFloor(null);
         setSelectedEdge(null);
-        // persist an empty draft so it stays blank on refresh
-        try { saveDraftV3([], []); } catch { }
+        try {
+            saveDraftV3([], []);
+        } catch { }
     };
 
     return createPortal(
         <div style={panelStyle}>
             {/* header + actions */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                    gap: 8,
+                    flexWrap: "wrap",
+                }}
+            >
                 <strong>Map Editor</strong>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button onClick={addRoom}>+ Room</button>
                     <button onClick={addLockdown}>+ Lockdown</button>
                     <button onClick={addMeetingRoom}>+ MeetingRoom</button>
-                    <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
-                    <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+                    <button onClick={duplicateRoom} disabled={!r}>
+                        Duplicate Room
+                    </button>
+                    <button onClick={deleteRoom} disabled={!r}>
+                        Delete Room
+                    </button>
                 </div>
             </div>
+
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={addRoom}>+ Room</button>
                 <button onClick={addLockdown}>+ Lockdown</button>
                 <button onClick={addMeetingRoom}>+ MeetingRoom</button>
-                <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
-                <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+                <button onClick={duplicateRoom} disabled={!r}>
+                    Duplicate Room
+                </button>
+                <button onClick={deleteRoom} disabled={!r}>
+                    Delete Room
+                </button>
             </div>
+
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button onClick={addRoom}>+ Room</button>
                 <button onClick={addLockdown}>+ Lockdown</button>
                 <button onClick={addMeetingRoom}>+ MeetingRoom</button>
-                <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
-                <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+                <button onClick={duplicateRoom} disabled={!r}>
+                    Duplicate Room
+                </button>
+                <button onClick={deleteRoom} disabled={!r}>
+                    Delete Room
+                </button>
 
                 {/* 🔴 New button: clears rooms & floors */}
                 <button onClick={newMap} style={{ background: "#7a1f1f" }}>
@@ -1345,19 +1553,48 @@ export function MapEditorUI() {
             </div>
 
             {/* global toggles */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
+            <div
+                style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    marginBottom: 8,
+                    flexWrap: "wrap",
+                }}
+            >
                 <label>
-                    <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} /> Grid
+                    <input
+                        type="checkbox"
+                        checked={showGrid}
+                        onChange={(e) => setShowGrid(e.target.checked)}
+                    />{" "}
+                    Grid
                 </label>
                 <label>
                     Snap
-                    <input type="number" step={0.1} value={snap} onChange={(e) => setSnap(Number(e.target.value) || 0)} style={{ width: 64, marginLeft: 6 }} />
+                    <input
+                        type="number"
+                        step={0.1}
+                        value={snap}
+                        onChange={(e) => setSnap(Number(e.target.value) || 0)}
+                        style={{ width: 64, marginLeft: 6 }}
+                    />
                 </label>
                 <label>
-                    <input type="checkbox" checked={showFloors} onChange={(e) => setShowFloors(e.target.checked)} /> Floors
+                    <input
+                        type="checkbox"
+                        checked={showFloors}
+                        onChange={(e) => setShowFloors(e.target.checked)}
+                    />{" "}
+                    Floors
                 </label>
                 <label>
-                    <input type="checkbox" checked={showRoofs} onChange={(e) => setShowRoofs(e.target.checked)} /> Roofs
+                    <input
+                        type="checkbox"
+                        checked={showRoofs}
+                        onChange={(e) => setShowRoofs(e.target.checked)}
+                    />{" "}
+                    Roofs
                 </label>
 
                 <button
@@ -1375,12 +1612,19 @@ export function MapEditorUI() {
 
                 <button onClick={saveDraft}>Save Draft</button>
                 <button onClick={download}>Export JSON</button>
+
                 <button onClick={() => exportOBJRef.current?.()} disabled={!exportOBJRef.current}>
-                    Export OBJ
+                    Export OBJ (combined)
                 </button>
+                <button onClick={() => exportSplitRef.current?.()} disabled={!exportSplitRef.current}>
+                    Export 5 OBJs (wall/floor/roof/door/item)
+                </button>
+
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
                     <button onClick={() => downloadJson(editorItems, "items.json")}>Export Items JSON</button>
-                    <button onClick={() => downloadJson(editorDevices, "devices.json")}>Export Devices JSON</button>
+                    <button onClick={() => downloadJson(editorDevices, "devices.json")}>
+                        Export Devices JSON
+                    </button>
                 </div>
 
                 {/* load */}
@@ -1396,48 +1640,93 @@ export function MapEditorUI() {
             </div>
 
             {/* room list */}
-            <div style={{ maxHeight: 160, overflow: "auto", padding: 6, border: "1px solid #2b2b2b", borderRadius: 6, marginBottom: 8 }}>
+            <div
+                style={{
+                    maxHeight: 160,
+                    overflow: "auto",
+                    padding: 6,
+                    border: "1px solid #2b2b2b",
+                    borderRadius: 6,
+                    marginBottom: 8,
+                }}
+            >
                 {rooms.map((it, i) => (
                     <div
                         key={it.key || i}
                         style={{
                             padding: 4,
                             background: i === selected && selFloor == null ? "#1f2a44" : "transparent",
-                            borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "space-between",
                         }}
-                        onClick={() => { setSelected(i); setSelFloor(null); setSelectedEdge(null); }}
+                        onClick={() => {
+                            setSelected(i);
+                            setSelFloor(null);
+                            setSelectedEdge(null);
+                        }}
                     >
                         <span>{it.name}</span>
                         <span style={{ opacity: 0.7 }}>
-                            {it.key} · {it.type || "generic"} · {it.exported === false ? "not exported" : "exported"}
+                            {it.key} · {it.type || "generic"} ·{" "}
+                            {it.exported === false ? "not exported" : "exported"}
                         </span>
                     </div>
                 ))}
             </div>
 
             {/* Free Floors list */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 6,
+                }}
+            >
                 <strong>Free Floors</strong>
                 <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={addFloor}>+ Add Floor</button>
-                    <button onClick={duplicateFloor} disabled={selFloor == null}>Duplicate</button>
-                    <button onClick={deleteFloor} disabled={selFloor == null}>Delete</button>
+                    <button onClick={duplicateFloor} disabled={selFloor == null}>
+                        Duplicate
+                    </button>
+                    <button onClick={deleteFloor} disabled={selFloor == null}>
+                        Delete
+                    </button>
                 </div>
             </div>
-            <div style={{ maxHeight: 120, overflow: "auto", padding: 6, border: "1px solid #2b2b2b", borderRadius: 6, marginBottom: 8 }}>
+            <div
+                style={{
+                    maxHeight: 120,
+                    overflow: "auto",
+                    padding: 6,
+                    border: "1px solid #2b2b2b",
+                    borderRadius: 6,
+                    marginBottom: 8,
+                }}
+            >
                 {floors.map((it, i) => (
                     <div
                         key={it.id || i}
                         style={{
                             padding: 4,
                             background: i === selFloor ? "#183a2e" : "transparent",
-                            borderRadius: 4, cursor: "pointer", display: "flex", justifyContent: "space-between",
+                            borderRadius: 4,
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "space-between",
                         }}
-                        onClick={() => { setSelFloor(i); setSelected(null); setSelectedEdge(null); }}
+                        onClick={() => {
+                            setSelFloor(i);
+                            setSelected(null);
+                            setSelectedEdge(null);
+                        }}
                     >
                         <span>{it.name || `Floor ${i + 1}`}</span>
                         <span style={{ opacity: 0.7 }}>
-                            {it.exported === false ? "not exported" : "exported"} · {it.w?.toFixed(1)}×{it.d?.toFixed(1)} @ ({it.x?.toFixed(1)},{it.z?.toFixed(1)})
+                            {it.exported === false ? "not exported" : "exported"} ·{" "}
+                            {it.w?.toFixed(1)}×{it.d?.toFixed(1)} @ ({it.x?.toFixed(1)},{it.z?.toFixed(1)})
                         </span>
                     </div>
                 ))}
@@ -1448,63 +1737,152 @@ export function MapEditorUI() {
                 <>
                     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6 }}>
                         <label>Key</label>
-                        <input value={r.key} onChange={(e) => { const v = e.target.value.trim(); if (v) updateRoom({ key: v }); }} />
+                        <input
+                            value={r.key}
+                            onChange={(e) => {
+                                const v = e.target.value.trim();
+                                if (v) updateRoom({ key: v });
+                            }}
+                        />
 
                         <label>Name</label>
                         <input value={r.name} onChange={(e) => updateRoom({ name: e.target.value })} />
 
                         <label>Type</label>
-                        <input value={r.type || ""} onChange={(e) => updateRoom({ type: e.target.value })} placeholder="lockdown / meeting_room / ..." />
+                        <input
+                            value={r.type || ""}
+                            onChange={(e) => updateRoom({ type: e.target.value })}
+                            placeholder="lockdown / meeting_room / ..."
+                        />
 
                         <label>Export?</label>
-                        <input type="checkbox" checked={r.exported !== false} onChange={(e) => updateRoom({ exported: e.target.checked })} />
+                        <input
+                            type="checkbox"
+                            checked={r.exported !== false}
+                            onChange={(e) => updateRoom({ exported: e.target.checked })}
+                        />
 
                         <label>Has Floor?</label>
-                        <input type="checkbox" checked={r.hasFloor !== false} onChange={(e) => updateRoom({ hasFloor: e.target.checked })} />
+                        <input
+                            type="checkbox"
+                            checked={r.hasFloor !== false}
+                            onChange={(e) => updateRoom({ hasFloor: e.target.checked })}
+                        />
 
                         <label>Has Roof?</label>
-                        <input type="checkbox" checked={r.hasRoof !== false} onChange={(e) => updateRoom({ hasRoof: e.target.checked })} />
+                        <input
+                            type="checkbox"
+                            checked={r.hasRoof !== false}
+                            onChange={(e) => updateRoom({ hasRoof: e.target.checked })}
+                        />
 
                         <label>Center X</label>
-                        <input type="number" step={0.1} value={r.x} onChange={(e) => updateRoom({ x: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.1}
+                            value={r.x}
+                            onChange={(e) => updateRoom({ x: Number(e.target.value) })}
+                        />
 
                         <label>Center Z</label>
-                        <input type="number" step={0.1} value={r.z} onChange={(e) => updateRoom({ z: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.1}
+                            value={r.z}
+                            onChange={(e) => updateRoom({ z: Number(e.target.value) })}
+                        />
 
                         <label>Width (w)</label>
-                        <input type="number" min={0.5} step={0.1} value={r.w} onChange={(e) => updateRoom({ w: Math.max(0.5, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.5}
+                            step={0.1}
+                            value={r.w}
+                            onChange={(e) => updateRoom({ w: Math.max(0.5, Number(e.target.value)) })}
+                        />
 
                         <label>Depth (d)</label>
-                        <input type="number" min={0.5} step={0.1} value={r.d} onChange={(e) => updateRoom({ d: Math.max(0.5, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.5}
+                            step={0.1}
+                            value={r.d}
+                            onChange={(e) => updateRoom({ d: Math.max(0.5, Number(e.target.value)) })}
+                        />
 
                         <label>Rotate (deg)</label>
-                        <input type="range" min={-180} max={180} step={1} value={r.rotDeg || 0} onChange={(e) => updateRoom({ rotDeg: Number(e.target.value) })} />
+                        <input
+                            type="range"
+                            min={-180}
+                            max={180}
+                            step={1}
+                            value={r.rotDeg || 0}
+                            onChange={(e) => updateRoom({ rotDeg: Number(e.target.value) })}
+                        />
 
                         <label>Default Wall Height</label>
-                        <input type="number" min={0.5} step={0.1} value={r.h || DEFAULT_WALL_HEIGHT} onChange={(e) => updateRoom({ h: Math.max(0.5, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.5}
+                            step={0.1}
+                            value={r.h || DEFAULT_WALL_HEIGHT}
+                            onChange={(e) => updateRoom({ h: Math.max(0.5, Number(e.target.value)) })}
+                        />
 
                         <label>Default Wall Thickness</label>
-                        <input type="number" min={0.01} step={0.01} value={r.wallT ?? WALL_THICKNESS} onChange={(e) => updateRoom({ wallT: Math.max(0.01, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={r.wallT ?? WALL_THICKNESS}
+                            onChange={(e) => updateRoom({ wallT: Math.max(0.01, Number(e.target.value)) })}
+                        />
 
                         <label>Floor Y</label>
-                        <input type="number" step={0.05} value={r.floorY ?? 0} onChange={(e) => updateRoom({ floorY: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.05}
+                            value={r.floorY ?? 0}
+                            onChange={(e) => updateRoom({ floorY: Number(e.target.value) })}
+                        />
 
                         <label>Roof/Floor Thickness</label>
-                        <input type="number" min={0.01} step={0.01} value={r.roofT ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => updateRoom({ roofT: Math.max(0.01, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={r.roofT ?? DEFAULT_SLAB_THICKNESS}
+                            onChange={(e) => updateRoom({ roofT: Math.max(0.01, Number(e.target.value)) })}
+                        />
 
                         {/* colors */}
                         <label>Wall Color</label>
-                        <input type="color" value={r.wallMat?.color || "#9aa4b2"} onChange={(e) => updateRoom({ wallMat: { ...(r.wallMat || {}), color: e.target.value } })} />
+                        <input
+                            type="color"
+                            value={r.wallMat?.color || "#9aa4b2"}
+                            onChange={(e) => updateRoom({ wallMat: { ...(r.wallMat || {}), color: e.target.value } })}
+                        />
 
                         <label>Floor Color</label>
-                        <input type="color" value={r.floorMat?.color || "#30363d"} onChange={(e) => updateRoom({ floorMat: { ...(r.floorMat || {}), color: e.target.value } })} />
+                        <input
+                            type="color"
+                            value={r.floorMat?.color || "#30363d"}
+                            onChange={(e) => updateRoom({ floorMat: { ...(r.floorMat || {}), color: e.target.value } })}
+                        />
 
                         <label>Roof Color</label>
-                        <input type="color" value={r.roofMat?.color || "#232a31"} onChange={(e) => updateRoom({ roofMat: { ...(r.roofMat || {}), color: e.target.value } })} />
+                        <input
+                            type="color"
+                            value={r.roofMat?.color || "#232a31"}
+                            onChange={(e) => updateRoom({ roofMat: { ...(r.roofMat || {}), color: e.target.value } })}
+                        />
 
                         {/* textures */}
                         <label>Wall Texture URL</label>
-                        <input value={r.wallMat?.mapUrl || ""} onChange={(e) => updateRoom({ wallMat: { ...(r.wallMat || {}), mapUrl: e.target.value } })} />
+                        <input
+                            value={r.wallMat?.mapUrl || ""}
+                            onChange={(e) => updateRoom({ wallMat: { ...(r.wallMat || {}), mapUrl: e.target.value } })}
+                        />
                         <label>Wall Tex Repeat (x,y)</label>
                         <input
                             value={(r.wallMat?.repeat || [1, 1]).join(",")}
@@ -1515,7 +1893,10 @@ export function MapEditorUI() {
                         />
 
                         <label>Floor Texture URL</label>
-                        <input value={r.floorMat?.mapUrl || ""} onChange={(e) => updateRoom({ floorMat: { ...(r.floorMat || {}), mapUrl: e.target.value } })} />
+                        <input
+                            value={r.floorMat?.mapUrl || ""}
+                            onChange={(e) => updateRoom({ floorMat: { ...(r.floorMat || {}), mapUrl: e.target.value } })}
+                        />
                         <label>Floor Tex Repeat (x,y)</label>
                         <input
                             value={(r.floorMat?.repeat || [1, 1]).join(",")}
@@ -1526,7 +1907,10 @@ export function MapEditorUI() {
                         />
 
                         <label>Roof Texture URL</label>
-                        <input value={r.roofMat?.mapUrl || ""} onChange={(e) => updateRoom({ roofMat: { ...(r.roofMat || {}), mapUrl: e.target.value } })} />
+                        <input
+                            value={r.roofMat?.mapUrl || ""}
+                            onChange={(e) => updateRoom({ roofMat: { ...(r.roofMat || {}), mapUrl: e.target.value } })}
+                        />
                         <label>Roof Tex Repeat (x,y)</label>
                         <input
                             value={(r.roofMat?.repeat || [1, 1]).join(",")}
@@ -1537,18 +1921,30 @@ export function MapEditorUI() {
                         />
 
                         <label>
-                            <input type="checkbox" checked={showGameObjects} onChange={(e) => setShowGameObjects(e.target.checked)} /> Game Objects
+                            <input
+                                type="checkbox"
+                                checked={showGameObjects}
+                                onChange={(e) => setShowGameObjects(e.target.checked)}
+                            />{" "}
+                            Game Objects
                         </label>
 
                         {/* Room label */}
                         <label>Room Label</label>
                         <input value={r.label || ""} onChange={(e) => updateRoom({ label: e.target.value })} />
                         <label>Room Label Color</label>
-                        <input type="color" value={r.labelColor || "#e6edf3"} onChange={(e) => updateRoom({ labelColor: e.target.value })} />
+                        <input
+                            type="color"
+                            value={r.labelColor || "#e6edf3"}
+                            onChange={(e) => updateRoom({ labelColor: e.target.value })}
+                        />
 
                         {/* Door panel defaults */}
                         <label>Default Door Panel Tex URL</label>
-                        <input value={r.doorMat?.mapUrl || ""} onChange={(e) => updateRoom({ doorMat: { ...(r.doorMat || {}), mapUrl: e.target.value } })} />
+                        <input
+                            value={r.doorMat?.mapUrl || ""}
+                            onChange={(e) => updateRoom({ doorMat: { ...(r.doorMat || {}), mapUrl: e.target.value } })}
+                        />
                         <label>Default Door Panel Repeat (x,y)</label>
                         <input
                             value={(r.doorMat?.repeat || [1, 1]).join(",")}
@@ -1564,24 +1960,51 @@ export function MapEditorUI() {
                         <strong>World GLB</strong>
                         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, marginTop: 6 }}>
                             <label>Show</label>
-                            <input type="checkbox" checked={!!worldGLB.enabled} onChange={(e) => setWorldGLB({ ...worldGLB, enabled: e.target.checked })} />
+                            <input
+                                type="checkbox"
+                                checked={!!worldGLB.enabled}
+                                onChange={(e) => setWorldGLB({ ...worldGLB, enabled: e.target.checked })}
+                            />
                             <label>URL</label>
-                            <input value={worldGLB.url} onChange={(e) => setWorldGLB({ ...worldGLB, url: e.target.value })} placeholder="/models/world.glb" />
+                            <input
+                                value={worldGLB.url}
+                                onChange={(e) => setWorldGLB({ ...worldGLB, url: e.target.value })}
+                                placeholder="/models/world.glb"
+                            />
                             <label>Pos Y</label>
-                            <input type="number" step={0.1} value={worldGLB.y} onChange={(e) => setWorldGLB({ ...worldGLB, y: Number(e.target.value) })} />
+                            <input
+                                type="number"
+                                step={0.1}
+                                value={worldGLB.y}
+                                onChange={(e) => setWorldGLB({ ...worldGLB, y: Number(e.target.value) })}
+                            />
                             <label>Rot Y (deg)</label>
-                            <input type="range" min={-180} max={180} step={1} value={worldGLB.rotYDeg} onChange={(e) => setWorldGLB({ ...worldGLB, rotYDeg: Number(e.target.value) })} />
+                            <input
+                                type="range"
+                                min={-180}
+                                max={180}
+                                step={1}
+                                value={worldGLB.rotYDeg}
+                                onChange={(e) =>
+                                    setWorldGLB({ ...worldGLB, rotYDeg: Number(e.target.value) })
+                                }
+                            />
                             <label>Scale</label>
                             <input
-                                type="number" min={0.01} step={0.1} value={worldGLB.scale}
-                                onChange={(e) => setWorldGLB({ ...worldGLB, scale: Math.max(0.01, Number(e.target.value)) })}
+                                type="number"
+                                min={0.01}
+                                step={0.1}
+                                value={worldGLB.scale}
+                                onChange={(e) =>
+                                    setWorldGLB({ ...worldGLB, scale: Math.max(0.01, Number(e.target.value)) })
+                                }
                             />
                         </div>
                         <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-                            Put your file at <code>/public/models/world.glb</code> and set URL to <code>/models/world.glb</code>.
+                            Put your file at <code>/public/models/world.glb</code> and set URL to{" "}
+                            <code>/models/world.glb</code>.
                         </div>
                     </div>
-                  
 
                     {/* Edges */}
                     <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
@@ -1594,7 +2017,9 @@ export function MapEditorUI() {
                                         padding: "4px 8px",
                                         borderRadius: 6,
                                         background:
-                                            selectedEdge && selectedEdge.roomIndex === selected && selectedEdge.side === e.side
+                                            selectedEdge &&
+                                                selectedEdge.roomIndex === selected &&
+                                                selectedEdge.side === e.side
                                                 ? "#324d7a"
                                                 : "#1e293b",
                                         color: "#e6edf3",
@@ -1614,7 +2039,11 @@ export function MapEditorUI() {
                             return (
                                 <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6 }}>
                                     <label>Present</label>
-                                    <input type="checkbox" checked={!!e.present} onChange={(ev) => setE({ present: ev.target.checked })} />
+                                    <input
+                                        type="checkbox"
+                                        checked={!!e.present}
+                                        onChange={(ev) => setE({ present: ev.target.checked })}
+                                    />
 
                                     <label>Door?</label>
                                     <input
@@ -1625,13 +2054,20 @@ export function MapEditorUI() {
 
                                     <label>Door Offset</label>
                                     <input
-                                        type="number" step={0.1} value={e.door?.offset || 0}
-                                        onChange={(ev) => setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })}
+                                        type="number"
+                                        step={0.1}
+                                        value={e.door?.offset || 0}
+                                        onChange={(ev) =>
+                                            setE({ door: { ...(e.door || {}), offset: Number(ev.target.value) } })
+                                        }
                                     />
 
                                     <label>Edge Thickness (depth)</label>
                                     <input
-                                        type="number" min={0.01} step={0.01} value={e.t ?? (r.wallT ?? WALL_THICKNESS)}
+                                        type="number"
+                                        min={0.01}
+                                        step={0.01}
+                                        value={e.t ?? (r.wallT ?? WALL_THICKNESS)}
                                         onChange={(ev) => setE({ t: Math.max(0.01, Number(ev.target.value)) })}
                                     />
                                     <div style={{ display: "flex", gap: 8 }}>
@@ -1643,7 +2079,8 @@ export function MapEditorUI() {
                                     {/* Edge material overrides */}
                                     <label>Edge Color</label>
                                     <input
-                                        type="color" value={e.mat?.color || r.wallMat?.color || "#9aa4b2"}
+                                        type="color"
+                                        value={e.mat?.color || r.wallMat?.color || "#9aa4b2"}
                                         onChange={(ev) => setE({ mat: { ...(e.mat || {}), color: ev.target.value } })}
                                     />
 
@@ -1663,11 +2100,17 @@ export function MapEditorUI() {
                                     />
 
                                     <label>Edge Label</label>
-                                    <input value={e.mat?.label || ""} onChange={(ev) => setE({ mat: { ...(e.mat || {}), label: ev.target.value } })} />
+                                    <input
+                                        value={e.mat?.label || ""}
+                                        onChange={(ev) => setE({ mat: { ...(e.mat || {}), label: ev.target.value } })}
+                                    />
                                     <label>Edge Label Color</label>
                                     <input
-                                        type="color" value={e.mat?.labelColor || "#ffffff"}
-                                        onChange={(ev) => setE({ mat: { ...(e.mat || {}), labelColor: ev.target.value } })}
+                                        type="color"
+                                        value={e.mat?.labelColor || "#ffffff"}
+                                        onChange={(ev) =>
+                                            setE({ mat: { ...(e.mat || {}), labelColor: ev.target.value } })
+                                        }
                                     />
 
                                     {/* Door GLB (optional per room) */}
@@ -1720,16 +2163,9 @@ export function MapEditorUI() {
                                         }
                                     />
 
-
-
-                                    <label>Diagonal Slope (Z per open)</label>
-                                    <input
-                                        type="number" step={0.01} value={r.doorModel?.slope ?? 0}
-                                        onChange={(ev) => updateRoom({ doorModel: { ...(r.doorModel || {}), slope: Number(ev.target.value) } })}
-                                    />
-
                                     <div style={{ gridColumn: "1 / span 2", fontSize: 12, opacity: 0.7 }}>
-                                        Put GLBs in <code>/public/models/</code> and use URLs like <code>/models/door-frame.glb</code>.
+                                        Put GLBs in <code>/public/models/</code> and use URLs like{" "}
+                                        <code>/models/door-frame.glb</code>.
                                     </div>
 
                                     <div style={{ gridColumn: "1 / span 2", display: "flex", gap: 8, marginTop: 6 }}>
@@ -1751,25 +2187,62 @@ export function MapEditorUI() {
                         <input value={f.name || ""} onChange={(e) => updateFloor({ name: e.target.value })} />
 
                         <label>Export?</label>
-                        <input type="checkbox" checked={f.exported !== false} onChange={(e) => updateFloor({ exported: e.target.checked })} />
+                        <input
+                            type="checkbox"
+                            checked={f.exported !== false}
+                            onChange={(e) => updateFloor({ exported: e.target.checked })}
+                        />
 
                         <label>Center X</label>
-                        <input type="number" step={0.1} value={f.x} onChange={(e) => updateFloor({ x: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.1}
+                            value={f.x}
+                            onChange={(e) => updateFloor({ x: Number(e.target.value) })}
+                        />
 
                         <label>Center Z</label>
-                        <input type="number" step={0.1} value={f.z} onChange={(e) => updateFloor({ z: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.1}
+                            value={f.z}
+                            onChange={(e) => updateFloor({ z: Number(e.target.value) })}
+                        />
 
                         <label>Width (w)</label>
-                        <input type="number" min={0.1} step={0.1} value={f.w} onChange={(e) => updateFloor({ w: Math.max(0.1, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.1}
+                            step={0.1}
+                            value={f.w}
+                            onChange={(e) => updateFloor({ w: Math.max(0.1, Number(e.target.value)) })}
+                        />
 
                         <label>Depth (d)</label>
-                        <input type="number" min={0.1} step={0.1} value={f.d} onChange={(e) => updateFloor({ d: Math.max(0.1, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.1}
+                            step={0.1}
+                            value={f.d}
+                            onChange={(e) => updateFloor({ d: Math.max(0.1, Number(e.target.value)) })}
+                        />
 
                         <label>Thickness (t)</label>
-                        <input type="number" min={0.01} step={0.01} value={f.t ?? DEFAULT_SLAB_THICKNESS} onChange={(e) => updateFloor({ t: Math.max(0.01, Number(e.target.value)) })} />
+                        <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={f.t ?? DEFAULT_SLAB_THICKNESS}
+                            onChange={(e) => updateFloor({ t: Math.max(0.01, Number(e.target.value)) })}
+                        />
 
                         <label>Y center</label>
-                        <input type="number" step={0.05} value={f.y ?? 0} onChange={(e) => updateFloor({ y: Number(e.target.value) })} />
+                        <input
+                            type="number"
+                            step={0.05}
+                            value={f.y ?? 0}
+                            onChange={(e) => updateFloor({ y: Number(e.target.value) })}
+                        />
 
                         <label>Color</label>
                         <input
@@ -1779,7 +2252,10 @@ export function MapEditorUI() {
                         />
 
                         <label>Texture URL</label>
-                        <input value={f.mat?.mapUrl || ""} onChange={(e) => updateFloor({ mat: { ...(f.mat || {}), mapUrl: e.target.value } })} />
+                        <input
+                            value={f.mat?.mapUrl || ""}
+                            onChange={(e) => updateFloor({ mat: { ...(f.mat || {}), mapUrl: e.target.value } })}
+                        />
                         <label>Tex Repeat (x,y)</label>
                         <input
                             value={(f.mat?.repeat || [1, 1]).join(",")}
@@ -1795,33 +2271,44 @@ export function MapEditorUI() {
             {/* Selected Item/Device fields */}
             {selectedObj && selGO && (
                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
-                    <strong>Selected {selectedObj.kind}: {selectedObj.id}</strong>
+                    <strong>
+                        Selected {selectedObj.kind}: {selectedObj.id}
+                    </strong>
                     <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, marginTop: 6 }}>
                         <label>X</label>
                         <input
-                            type="number" step={0.1} value={selGO.x ?? 0}
+                            type="number"
+                            step={0.1}
+                            value={selGO.x ?? 0}
                             onChange={(e) => {
                                 const x = Number(e.target.value);
-                                if (selectedObj.kind === "item") setEditorItems(prev => prev.map(it => it.id === selGO.id ? { ...it, x } : it));
-                                else setEditorDevices(prev => prev.map(d => d.id === selGO.id ? { ...d, x } : d));
+                                if (selectedObj.kind === "item")
+                                    setEditorItems((prev) => prev.map((it) => (it.id === selGO.id ? { ...it, x } : it)));
+                                else setEditorDevices((prev) => prev.map((d) => (d.id === selGO.id ? { ...d, x } : d)));
                             }}
                         />
                         <label>Y</label>
                         <input
-                            type="number" step={0.1} value={selGO.y ?? 0}
+                            type="number"
+                            step={0.1}
+                            value={selGO.y ?? 0}
                             onChange={(e) => {
                                 const y = Number(e.target.value);
-                                if (selectedObj.kind === "item") setEditorItems(prev => prev.map(it => it.id === selGO.id ? { ...it, y } : it));
-                                else setEditorDevices(prev => prev.map(d => d.id === selGO.id ? { ...d, y } : d));
+                                if (selectedObj.kind === "item")
+                                    setEditorItems((prev) => prev.map((it) => (it.id === selGO.id ? { ...it, y } : it)));
+                                else setEditorDevices((prev) => prev.map((d) => (d.id === selGO.id ? { ...d, y } : d)));
                             }}
                         />
                         <label>Z</label>
                         <input
-                            type="number" step={0.1} value={selGO.z ?? 0}
+                            type="number"
+                            step={0.1}
+                            value={selGO.z ?? 0}
                             onChange={(e) => {
                                 const z = Number(e.target.value);
-                                if (selectedObj.kind === "item") setEditorItems(prev => prev.map(it => it.id === selGO.id ? { ...it, z } : it));
-                                else setEditorDevices(prev => prev.map(d => d.id === selGO.id ? { ...d, z } : d));
+                                if (selectedObj.kind === "item")
+                                    setEditorItems((prev) => prev.map((it) => (it.id === selGO.id ? { ...it, z } : it)));
+                                else setEditorDevices((prev) => prev.map((d) => (d.id === selGO.id ? { ...d, z } : d)));
                             }}
                         />
                         <div style={{ gridColumn: "1 / span 2" }}>
@@ -1832,7 +2319,8 @@ export function MapEditorUI() {
             )}
 
             <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-                Tip: drop textures in /public/textures and reference them like <code>/textures/steel.jpg</code>. Use “Repeat” to tile.
+                Tip: drop textures in /public/textures and reference them like{" "}
+                <code>/textures/steel.jpg</code>. Use “Repeat” to tile.
             </div>
         </div>,
         document.body
