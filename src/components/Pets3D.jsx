@@ -9,24 +9,36 @@ function lerpAngle(a, b, t) {
     let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     return a + d * t;
 }
-
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
-// Renders one pet with local smoothing + walk/bob params
+// Renders one pet with smoothing + walk + idle actions
 function PetFollower({ pet }) {
     const group = useRef();
     const inner = useRef(); // child group to apply bob/tilt
 
-    // local visual state (smoothed)
+    // local visual state (smoothed & anim)
     const state = useMemo(() => ({
+        // transform
         x: Number(pet.x || 0),
         y: Number(pet.y ?? 0),
         z: Number(pet.z || 0),
         yaw: Number(pet.yaw || 0),
+
+        // for speed calc
         prevX: Number(pet.x || 0),
         prevZ: Number(pet.z || 0),
-        visSpeed: 0,   // m/s (approx)
-        walkPhase: 0,  // radians
+
+        // motion
+        visSpeed: 0,          // m/s approx
+        walkPhase: 0,         // radians
+
+        // idle logic
+        stillTime: 0,         // seconds of being ~still
+        idleAction: null,     // "tail","head","paw","shake"
+        idleT: 0,             // 0..1 normalized progress
+        idleDur: 0,           // seconds
+        idleCooldown: 0,      // seconds before next action
     }), [pet.id]);
 
     useFrame((_, dt) => {
@@ -57,32 +69,78 @@ function PetFollower({ pet }) {
         state.visSpeed = lerp(state.visSpeed, speed, 0.25);
 
         // advance walk phase based on speed
-        // tune 4.5 for step frequency; higher => faster leg swing
         state.walkPhase += state.visSpeed * 4.5 * dt;
 
-        // apply transforms
         if (group.current) {
             group.current.position.set(state.x, state.y, state.z);
             group.current.rotation.set(0, state.yaw, 0);
         }
 
-        // bob amount scales with speed (clamped)
+        // --- bob/tilt on inner
         const bobAmp = clamp(state.visSpeed * 0.02, 0, 0.08);
-        const bob = Math.sin(state.walkPhase * 2) * bobAmp; // faster bob
-        const tiltPitch = clamp(state.visSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5); // subtle pitch
-        const tiltRoll = clamp(state.visSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase); // subtle roll
+        const bob = Math.sin(state.walkPhase * 2) * bobAmp;
+        const tiltPitch = clamp(state.visSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
+        const tiltRoll = clamp(state.visSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
 
         if (inner.current) {
-            // add vertical bob on inner group (so world Y stays smoothed in parent)
             inner.current.position.y = bob;
             inner.current.rotation.set(tiltPitch, 0, tiltRoll);
         }
+
+        // ---------- IDLE ACTION LOGIC ----------
+        const moving = state.visSpeed > 0.03; // threshold for "moving"
+        if (moving) {
+            state.stillTime = 0;
+            state.idleCooldown = Math.max(0, state.idleCooldown - dt);
+            // cancel idle action if we start moving
+            state.idleAction = null;
+            state.idleT = 0;
+            state.idleDur = 0;
+        } else {
+            state.stillTime += dt;
+            state.idleCooldown = Math.max(0, state.idleCooldown - dt);
+
+            // if idle > 1s and not currently animating and off cooldown → pick one
+            if (state.stillTime > 1 && !state.idleAction && state.idleCooldown === 0) {
+                state.idleAction = pick(["tail", "head", "paw", "shake"]);
+                // random duration per action
+                state.idleDur = ({
+                    tail: 0.9,
+                    head: 0.7,
+                    paw: 0.8,
+                    shake: 0.6,
+                })[state.idleAction] || 0.8;
+
+                // small variation ±15%
+                state.idleDur *= 0.85 + Math.random() * 0.3;
+                state.idleT = 0;
+            }
+
+            // advance current idle action
+            if (state.idleAction) {
+                state.idleT += dt / state.idleDur;
+                if (state.idleT >= 1) {
+                    // done → cooldown
+                    state.idleAction = null;
+                    state.idleT = 0;
+                    state.idleDur = 0;
+                    state.idleCooldown = 1.2 + Math.random() * 0.8; // wait a bit before next
+                }
+            }
+        }
+
+        // expose (passes to RobotDog as props)
     });
 
     return (
         <group ref={group}>
             <group ref={inner}>
-                <RobotDog walkPhase={state.walkPhase} walkSpeed={state.visSpeed} />
+                <RobotDog
+                    walkPhase={state.walkPhase}
+                    walkSpeed={state.visSpeed}
+                    idleAction={state.idleAction}
+                    idleT={state.idleT}
+                />
             </group>
         </group>
     );

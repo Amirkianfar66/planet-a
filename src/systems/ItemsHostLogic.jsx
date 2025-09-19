@@ -812,8 +812,10 @@ export default function ItemsHostLogic() {
                             const backX = -Math.sin(ry), backZ = -Math.cos(ry);
                             const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
 
-                            const tgtX = ox + backX * 1.2 + rightX * 0.6;
-                            const tgtZ = oz + backZ * 1.2 + rightZ * 0.6;
+                            const backDist = 2.4; // was 1.2
+                            const rightDist = 1.2; // was 0.6
+                            const tgtX = ox + backX * backDist + rightX * rightDist;
+                            const tgtZ = oz + backZ * backDist + rightZ * rightDist;
                             const tgtY = Math.max(oy + (pet.hover ?? 0.35), 0.2);
                             const lerpAngle = (a, b, t) => {
                           // shortest-arc interpolation in [-PI, PI]

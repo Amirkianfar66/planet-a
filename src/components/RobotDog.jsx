@@ -4,6 +4,8 @@ import React from "react";
 export default function RobotDog({
     walkPhase = 0,   // radians, keeps increasing
     walkSpeed = 0,   // m/s
+    idleAction = null, // "tail" | "head" | "paw" | "shake" | null
+    idleT = 0,       // 0..1 progress in current idle action
 }) {
     // gait: swing more when moving faster (clamped)
     const swing = Math.min(0.7, 0.35 + walkSpeed * 0.25);
@@ -17,18 +19,53 @@ export default function RobotDog({
     // Head bob
     const headBobY = 0.02 * sHead * Math.min(1, walkSpeed * 0.8);
 
+    // -------- Idle action envelopes --------
+    // Use a smooth in/out curve so actions look intentional.
+    const easeInOut = (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+    const idleE = easeInOut(Math.max(0, Math.min(1, idleT)));
+
+    // Defaults (no idle)
+    let headTilt = 0, headYaw = 0;
+    let tailYaw = 0, tailPitch = 0;
+    let pawLiftFR = 0; // front-right paw
+    let bodyShakeYaw = 0;
+
+    if (idleAction === "tail") {
+        // wag: figure-eight yaw
+        tailYaw = Math.sin(idleT * Math.PI * 6) * 0.6 * idleE;
+        tailPitch = Math.sin(idleT * Math.PI * 3) * 0.15 * idleE;
+    } else if (idleAction === "head") {
+        // curious tilt & small yaw
+        headTilt = 0.35 * Math.sin(idleT * Math.PI) * idleE;
+        headYaw = 0.25 * Math.sin(idleT * Math.PI * 2) * idleE;
+    } else if (idleAction === "paw") {
+        // lift front-right paw and tap
+        pawLiftFR = 0.12 * Math.sin(idleT * Math.PI) * idleE; // up-down
+    } else if (idleAction === "shake") {
+        // quick body shake (yaw oscillation)
+        bodyShakeYaw = 0.15 * Math.sin(idleT * Math.PI * 10) * idleE;
+    }
+
     return (
         <group scale={[0.8, 0.8, 0.8]}>
             {/* body */}
-            <group rotation={[bodyLean * 0.5, 0, 0]}>
+            <group rotation={[bodyLean * 0.5, bodyShakeYaw, 0]}>
                 <mesh position={[0, 0.2, 0]}>
                     <boxGeometry args={[0.8, 0.3, 1.0]} />
                     <meshStandardMaterial color="#9aa9ff" metalness={0.2} roughness={0.5} />
                 </mesh>
+
+                {/* simple tail (small box), at rear */}
+                <group position={[0, 0.28, -0.52]} rotation={[tailPitch, tailYaw, 0]}>
+                    <mesh>
+                        <boxGeometry args={[0.08, 0.08, 0.28]} />
+                        <meshStandardMaterial color="#b8c0ff" />
+                    </mesh>
+                </group>
             </group>
 
             {/* head */}
-            <group position={[0, 0.35 + headBobY, 0.65]}>
+            <group position={[0, 0.35 + headBobY, 0.65]} rotation={[headTilt, headYaw, 0]}>
                 <mesh>
                     <boxGeometry args={[0.35, 0.28, 0.35]} />
                     <meshStandardMaterial color="#c7d2fe" />
@@ -50,8 +87,11 @@ export default function RobotDog({
                 <cylinderGeometry args={[0.05, 0.05, 0.25, 10]} />
                 <meshStandardMaterial color="#94a3b8" />
             </mesh>
-            {/* Front Right */}
-            <mesh position={[0.25, 0.05, 0.35]} rotation={[s1 * swing, 0, 0]}>
+            {/* Front Right (adds idle paw lift) */}
+            <mesh
+                position={[0.25, 0.05 + pawLiftFR, 0.35]}
+                rotation={[s1 * swing + (pawLiftFR ? 0.25 * pawLiftFR : 0), 0, 0]}
+            >
                 <cylinderGeometry args={[0.05, 0.05, 0.25, 10]} />
                 <meshStandardMaterial color="#94a3b8" />
             </mesh>
