@@ -5,17 +5,14 @@ import RobotDog from "./RobotDog.jsx";
 
 export default function Pets3D() {
     const { items } = useItemsSync();
-    const pets = (items || []).filter((i) => String(i.type).toLowerCase() === "pet");
-
-    // 👇 Add this line
-    console.log("PET:", pets);
+    const pets = (items || []).filter(i => String(i.type).toLowerCase() === "pet");
     if (!pets.length) return null;
 
     return (
         <group>
-            {pets.map((pet) => (
+            {pets.map(pet => (
                 <group
-                    key={pet.id || `${pet.x}-${pet.z}-${Math.random()}`}
+                    key={pet.id}
                     position={[Number(pet.x || 0), Number(pet.y ?? 0), Number(pet.z || 0)]}
                     rotation={[0, Number(pet.yaw || 0), 0]}
                 >
