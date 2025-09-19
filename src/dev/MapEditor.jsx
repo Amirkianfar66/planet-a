@@ -1221,6 +1221,17 @@ export function MapEditorUI() {
             : selectedObj?.kind === "device"
                 ? editorDevices.find((d) => d.id === selectedObj.id)
                 : null;
+    // Reset: clear rooms & floors only (and persist the empty draft)
+    const newMap = () => {
+        if (!confirm("Start a new map? This will remove ALL rooms and free floors.")) return;
+        setRooms([]);
+        setFloors([]);
+        setSelected(null);
+        setSelFloor(null);
+        setSelectedEdge(null);
+        // persist an empty draft so it stays blank on refresh
+        try { saveDraftV3([], []); } catch { }
+    };
 
     return createPortal(
         <div style={panelStyle}>
@@ -1234,6 +1245,25 @@ export function MapEditorUI() {
                     <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
                     <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
                 </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={addRoom}>+ Room</button>
+                <button onClick={addLockdown}>+ Lockdown</button>
+                <button onClick={addMeetingRoom}>+ MeetingRoom</button>
+                <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
+                <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={addRoom}>+ Room</button>
+                <button onClick={addLockdown}>+ Lockdown</button>
+                <button onClick={addMeetingRoom}>+ MeetingRoom</button>
+                <button onClick={duplicateRoom} disabled={!r}>Duplicate Room</button>
+                <button onClick={deleteRoom} disabled={!r}>Delete Room</button>
+
+                {/* 🔴 New button: clears rooms & floors */}
+                <button onClick={newMap} style={{ background: "#7a1f1f" }}>
+                    New Map (Clear)
+                </button>
             </div>
 
             {/* global toggles */}
