@@ -68,8 +68,13 @@ function PetFollower({ pet }) {
         // low-pass filter the speed a bit
         state.visSpeed = lerp(state.visSpeed, speed, 0.25);
 
-        // advance walk phase based on speed
-        state.walkPhase += state.visSpeed * 4.5 * dt;
+       // Use a floor for animation when seeking so it "walks" even if moving slowly
+        const isSeek = String(pet.mode || "").toLowerCase() === "seekcure";
+        const moving = state.visSpeed > 0.03;
+        const ANIM_WALK_FLOOR = 1.1;  // ~normal walk m/s for animation only
+        const animSpeed = isSeek && moving ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
+       // advance walk phase based on *animSpeed* (not real speed)
+        state.walkPhase += animSpeed * 4.5 * dt;
 
         if (group.current) {
             group.current.position.set(state.x, state.y, state.z);
@@ -77,10 +82,10 @@ function PetFollower({ pet }) {
         }
 
         // --- bob/tilt on inner
-        const bobAmp = clamp(state.visSpeed * 0.02, 0, 0.08);
+        const bobAmp = clamp(animSpeed * 0.02, 0, 0.08);
         const bob = Math.sin(state.walkPhase * 2) * bobAmp;
-        const tiltPitch = clamp(state.visSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
-        const tiltRoll = clamp(state.visSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
+        const tiltPitch = clamp(animSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
+        const tiltRoll = clamp(animSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
 
         if (inner.current) {
             inner.current.position.y = bob;
@@ -135,12 +140,8 @@ function PetFollower({ pet }) {
     return (
         <group ref={group}>
             <group ref={inner}>
-                <RobotDog
-                    walkPhase={state.walkPhase}
-                    walkSpeed={state.visSpeed}
-                    idleAction={state.idleAction}
-                    idleT={state.idleT}
-                />
+                <RobotDog walkPhase={state.walkPhase} walkSpeed={animSpeed}
+             idleAction={state.idleAction} idleT={state.idleT} />
             </group>
         </group>
     );
