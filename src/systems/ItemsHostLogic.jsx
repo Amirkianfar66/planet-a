@@ -866,7 +866,10 @@ export default function ItemsHostLogic() {
                                     z += (dz / dist) * step;
                                     
                                 }
-
+                                else {
+                                      // fully at target — ensure the flag is off
+                                          walking = false;
+                                    }
                                 // lock Y while seeking (no flying, no hover drift)
                                 tgtY = y;
                             } else if (owner) {
@@ -904,7 +907,7 @@ export default function ItemsHostLogic() {
                         }
 
                         // ease yaw
-                        yaw = lerpAngle(yaw, lookAtYaw, 0.25);
+                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.12;
 
                         // smooth vertical
                         y += ((tgtY ?? (pet.y || 0)) - y) * 0.15;
