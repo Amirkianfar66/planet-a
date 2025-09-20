@@ -869,7 +869,11 @@ export default function ItemsHostLogic() {
                                     z += (dz / dist) * step;
                                 }
                                 // slight hover settle
-                                tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
+                                // Ground Y to the cure's height (fallback to floor), then add a small hover.
+                                const baseY = Number(it.y ?? FLOOR_Y);
+                                const seekHover = Math.min(hoverY, 0.18); // keep hover low when parked at item
+                                tgtY = Math.max(baseY + seekHover, FLOOR_Y + 0.2);
+
                             } else if (owner) {
                                 // no cure on map → gracefully fall back to follow position
                                 const ox = Number(owner.getState("x") || 0);
