@@ -4,9 +4,9 @@ import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
-import { DEVICES } from "../data/gameObjects.js";
+import { DEVICES, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
-import { OUTSIDE_AREA, pointInRect, clampToRect } from "../map/deckA";
+import { OUTSIDE_AREA, pointInRect, clampToRect, MEETING_ROOM_AABB } from "../map/deckA";
 
 
 const OUT_MARGIN = 0.75;

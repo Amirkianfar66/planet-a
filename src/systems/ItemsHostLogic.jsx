@@ -188,8 +188,8 @@ export default function ItemsHostLogic() {
     
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
-        if (!host) return;
         const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
+        if (!host && !needsSeed) return;
         if (needsSeed) {
             const seeded = (INITIAL_ITEMS || []).map(it => {
                 const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
@@ -204,7 +204,7 @@ export default function ItemsHostLogic() {
                    };
          });
             setItems(seeded, true);
-            console.log("[HOST] Seeded", seeded.length, "items.");
+            console.log("[ITEMS] Seeded", seeded.length, "items (host:", host, ").");
         }
     }, [host, setItems]);
 
