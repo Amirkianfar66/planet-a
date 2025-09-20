@@ -1,9 +1,7 @@
 ﻿// src/systems/PlayersHostInit.jsx
 import { useEffect } from "react";
-import { isHost, usePlayersList, myPlayer } from "playroomkit";
+import { isHost, usePlayersList } from "playroomkit";
 import { roomCenter, ROOM_KEYS } from "../map/deckA";
-import { hostAppendEvent } from "../network/playroom";
-import { setTeamFromQuery } from "../data/teamSpawns"; // if you added this helper
 
 // Map team names -> room keys in your deckA
 const TEAM_ROOM_KEY = {
@@ -21,9 +19,6 @@ export default function PlayersHostInit() {
 
     useEffect(() => {
         if (!host) return;
-
-        // Let the host grab ?team= for their own player once
-        try { setTeamFromQuery?.(); } catch { }
 
         for (const p of players) {
             // Only set once per player
@@ -45,9 +40,6 @@ export default function PlayersHostInit() {
             p.setState?.("y", spawn.y, true);
             p.setState?.("z", spawn.z, true);
             p.setState?.("spawned", true, true);
-
-            const name = p.getProfile?.()?.name || "Player";
-            hostAppendEvent?.((...args) => { }, `Spawned ${name} at team ${team}.`);
         }
     }, [host, players]);
 
