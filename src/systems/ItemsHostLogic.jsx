@@ -851,31 +851,23 @@ export default function ItemsHostLogic() {
                             if (it) {
                                 const dx = it.x - x, dz = it.z - z;
                                 const dist = Math.hypot(dx, dz) || 1;
-                                const desiredYaw = Math.atan2(dx, dz);
-                                lookAtYaw = desiredYaw;
+                                lookAtYaw = Math.atan2(dx, dz);
 
-                                const stopDist = 0.7;              // stand-off from the item
+                                const stopDist = 0.7;
                                 const wantDist = Math.max(0, dist - stopDist);
 
-                                // ⬇️ PUT THESE 3 LINES HERE (replace your previous step calc)
-                                const SLOW_FACTOR = 1 / 30;                            // 3× slower
-                                const base = Number(pet.seekSpeed ?? 1.4) * SLOW_FACTOR;
-                                const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // keep the near-target easing
-                                const step = Math.min(wantDist, (base * slow) * PET_DT);
-
+                                const MAX_SEEK_SPEED = 0.12;      // super slow walk
+                                const step = Math.min(wantDist, MAX_SEEK_SPEED * PET_DT);
 
                                 if (wantDist > 0.001) {
                                     x += (dx / dist) * step;
                                     z += (dz / dist) * step;
                                 }
-                                // slight hover settle
-                                // Ground Y to the cure's height (fallback to floor), then add a small hover.
-                                const baseY = Number(it.y ?? FLOOR_Y);
-                                const seekHover = Math.min(hoverY, 0.18); // keep hover low when parked at item
-                                tgtY = Math.max(baseY + seekHover, FLOOR_Y + 0.2);
 
+                                // lock Y while seeking (no flying, no hover drift)
+                                tgtY = y;
                             } else if (owner) {
-                                // no cure on map → gracefully fall back to follow position
+                                // fallback to follow (unchanged)
                                 const ox = Number(owner.getState("x") || 0);
                                 const oy = Number(owner.getState("y") || 0);
                                 const oz = Number(owner.getState("z") || 0);
@@ -888,6 +880,7 @@ export default function ItemsHostLogic() {
                                 lookAtYaw = Math.atan2(ox - x, oz - z);
                             }
                         }
+
 
                         if (mode === "stay") {
                             // just hover and face the owner a bit if available

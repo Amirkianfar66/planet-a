@@ -70,10 +70,11 @@ function PetFollower({ pet }) {
             group.current.rotation.set(0, state.yaw, 0);
         }
 
-        const bobAmp = clamp(animSpeed * 0.02, 0, 0.08);
+        // During seek, render a flat walk: no Y bob, no tilts.
+        const bobAmp = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08);
         const bob = Math.sin(state.walkPhase * 2) * bobAmp;
-        const tiltPitch = clamp(animSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
-        const tiltRoll = clamp(animSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
+        const tiltPitch = isSeek ? 0 : clamp(animSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
+        const tiltRoll = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
 
         if (inner.current) {
             inner.current.position.y = bob;
