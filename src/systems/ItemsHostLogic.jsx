@@ -792,18 +792,16 @@ export default function ItemsHostLogic() {
             }
             // --- PET AI: follow owner / stay / seekCure ---
             {
-                const PET_DT = 0.05; // ~50ms loop cadence
+                const PET_DT = 0.05;
                 const pets = (itemsRef.current || []).filter(i => i.type === "pet");
                 if (pets.length) {
                     const updated = new Map();
 
-                    // helper: shortest-arc yaw interpolation
                     const lerpAngle = (a, b, t) => {
                         let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
                         return a + d * t;
                     };
 
-                    // helper: nearest cure item (free on floor)
                     const nearestCure = (x, z) => {
                         let best = null, bestD2 = Infinity;
                         for (const it of (itemsRef.current || [])) {
@@ -817,15 +815,13 @@ export default function ItemsHostLogic() {
                         return best;
                     };
 
-                    // small utils used by seek search mode
                     const dist2 = (ax, az, bx, bz) => {
                         const dx = ax - bx, dz = az - bz;
                         return dx * dx + dz * dz;
                     };
                     const pickWaypoint = (ox, oz, ry) => {
-                        // circle around owner 2..5m with slight bias to front-right
-                        const r = 2.0 + Math.random() * 3.0;
-                        const a = ry + (Math.random() * Math.PI * 1.5) - (Math.PI * 0.5);
+                        const r = 2.0 + Math.random() * 3.0;                         // 2..5m ring
+                        const a = ry + (Math.random() * Math.PI * 1.5) - Math.PI / 2;   // slight FR bias
                         return { x: ox + Math.sin(a) * r, z: oz + Math.cos(a) * r };
                     };
 
@@ -835,14 +831,15 @@ export default function ItemsHostLogic() {
 
                         let { x, y, z } = pet;
                         let yaw = pet.yaw || 0;
-                        let walking = false; // default off for this tick
+                        let walking = false;
+
                         const speed = pet.speed ?? 2.2;
                         const hoverY = pet.hover ?? 0.35;
 
-                        // default target is current position
+                        // defaults = hold position
                         let tgtX = x, tgtZ = z, tgtY = y, lookAtYaw = yaw;
 
-                        // FOLLOW mode
+                        // FOLLOW
                         if (mode === "follow" && owner) {
                             const ox = Number(owner.getState("x") || 0);
                             const oy = Number(owner.getState("y") || 0);
@@ -852,94 +849,94 @@ export default function ItemsHostLogic() {
                             const backX = -Math.sin(ry), backZ = -Math.cos(ry);
                             const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
 
-                            tgtX = ox + backX * 2.4 + rightX * 1.2; // doubled spacing
-                            tgtZ = oz + backZ * 2.4 + rightZ * 1.2; // doubled spacing
+                            tgtX = ox + backX * 2.4 + rightX * 1.2;
+                            tgtZ = oz + backZ * 2.4 + rightZ * 1.2;
                             tgtY = Math.max(oy + hoverY, 0.2);
                             lookAtYaw = Math.atan2(ox - x, oz - z);
                         }
 
-                        // SEEK CURE mode (search → detect → approach)
+                        // SEEK (search → detect → approach)
                         if (mode === "seekCure") {
                             // tuning
                             const SENSE_RADIUS = 6.0;
                             const LOST_RADIUS = 8.0;
                             const SEARCH_SPEED = 0.18; // m/s
-                            const APPROACH = 0.08; // damping factor toward stand-off
-                            const STOP_DIST = 0.7;  // stand-off from item
-                            const WP_REACH = 0.25; // consider waypoint reached
-                            const WP_TIMEOUT_S = 3.0;  // pick a new waypoint after TTL
+                            const APPROACH = 0.08; // damping to stand-off
+                            const STOP_DIST = 0.7;
+                            const WP_REACH = 0.25;
+                            const WP_TIMEOUT_S = 3.0;
 
-                            // persisted search state
+                            // pull prior state (DON'T mutate pet directly; write via updated.set)
                             let tgtId = pet.seekTargetId || "";
                             let wpX = (typeof pet.seekWpX === "number") ? pet.seekWpX : undefined;
                             let wpZ = (typeof pet.seekWpZ === "number") ? pet.seekWpZ : undefined;
                             let wpTtl = (typeof pet.seekWpTtl === "number") ? pet.seekWpTtl : 0;
 
-                            // resolve current target
+                            // resolve/validate target
                             let target = null;
                             if (tgtId) {
                                 target = (itemsRef.current || []).find(it => it && !it.holder && it.id === tgtId);
                                 if (target) {
-                                    const d2 = dist2(x, z, target.x, target.z);
-                                    if (d2 > LOST_RADIUS * LOST_RADIUS) target = null;
+                                    if (dist2(x, z, target.x, target.z) > LOST_RADIUS * LOST_RADIUS) target = null;
                                 }
                                 if (!target) tgtId = "";
                             }
 
-                            // try detect nearest cure within sense radius
+                            // detect
                             if (!tgtId) {
                                 const cand = nearestCure(x, z);
-                                if (cand) {
-                                    const d2 = dist2(x, z, cand.x, cand.z);
-                                    if (d2 <= SENSE_RADIUS * SENSE_RADIUS) {
-                                        target = cand;
-                                        tgtId = cand.id;
-                                    }
+                                if (cand && dist2(x, z, cand.x, cand.z) <= SENSE_RADIUS * SENSE_RADIUS) {
+                                    target = cand; tgtId = cand.id;
                                 }
                             }
 
-                            if (tgtId && !target) tgtId = "";
-
                             if (tgtId && target) {
-                                // APPROACH: move to stand-off near the item (ground-locked)
+                                // APPROACH: slow, ground-locked
                                 const vx = target.x - x, vz = target.z - z;
                                 const d = Math.hypot(vx, vz) || 1e-6;
 
                                 lookAtYaw = Math.atan2(vx, vz);
 
-                                const tgtPX = target.x - (vx / d) * STOP_DIST;
-                                const tgtPZ = target.z - (vz / d) * STOP_DIST;
+                                const px = target.x - (vx / d) * STOP_DIST;
+                                const pz = target.z - (vz / d) * STOP_DIST;
 
-                                // exponential damping (very smooth, fps-independent feel)
-                                x += (tgtPX - x) * APPROACH;
-                                z += (tgtPZ - z) * APPROACH;
+                                x += (px - x) * APPROACH;
+                                z += (pz - z) * APPROACH;
 
-                                const remaining = Math.hypot(tgtPX - x, tgtPZ - z);
-                                walking = remaining > 0.05;
+                                walking = Math.hypot(px - x, pz - z) > 0.05;
+                                tgtY = y; // lock vertical
 
-                                // lock vertical while seeking
-                                tgtY = y;
+                                // gentle yaw while seeking
+                                yaw = lerpAngle(yaw, lookAtYaw, 0.15);
+                                // vertical easing (no-op since tgtY==y)
+                                y += (tgtY - y) * 0.12;
+
+                                // write and SKIP generic mover
+                                updated.set(pet.id, {
+                                    x, y, z, yaw, mode, walking,
+                                    seekTargetId: tgtId,
+                                    seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl
+                                });
+                                continue;
                             } else {
-                                // SEARCH: roam via waypoints around the owner
+                                // SEARCH: waypoints near owner (or current pos if no owner)
                                 const ox = owner ? Number(owner.getState("x") || 0) : x;
                                 const oz = owner ? Number(owner.getState("z") || 0) : z;
                                 const ry = owner ? Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0) : yaw;
 
-                                let needNewWp = false;
-                                if (wpX === undefined || wpZ === undefined) needNewWp = true;
-                                if (!needNewWp) {
+                                let need = false;
+                                if (wpX === undefined || wpZ === undefined) need = true;
+                                if (!need) {
                                     const dwp = Math.hypot(wpX - x, wpZ - z);
-                                    if (dwp < WP_REACH) needNewWp = true;
+                                    if (dwp < WP_REACH) need = true;
                                 }
-                                if (!needNewWp && wpTtl <= 0) needNewWp = true;
+                                if (!need && wpTtl <= 0) need = true;
 
-                                if (needNewWp) {
+                                if (need) {
                                     const wp = pickWaypoint(ox, oz, ry);
-                                    wpX = wp.x; wpZ = wp.z;
-                                    wpTtl = WP_TIMEOUT_S;
+                                    wpX = wp.x; wpZ = wp.z; wpTtl = WP_TIMEOUT_S;
                                 }
 
-                                // walk toward waypoint at search speed
                                 const wx = wpX - x, wz = wpZ - z;
                                 const wd = Math.hypot(wx, wz) || 1e-6;
                                 const step = Math.min(wd, SEARCH_SPEED * PET_DT);
@@ -950,50 +947,44 @@ export default function ItemsHostLogic() {
                                     lookAtYaw = Math.atan2(wx, wz);
                                 }
 
-                                // lock vertical while searching
-                                tgtY = y;
-
-                                // update waypoint ttl
+                                tgtY = y;              // lock vertical
                                 wpTtl = Math.max(0, wpTtl - PET_DT);
+
+                                // gentle yaw while seeking
+                                yaw = lerpAngle(yaw, lookAtYaw, 0.15);
+                                y += (tgtY - y) * 0.12;
+
+                                // write and SKIP generic mover
+                                updated.set(pet.id, {
+                                    x, y, z, yaw, mode, walking,
+                                    seekTargetId: tgtId,
+                                    seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl
+                                });
+                                continue;
                             }
-
-                            // yaw easing (gentler while seeking)
-                            yaw = lerpAngle(yaw, lookAtYaw, 0.15);
-                            // vertical easing (no-op since tgtY==y, but keeps consistency)
-                            y += ((tgtY ?? (pet.y || 0)) - y) * 0.12;
-
-                            // persist seek fields via world update and continue (skip generic mover)
-                            updated.set(pet.id, {
-                                x, y, z, yaw, mode, walking,
-                                seekTargetId: tgtId || "",
-                                seekWpX: wpX,
-                                seekWpZ: wpZ,
-                                seekWpTtl: wpTtl
-                            });
-                            continue;
                         }
 
-                        // STAY mode
+                        // STAY
                         if (mode === "stay") {
+                            // face owner if available
                             if (owner) {
                                 const ox = Number(owner.getState("x") || 0);
                                 const oz = Number(owner.getState("z") || 0);
                                 lookAtYaw = Math.atan2(ox - x, oz - z);
                             }
-                            tgtX = x; tgtZ = z; tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
+                            // hold position and ground-reference Y (no drift from pet.y)
+                            const baseY = owner ? Number(owner.getState("y") || 0) : 0;
+                            tgtX = x; tgtZ = z; tgtY = Math.max(baseY + hoverY, 0.2);
                         }
 
-                        // Generic mover for follow/stay
+                        // generic mover (follow/stay)
                         const mx = tgtX - x, mz = tgtZ - z;
                         const md = Math.hypot(mx, mz);
                         const mstep = Math.min(md, speed * PET_DT);
                         if (md > 0.001) { x += (mx / md) * mstep; z += (mz / md) * mstep; }
 
-                        // yaw easing
                         yaw = lerpAngle(yaw, lookAtYaw, 0.25);
-
-                        // vertical easing
-                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.12;
+                        y += (tgtY - y) * 0.12;
 
                         updated.set(pet.id, { x, y, z, yaw, mode, walking });
                     }
