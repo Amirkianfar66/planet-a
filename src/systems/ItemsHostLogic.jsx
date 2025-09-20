@@ -166,7 +166,10 @@ export default function ItemsHostLogic() {
     };
     const setBackpack = (p, arr) => p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
     const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
-
+    const cryptoRandomId = () =>
+          (typeof crypto !== "undefined" && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : `id_${Math.random().toString(36).slice(2, 10)}`;
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
         if (!host) return;
