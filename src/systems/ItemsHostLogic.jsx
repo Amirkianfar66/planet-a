@@ -858,6 +858,8 @@ export default function ItemsHostLogic() {
 
                                 const MAX_SEEK_SPEED = 0.12;      // super slow walk
                                 const step = Math.min(wantDist, MAX_SEEK_SPEED * PET_DT);
+                                // decide if it's "walking" (moving toward target) this tick
+                                const walking = wantDist > 0.03 && step > 0;
 
                                 if (wantDist > 0.001) {
                                     x += (dx / dist) * step;
@@ -906,7 +908,7 @@ export default function ItemsHostLogic() {
                         // smooth vertical
                         y += ((tgtY ?? (pet.y || 0)) - y) * 0.15;
 
-                        updated.set(pet.id, { x, y, z, yaw, mode });
+                        updated.set(pet.id, { x, y, z, yaw, mode, walking });
                     }
 
                     if (updated.size) {
