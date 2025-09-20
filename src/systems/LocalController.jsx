@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 import { getMyPos, setMyPos } from "../network/playroom";
-import { FLOOR, WALL_THICKNESS, wallAABBs } from "../map/deckA";
+import { FLOOR, WALL_THICKNESS, wallAABBs, roomCenter } from "../map/deckA";
 import { getStaticAABBs } from "../systems/collision";
 
 const SPEED = 4;
@@ -12,12 +12,20 @@ const GRAVITY = 16;
 const JUMP_V = 5.2;
 const GROUND_Y = 0;
 
-// ⬇️ Set this to the center of your Lockdown room (map coordinates)
-const LOCKDOWN_POS = { x: 12, y: 0, z: -6 };
+// Try to use a real room as lockdown anchor; fall back to hardcoded
+const LOCK_KEYS = ["Lockdown", "lockdown_room", "brig", "jail", "detention"];
+const LOCKDOWN_POS =
+    (() => {
+        for (const k of LOCK_KEYS) {
+            const c = typeof roomCenter === "function" ? roomCenter(k) : null;
+            if (c) return c;
+        }
+        return { x: 12, y: 0, z: -6 }; // fallback
+    })();
 
 function resolveCollisions(next, boxes) {
-         for (let pass = 0; pass < 2; pass++) {
-           for (const b of boxes) {
+    for (let pass = 0; pass < 2; pass++) {
+        for (const b of boxes) {
             const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
             const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
             if (!(insideX && insideZ)) continue;
@@ -40,7 +48,7 @@ function resolveCollisions(next, boxes) {
     return next;
 }
 
-/** Inner controller: your original logic lives here */
+/** Inner controller */
 function LocalControllerInner() {
     const keys = useRef({});
     const [pos, setPos] = useState(() => getMyPos());
@@ -50,19 +58,21 @@ function LocalControllerInner() {
 
     const vyRef = useRef(0);
     const groundedRef = useRef(true);
-    // Make player position visible to Door3D (GameCanvas reads window.__playerPos)
+
+    // Expose my position for Door3D, etc.
     const publishPlayerPos = (p) => {
-           if (typeof window !== "undefined") {
-                 window.__playerPos =[p.x, p.y, p.z];
-               }
-         };
-     // Seed on mount; clean up on unmount
-         useEffect(() => {
-               publishPlayerPos(getMyPos());
-               return () => {
-                     if (typeof window !== "undefined") delete window.__playerPos;
-                   };
-         }, []);
+        if (typeof window !== "undefined") {
+            window.__playerPos = [p.x, p.y, p.z];
+        }
+    };
+
+    // Seed on mount; clean up on unmount
+    useEffect(() => {
+        publishPlayerPos(getMyPos());
+        return () => {
+            if (typeof window !== "undefined") delete window.__playerPos;
+        };
+    }, []);
 
     useEffect(() => {
         const down = (e) => {
@@ -101,25 +111,42 @@ function LocalControllerInner() {
 
     useFrame((_, dt) => {
         if (!dt) return;
-        // union of static walls + GLB-baked boxes
+
+        const p = myPlayer();
+
+        // Authoritative teleport acceptance:
+        // If the network pos is far from local pos (e.g., team spawn), snap locally once.
+        const net = getMyPos();
+        if (net) {
+            const dx = net.x - pos.x, dy = net.y - pos.y, dz = net.z - pos.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
+            if (distSq > 4 * 4) { // > 4m difference → treat as teleport
+                setPos(net);
+                setMyPos(net.x, net.y, net.z);
+                publishPlayerPos(net);
+                // keep yawRef; skip rest of frame to avoid immediately overwriting
+                p?.setState?.("yaw", yawRef.current, false);
+                p?.setState?.("spd", 0, false);
+                p?.setState?.("air", false, false);
+                return;
+            }
+        }
+
+        // Dynamic colliders: static walls + extra boxes (doors, etc.)
         const doorStore = (typeof window !== "undefined" && window.__doorAABBs) ? window.__doorAABBs : null;
         const dynamicDoorAABBs = doorStore ? Array.from(doorStore.values()) : [];
         const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
 
-        const p = myPlayer();
-
-        // ⬇️ NEW: Lockdown enforcement (no change to normal logic for others)
-        // If this player is flagged as "locked", pin them inside the Lockdown room.
+        // Lockdown: pin inside lockdown anchor (no movement while locked)
         if (p?.getState?.("locked")) {
             const next = { x: LOCKDOWN_POS.x, y: LOCKDOWN_POS.y, z: LOCKDOWN_POS.z };
             setPos(next);
             setMyPos(next.x, next.y, next.z);
             publishPlayerPos(next);
-            // Keep current facing; report no speed and on-ground
             p.setState("yaw", yawRef.current, false);
             p.setState("spd", 0, false);
             p.setState("air", false, false);
-            return; // Skip normal movement while locked
+            return;
         }
 
         // yaw rotation keys
@@ -171,9 +198,9 @@ function LocalControllerInner() {
         setPos(next);
         setMyPos(next.x, next.y, next.z);
         publishPlayerPos(next);
-        p.setState("yaw", yawRef.current, false);
-        p.setState("spd", horizSpeed, false);
-        p.setState("air", !groundedRef.current, false);
+        p?.setState?.("yaw", yawRef.current, false);
+        p?.setState?.("spd", horizSpeed, false);
+        p?.setState?.("air", !groundedRef.current, false);
     });
 
     return null;
