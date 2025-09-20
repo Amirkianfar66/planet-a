@@ -6,7 +6,7 @@ import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
 import { useGameClock } from "../systems/dayNightClock";
-import { isOutsideByRoof } from "../map/deckA"; // inside/outside by roof
+import { OUTSIDE_AREA, pointInRect, clampToRect, isOutsideByRoof } from "../map/deckA";
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -14,6 +14,14 @@ const DT = 0.05;
 const THROW_SPEED = 8;
 const TANK_CAP_DEFAULT = 6;
 const UNITS_PER_LOAD = 2;
+// Keep spawned things inside the designated outdoor rectangle.
+const OUT_MARGIN = 0.75; // small buffer so they don't hug the edge
+
+function ensureOutdoorPos(x, z) {
+    if (pointInRect(OUTSIDE_AREA, x, z, OUT_MARGIN)) return { x, z };
+    const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
+    return { x: c.x, z: c.z };
+}
 
 /* --- HELPERS (single, case-insensitive) --- */
 
@@ -164,14 +172,16 @@ export default function ItemsHostLogic() {
         if (!host) return;
         const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
         if (needsSeed) {
-            const seeded = (INITIAL_ITEMS || []).map((it) => ({
-                holder: null,
-                vx: 0,
-                vy: 0,
-                vz: 0,
-                y: 0,
-                ...it,
-            }));
+            const seeded = INITIAL_ITEMS.map(it => {
+                   const p = ensureOutdoorPos(it.x ?? 0, it.z ?? 0);
+                   return {
+                     ...it,
+                     x: p.x,
+                     z: p.z,
+                     id: it.id || cryptoRandomId(),
+                     holder: "",
+                   };
+         });
             setItems(seeded, true);
             console.log("[HOST] Seeded", seeded.length, "items.");
         }

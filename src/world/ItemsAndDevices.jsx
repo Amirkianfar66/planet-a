@@ -6,6 +6,16 @@ import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
+import { OUTSIDE_AREA, pointInRect, clampToRect } from "../map/deckA";
+
+
+const OUT_MARGIN = 0.75;
+
+function ensureOutdoorPos(x, z) {
+    if (pointInRect(OUTSIDE_AREA, x, z, OUT_MARGIN)) return { x, z };
+    const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
+    return { x: c.x, z: c.z };
+}
 
 /* ---------- Type metadata (labels + colors) ---------- */
 const TYPE_META = {
@@ -303,26 +313,33 @@ export default function ItemsAndDevices() {
     return (
         <group>
             {/* Devices */}
-            {DEVICES.map(d => (
-                <group key={d.id} position={[d.x, (d.y || 0) + 0.5, d.z]}>
-                    <mesh>
-                        <boxGeometry args={[1.1, 1.0, 0.6]} />
-                        <meshStandardMaterial color="#2c3444" />
-                    </mesh>
-                    <mesh position={[0, 0.3, 0.33]}>
-                        <planeGeometry args={[0.8, 0.35]} />
-                        <meshBasicMaterial color="#8fb3ff" />
-                    </mesh>
-                    <Billboard position={[0, 0.9, 0]}>
-                        <TextSprite text={d.label || d.type || d.id} width={1.1} />
-                    </Billboard>
-                </group>
-            ))}
+            {DEVICES.map((d) => {
+                const { x, z } = ensureOutdoorPos(d.x ?? 0, d.z ?? 0);
+                const y = (d.y || 0) + 0.5;
+                return (
+                    <group key={d.id} position={[x, y, z]}>
+                        <mesh>
+                            <boxGeometry args={[1.1, 1.0, 0.6]} />
+                            <meshStandardMaterial color="#2c3444" />
+                        </mesh>
+
+                        <mesh position={[0, 0.3, 0.33]}>
+                            <planeGeometry args={[0.8, 0.35]} />
+                            <meshBasicMaterial color="#8fb3ff" />
+                        </mesh>
+
+                        <Billboard position={[0, 0.9, 0]}>
+                            <TextSprite text={d.label || d.type || d.id} width={1.1} />
+                        </Billboard>
+                    </group>
+                );
+            })}
 
             {/* Floor items */}
-            {floorItems.map(it => (
+            {floorItems.map((it) => (
                 <ItemEntity key={`${it.id}:${it.holder || "free"}`} it={it} />
             ))}
         </group>
     );
+
 }
