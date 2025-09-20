@@ -849,29 +849,31 @@ export default function ItemsHostLogic() {
                         if (mode === "seekCure") {
                             const it = nearestCure(x, z);
                             if (it) {
-                                const dx = it.x - x, dz = it.z - z;
-                                const dist = Math.hypot(dx, dz) || 1;
-                                lookAtYaw = Math.atan2(dx, dz);
+                                // Vector from pet -> cure
+                                const vx = it.x - x;
+                                const vz = it.z - z;
+                                const dist = Math.hypot(vx, vz) || 0.000001;
 
+                                // Face the cure
+                                lookAtYaw = Math.atan2(vx, vz);
+
+                                // Where we want to stand: stopDist meters away from the cure, along the approach line
                                 const stopDist = 0.7;
-                                const wantDist = Math.max(0, dist - stopDist);
+                                const targetX = it.x - (vx / dist) * stopDist;
+                                const targetZ = it.z - (vz / dist) * stopDist;
 
-                                const MAX_SEEK_SPEED = 0.12;      // super slow walk
-                                const step = Math.min(wantDist, MAX_SEEK_SPEED * PET_DT);
-                                // decide if it's "walking" (moving toward target) this tick
-                                walking = wantDist > 0.03 && step > 0;
+                                // Exponential damping toward target (very slow, frame-rate independent)
+                                // This prevents any runaway step math and feels smooth.
+                                const APPROACH = 0.08; // smaller = slower (try 0.06 if still too fast)
+                                x += (targetX - x) * APPROACH;
+                                z += (targetZ - z) * APPROACH;
 
-                                if (wantDist > 0.001) {
-                                    x += (dx / dist) * step;
-                                    z += (dz / dist) * step;
-                                    
-                                }
-                                else {
-                                      // fully at target — ensure the flag is off
-                                          walking = false;
-                                    }
-                                // lock Y while seeking (no flying, no hover drift)
-                                tgtY = y;
+                                // Mark "walking" only if we still have noticeable distance to cover
+                                const remaining = Math.hypot(targetX - x, targetZ - z);
+                                walking = remaining > 0.05;
+
+                                // HARD lock vertical while seeking
+                                tgtY = y; // no hover / no vertical easing during seek
                             } else if (owner) {
                                 // fallback to follow (unchanged)
                                 const ox = Number(owner.getState("x") || 0);
@@ -886,6 +888,7 @@ export default function ItemsHostLogic() {
                                 lookAtYaw = Math.atan2(ox - x, oz - z);
                             }
                         }
+
 
 
                         if (mode === "stay") {
