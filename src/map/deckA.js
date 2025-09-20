@@ -16,7 +16,7 @@ const DEFAULT_DOOR_WIDTH = 4.5;     // ← requested
 const DEFAULT_DOOR_THICKNESS = 0.3; // ← requested
 export const DEFAULT_DOOR_GLB = { url: "/models/door.glb", clipName: "Open" };
 
-export const FLOOR = { w: 100, d: 100 };
+export const FLOOR = { w: 200, d: 200 };
 export const OUTSIDE_AREA = { x: -FLOOR.w / 4, z: 0, w: FLOOR.w / 2 - 1, d: FLOOR.d - 2 };
 export const STATION_AREA = { x: FLOOR.w / 4, z: 0, w: FLOOR.w / 2 - 1, d: FLOOR.d - 2 };
 

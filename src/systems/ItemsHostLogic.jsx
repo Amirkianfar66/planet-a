@@ -847,85 +847,135 @@ export default function ItemsHostLogic() {
                         }
 
                         if (mode === "seekCure") {
-                            const it = nearestCure(x, z);
-                            if (it) {
-                                // Vector from pet -> cure
-                                const vx = it.x - x;
-                                const vz = it.z - z;
-                                const dist = Math.hypot(vx, vz) || 0.000001;
+                            // --- Search parameters ---
+                            const SENSE_RADIUS = 6.0;   // can "smell" cure within 6m
+                            const LOST_RADIUS = 8.0;   // forget target if it gets farther than this (picked up / moved)
+                            const SEARCH_SPEED = 0.18;  // m/s when roaming
+                            const APPROACH = 0.08;  // damping when approaching item (smaller = slower)
+                            const STOP_DIST = 0.7;   // stand-off from the item
+                            const WP_REACH = 0.25;  // consider waypoint reached within 25cm
+                            const WP_TIMEOUT_S = 3.0;   // pick a new waypoint if we dither too long
+
+                            // helpers
+                            const dist2 = (ax, az, bx, bz) => {
+                                const dx = ax - bx, dz = az - bz;
+                                return dx * dx + dz * dz;
+                            };
+                            const pickWaypoint = (ox, oz, ry) => {
+                                // circle around owner 2.0..5.0m with slight bias to front-right
+                                const r = 2.0 + Math.random() * 3.0;
+                                const a = ry + (Math.random() * Math.PI * 1.5) - (Math.PI * 0.5);
+                                return { x: ox + Math.sin(a) * r, z: oz + Math.cos(a) * r };
+                            };
+
+                            // read persisted seeking fields (if any)
+                            let tgtId = pet.seekTargetId || "";
+                            let wpX = typeof pet.seekWpX === "number" ? pet.seekWpX : undefined;
+                            let wpZ = typeof pet.seekWpZ === "number" ? pet.seekWpZ : undefined;
+                            let wpTtl = typeof pet.seekWpTtl === "number" ? pet.seekWpTtl : 0; // seconds left for waypoint
+
+                            // 1) If we already have a target, verify it's still valid & not too far
+                            let target = null;
+                            if (tgtId) {
+                                target = (itemsRef.current || []).find(it => it && !it.holder && it.id === tgtId);
+                                if (target) {
+                                    const d2 = dist2(x, z, target.x, target.z);
+                                    if (d2 > LOST_RADIUS * LOST_RADIUS) target = null; // too far → lost
+                                }
+                                if (!target) {
+                                    tgtId = ""; // clear
+                                }
+                            }
+
+                            // 2) If no target, try to detect the nearest cure within SENSE_RADIUS
+                            if (!tgtId) {
+                                const cand = nearestCure(x, z);
+                                if (cand) {
+                                    const d2 = dist2(x, z, cand.x, cand.z);
+                                    if (d2 <= SENSE_RADIUS * SENSE_RADIUS) {
+                                        target = cand;
+                                        tgtId = cand.id;
+                                    }
+                                }
+                            }
+
+                            if (tgtId && !target) {
+                                // (target id exists but we didn't find it this tick) -> keep searching
+                                tgtId = "";
+                            }
+
+                            if (tgtId && target) {
+                                // --- APPROACH MODE: walk to stand-off point near the item ---
+                                const vx = target.x - x;
+                                const vz = target.z - z;
+                                const d = Math.hypot(vx, vz) || 1e-6;
 
                                 // Face the cure
                                 lookAtYaw = Math.atan2(vx, vz);
 
-                                // Where we want to stand: stopDist meters away from the cure, along the approach line
-                                const stopDist = 0.7;
-                                const targetX = it.x - (vx / dist) * stopDist;
-                                const targetZ = it.z - (vz / dist) * stopDist;
+                                // Desired stand-off point
+                                const tgtPX = target.x - (vx / d) * STOP_DIST;
+                                const tgtPZ = target.z - (vz / d) * STOP_DIST;
 
-                                // Exponential damping toward target (very slow, frame-rate independent)
-                                // This prevents any runaway step math and feels smooth.
-                                const APPROACH = 0.08; // smaller = slower (try 0.06 if still too fast)
-                                x += (targetX - x) * APPROACH;
-                                z += (targetZ - z) * APPROACH;
+                                // Exponential damping toward stand-off (very slow & smooth)
+                                x += (tgtPX - x) * APPROACH;
+                                z += (tgtPZ - z) * APPROACH;
 
-                                // Mark "walking" only if we still have noticeable distance to cover
-                                const remaining = Math.hypot(targetX - x, targetZ - z);
+                                const remaining = Math.hypot(tgtPX - x, tgtPZ - z);
                                 walking = remaining > 0.05;
 
-                                // HARD lock vertical while seeking
-                                tgtY = y; // no hover / no vertical easing during seek
-                            } else if (owner) {
-                                // fallback to follow (unchanged)
-                                const ox = Number(owner.getState("x") || 0);
-                                const oy = Number(owner.getState("y") || 0);
-                                const oz = Number(owner.getState("z") || 0);
-                                const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
-                                const backX = -Math.sin(ry), backZ = -Math.cos(ry);
-                                const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
-                                tgtX = ox + backX * 2.4 + rightX * 1.2;
-                                tgtZ = oz + backZ * 2.4 + rightZ * 1.2;
-                                tgtY = Math.max(oy + hoverY, 0.2);
-                                lookAtYaw = Math.atan2(ox - x, oz - z);
+                                // Lock vertical (no flying)
+                                tgtY = y;
+                            } else {
+                                // --- SEARCH MODE: roam via waypoints around the owner ---
+                                // ensure we have an owner reference; if not, wander around current pos
+                                const ox = owner ? Number(owner.getState("x") || 0) : x;
+                                const oz = owner ? Number(owner.getState("z") || 0) : z;
+                                const ry = owner ? Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0) : yaw;
+
+                                // create/refresh waypoint
+                                let needNewWp = false;
+                                if (wpX === undefined || wpZ === undefined) needNewWp = true;
+                                if (!needNewWp) {
+                                    const dwp = Math.hypot(wpX - x, wpZ - z);
+                                    if (dwp < WP_REACH) needNewWp = true;
+                                }
+                                if (!needNewWp && wpTtl <= 0) needNewWp = true;
+
+                                if (needNewWp) {
+                                    const wp = pickWaypoint(ox, oz, ry);
+                                    wpX = wp.x; wpZ = wp.z;
+                                    wpTtl = WP_TIMEOUT_S;
+                                }
+
+                                // walk to waypoint at search speed
+                                const wx = wpX - x, wz = wpZ - z;
+                                const wd = Math.hypot(wx, wz) || 1e-6;
+                                const step = Math.min(wd, SEARCH_SPEED * PET_DT);
+
+                                if (step > 0.0005) {
+                                    x += (wx / wd) * step;
+                                    z += (wz / wd) * step;
+                                    walking = true;
+                                    // turn body toward motion
+                                    lookAtYaw = Math.atan2(wx, wz);
+                                }
+
+                                // lock vertical while searching
+                                tgtY = y;
+
+                                // countdown waypoint ttl
+                                wpTtl = Math.max(0, wpTtl - PET_DT);
                             }
+
+                            // write back the seeking fields so next tick continues the behavior
+                            // (The final updated.set(...) below will include these values.)
+                            pet.seekTargetId = tgtId;
+                            pet.seekWpX = wpX;
+                            pet.seekWpZ = wpZ;
+                            pet.seekWpTtl = wpTtl;
                         }
 
-
-
-                        if (mode === "stay") {
-                            // just hover and face the owner a bit if available
-                            if (owner) {
-                                const ox = Number(owner.getState("x") || 0);
-                                const oz = Number(owner.getState("z") || 0);
-                                lookAtYaw = Math.atan2(ox - x, oz - z);
-                            }
-                            tgtX = x; tgtZ = z; tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
-                        }
-
-                        // move toward target (follow mode uses tgtX/Z above; seekCure may have already moved x/z)
-                        if (mode !== "seekCure") {
-                            const dx = tgtX - x, dz = tgtZ - z;
-                            const dist = Math.hypot(dx, dz);
-                            const step = Math.min(dist, speed * PET_DT);
-                            if (dist > 0.001) { x += (dx / dist) * step; z += (dz / dist) * step; }
-                        }
-
-                        // ease yaw
-                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.12;
-
-                        // smooth vertical
-                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.15;
-
-                        updated.set(pet.id, { x, y, z, yaw, mode, walking });
-                    }
-
-                    if (updated.size) {
-                        setItems(prev => prev.map(j => {
-                            const u = updated.get(j.id);
-                            return u ? { ...j, ...u } : j;
-                        }), true);
-                    }
-                }
-            }
             // --- END PET AI ---
 
 
