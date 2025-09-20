@@ -63,7 +63,41 @@ const MAP = getAuthoredMap();
 // Rooms
 export const ROOMS = (MAP.rooms || []).map((r) => RT.makeRoom(r));
 export const ROOM_BY_KEY = Object.fromEntries(ROOMS.map((r) => [r.key, r]));
+// ADD:
+export const ROOM_KEYS = Object.freeze(Object.keys(ROOM_BY_KEY || {}));
 
+export function isValidRoomKey(key) {
+    return ROOM_KEYS.includes(String(key));
+}
+
+export function roomCenter(roomKey) {
+    const r = ROOM_BY_KEY[roomKey];
+    return r ? { x: r.x, y: Number(r.floorY ?? 0), z: r.z } : null;
+}
+
+export function roomKeyAt(x, z) {
+    const r = findRoomAtPoint(x, z);
+    return r?.key ?? null;
+}
+
+// Handy for randomized spawns within a rotated rect room:
+export function randomPointInRoom(roomKey, margin = 0.5) {
+    const r = ROOM_BY_KEY[roomKey];
+    if (!r) return null;
+
+    const rad = ((r.rotDeg || 0) * Math.PI) / 180;
+    const hx = Math.max(0, (r.w / 2) - margin);
+    const hz = Math.max(0, (r.d / 2) - margin);
+
+    const lx = (Math.random() * 2 - 1) * hx;
+    const lz = (Math.random() * 2 - 1) * hz;
+
+    const wx = r.x + (lx * Math.cos(rad) - lz * Math.sin(rad));
+    const wz = r.z + (lx * Math.sin(rad) + lz * Math.cos(rad));
+    const wy = Number(r.floorY ?? 0);
+
+    return { x: wx, y: wy, z: wz };
+}
 /// ----------------- Door normalization -----------------
 const DEG = Math.PI / 180;
 const yawFromSide = (side) => {
@@ -253,3 +287,32 @@ function findMeetingRoom(rooms) {
     ) || null;
 }
 export const MEETING_ROOM_AABB = aabbForRoom(ROOM_BY_KEY["meeting_room"] || findMeetingRoom(ROOMS));
+// --- Rect utils for OUTSIDE_AREA ---
+export function pointInRect(rect, x, z, margin = 0) {
+    if (!rect) return false;
+    return (
+        x >= rect.x - rect.w / 2 + margin &&
+        x <= rect.x + rect.w / 2 - margin &&
+        z >= rect.z - rect.d / 2 + margin &&
+        z <= rect.z + rect.d / 2 - margin
+    );
+}
+
+export function clampToRect(rect, x, z, margin = 0) {
+    const minX = rect.x - rect.w / 2 + margin;
+    const maxX = rect.x + rect.w / 2 - margin;
+    const minZ = rect.z - rect.d / 2 + margin;
+    const maxZ = rect.z + rect.d / 2 - margin;
+    return { x: Math.min(maxX, Math.max(minX, x)), z: Math.min(maxZ, Math.max(minZ, z)) };
+}
+
+export function randomPointInRect(rect, margin = 0.5) {
+    const minX = rect.x - rect.w / 2 + margin;
+    const maxX = rect.x + rect.w / 2 - margin;
+    const minZ = rect.z - rect.d / 2 + margin;
+    const maxZ = rect.z + rect.d / 2 - margin;
+    return {
+        x: minX + Math.random() * (maxX - minX),
+        z: minZ + Math.random() * (maxZ - minZ),
+    };
+}

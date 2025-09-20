@@ -19,7 +19,8 @@ import {
     useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
-    // ❌ useMeetingVoteResolution — keep disabled to avoid double-resolve
+    useTeamSpawns, 
+    useResetSpawnOnLobby,
     useMetersInitAndDailyDecay
 } from "./game/effects";
 import {
@@ -70,6 +71,9 @@ export default function App() {
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
+    // place players at team rooms (Alpha→TeamA, Beta→TeamB, Gamma→TeamC, Delta→TeamD)
+    useTeamSpawns({ ready, inGame, players, setEvents });
+    useResetSpawnOnLobby({ matchPhase, players });
     // useMeetingVoteResolution — intentionally not used here
     useMetersInitAndDailyDecay({
         ready,

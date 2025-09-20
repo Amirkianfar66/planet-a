@@ -2,16 +2,56 @@
 import { useEffect, useRef } from "react";
 import { openLobby, hostAppendEvent } from "../network/playroom";
 import { isHost } from "playroomkit";
+import { spawnPointForTeam } from "../data/teamSpawns";
 
+// ------------------- Constants & small helpers -------------------
 const ROLES = ["Engineer", "Research", "StationDirector", "Officer", "Guard", "FoodSupplier"];
 const clamp01 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
 const isMeter = (k) => k === "oxygen" || k === "power" || k === "cctv";
 
-/* 1) Lobby → ready */
+// ------------------- Team Spawns -------------------
+/**
+ * Host-only: spawn each player at their team room once they enter the game.
+ * Works for late joiners (no run-once guard); uses spawnPointForTeam(team).
+ * Team can live in p.getState("team") / p.state.team / p.team; defaults to "alpha".
+ */
+export function useTeamSpawns({ ready, inGame, players, setEvents }) {
+    useEffect(() => {
+        if (!ready || !inGame || !isHost()) return;
+
+        players.forEach((p) => {
+            if (p.getState?.("spawned")) return;
+
+            const team =
+                p.getState?.("team") ??
+                p.state?.team ??
+                p.team ??
+                "alpha";
+
+            const spawn = spawnPointForTeam(team); // { x, y, z }
+            const prev = p.state || {};
+            p.setState?.({ ...prev, x: spawn.x, y: spawn.y, z: spawn.z, spawned: true }, true);
+
+            const displayName = p.getProfile?.()?.name || "Player";
+            hostAppendEvent(setEvents, `Spawned ${displayName} at team ${team}.`);
+        });
+    }, [ready, inGame, players, setEvents]);
+}
+
+/** When back in the lobby, clear the 'spawned' flag so next match respawns cleanly. */
+export function useResetSpawnOnLobby({ matchPhase, players }) {
+    useEffect(() => {
+        if (matchPhase === "lobby" && isHost()) {
+            players.forEach((p) => p.setState?.("spawned", false, true));
+        }
+    }, [matchPhase, players]);
+}
+
+// ------------------- 1) Lobby → ready -------------------
 export function useLobbyReady(setReady) {
     const onceRef = useRef(false);
     useEffect(() => {
-        if (onceRef.current) return;   // ← prevent dev double-mount duplicate
+        if (onceRef.current) return;   // prevent dev double-mount duplicate
         onceRef.current = true;
         (async () => {
             await openLobby();
@@ -20,7 +60,7 @@ export function useLobbyReady(setReady) {
     }, [setReady]);
 }
 
-/* 2) Day ticker (optional) */
+// ------------------- 2) Day ticker (optional) -------------------
 export function useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents }) {
     const prevDayRef = useRef(dayNumber);
     useEffect(() => {
@@ -33,7 +73,7 @@ export function useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents }) {
     }, [ready, inGame, dayNumber, maxDays, setEvents]);
 }
 
-/* 3) Assign thematic crew roles (once, during Day) */
+// ------------------- 3) Assign crew roles (once during Day) -------------------
 export function useAssignCrewRoles({
     ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents,
 }) {
@@ -57,7 +97,7 @@ export function useAssignCrewRoles({
     }, [ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents]);
 }
 
-/* 4) Process player actions (REPAIR only for now) */
+// ------------------- 4) Process player actions (REPAIR only) -------------------
 export function useProcessActions({
     ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents,
 }) {
@@ -99,8 +139,7 @@ export function useProcessActions({
     }, [ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents]);
 }
 
-/* 5) Resolve voting when meeting timer hits 0
-   (meeting start/stop is handled in timePhaseEffects.js) */
+// ------------------- 5) Resolve meeting vote on timer end -------------------
 export function useMeetingVoteResolution({
     ready, matchPhase, timer, players, dead, setDead, setEvents,
 }) {
@@ -135,7 +174,9 @@ export function useMeetingVoteResolution({
         }
     }, [ready, matchPhase, timer, players, dead, setDead, setEvents]);
 }
-/** 6) Initialize meters to 100% on Day 1, then halve Energy at the start of each new day (host-only) */
+
+// ------------------- 6) Meters init & daily decay -------------------
+/** Initialize meters to 100% on Day 1, then halve Energy at the start of each new day (host-only). */
 export function useMetersInitAndDailyDecay({
     ready,
     inGame,
