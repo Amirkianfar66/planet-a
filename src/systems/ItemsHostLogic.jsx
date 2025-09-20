@@ -6,7 +6,16 @@ import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
 import { useGameClock } from "../systems/dayNightClock";
-import { OUTSIDE_AREA, pointInRect, clampToRect, isOutsideByRoof } from "../map/deckA";
+import {
+  OUTSIDE_AREA, pointInRect, clampToRect, isOutsideByRoof,
+      randomPointInRoom, MEETING_ROOM_AABB
+    } from "../map/deckA"; // has Meeting Room helpers
+
+// id helper (prevents seeding from crashing if id is missing)
+const cryptoRandomId = () =>
+      (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `id_${Math.random().toString(36).slice(2, 10)}`;
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -22,6 +31,16 @@ function ensureOutdoorPos(x, z) {
     const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
     return { x: c.x, z: c.z };
 }
+// Prefer a random point in the Meeting Room (if it exists).
+function spawnInMeetingRoom(fallbackX = 0, fallbackZ = 0) {
+      // try a comfy margin so items don’t touch walls or doors
+      const p = randomPointInRoom("meeting_room", 0.8); // {x,y,z} or null
+      if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) {
+            return { x: p.x, z: p.z };
+      }
+      // otherwise keep previous behavior
+          return ensureOutdoorPos(fallbackX, fallbackZ);
+    }
 
 /* --- HELPERS (single, case-insensitive) --- */
 
@@ -166,23 +185,22 @@ export default function ItemsHostLogic() {
     };
     const setBackpack = (p, arr) => p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
     const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
-    const cryptoRandomId = () =>
-          (typeof crypto !== "undefined" && crypto.randomUUID)
-            ? crypto.randomUUID()
-            : `id_${Math.random().toString(36).slice(2, 10)}`;
+    
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
         if (!host) return;
         const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
         if (needsSeed) {
-            const seeded = INITIAL_ITEMS.map(it => {
-                   const p = ensureOutdoorPos(it.x ?? 0, it.z ?? 0);
+            const seeded = (INITIAL_ITEMS || []).map(it => {
+                const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
                    return {
+                     holder: "",
+                     vx: 0, vy: 0, vz: 0,
+                     y: 0,
                      ...it,
                      x: p.x,
                      z: p.z,
                      id: it.id || cryptoRandomId(),
-                     holder: "",
                    };
          });
             setItems(seeded, true);
