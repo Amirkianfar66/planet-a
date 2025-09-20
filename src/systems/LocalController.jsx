@@ -118,9 +118,9 @@ function LocalControllerInner() {
         // If the network pos is far from local pos (e.g., team spawn), snap locally once.
         const net = getMyPos();
         if (net) {
-            const dx = net.x - pos.x, dy = net.y - pos.y, dz = net.z - pos.z;
-            const distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq > 4 * 4) { // > 4m difference → treat as teleport
+            const dx = net.x - pos.x, dz = net.z - pos.z;
+            const horizSq = dx * dx + dz * dz;
+            if (horizSq > 1.0) { // > ~1m horizontal → treat as teleport
                 setPos(net);
                 setMyPos(net.x, net.y, net.z);
                 publishPlayerPos(net);
