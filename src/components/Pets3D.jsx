@@ -58,9 +58,9 @@ function PetFollower({ pet }) {
 
         // ----- animation floor when seeking -----
         const isSeek = String(pet.mode || "").toLowerCase() === "seekcure";
-        const moving = state.visSpeed > 0.03;                 // ✅ define ONCE here
+        const isWalking = Boolean(pet.walking) || state.visSpeed > 0.03; // host flag OR measured motion
         const ANIM_WALK_FLOOR = 1.1;
-        const animSpeed = isSeek && moving ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
+        const animSpeed = isSeek && isWalking ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
         state.animSpeed = animSpeed;                          // ✅ store for JSX use
 
         state.walkPhase += animSpeed * 4.5 * dt;

@@ -823,7 +823,7 @@ export default function ItemsHostLogic() {
 
                         let { x, y, z } = pet;
                         let yaw = pet.yaw || 0;
-
+                        let walking = false; // <-- default off for this tick
                         const speed = pet.speed ?? 2.2;
                         const hoverY = pet.hover ?? 0.35;
 
@@ -859,11 +859,12 @@ export default function ItemsHostLogic() {
                                 const MAX_SEEK_SPEED = 0.12;      // super slow walk
                                 const step = Math.min(wantDist, MAX_SEEK_SPEED * PET_DT);
                                 // decide if it's "walking" (moving toward target) this tick
-                                const walking = wantDist > 0.03 && step > 0;
+                                walking = wantDist > 0.03 && step > 0;
 
                                 if (wantDist > 0.001) {
                                     x += (dx / dist) * step;
                                     z += (dz / dist) * step;
+                                    
                                 }
 
                                 // lock Y while seeking (no flying, no hover drift)
