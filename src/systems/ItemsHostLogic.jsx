@@ -858,7 +858,7 @@ export default function ItemsHostLogic() {
                                 const wantDist = Math.max(0, dist - stopDist);
 
                                 // ⬇️ PUT THESE 3 LINES HERE (replace your previous step calc)
-                                const SLOW_FACTOR = 1 / 3;                            // 3× slower
+                                const SLOW_FACTOR = 1 / 30;                            // 3× slower
                                 const base = Number(pet.seekSpeed ?? 1.4) * SLOW_FACTOR;
                                 const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // keep the near-target easing
                                 const step = Math.min(wantDist, (base * slow) * PET_DT);
@@ -911,7 +911,7 @@ export default function ItemsHostLogic() {
                         yaw = lerpAngle(yaw, lookAtYaw, 0.25);
 
                         // smooth vertical
-                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.2;
+                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.15;
 
                         updated.set(pet.id, { x, y, z, yaw, mode });
                     }
