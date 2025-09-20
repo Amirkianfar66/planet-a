@@ -208,7 +208,7 @@ export default function ItemsHostLogic() {
                         if (Math.abs(vx) < 0.02) vx = 0;
                         if (Math.abs(vz) < 0.02) vz = 0;
                     }
-                    
+                    return { ...it, x, y, z, vx, vy, vz };
                 }),
                 true
             );
