@@ -858,8 +858,8 @@ export default function ItemsHostLogic() {
                         // SEEK (search → detect → approach)
                         if (mode === "seekCure") {
                             // tuning
-                            const SENSE_RADIUS = 6.0;
-                            const LOST_RADIUS = 8.0;
+                            const SENSE_RADIUS = 20.0;
+                            const LOST_RADIUS = 30.0;
                             const SEARCH_SPEED = 0.18; // m/s
                             const APPROACH = 0.08; // damping to stand-off
                             const STOP_DIST = 0.7;
