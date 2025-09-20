@@ -7,21 +7,19 @@ import {
     hostAppendEvent, requestAction,
 } from "./network/playroom";
 import { isHost, myPlayer, usePlayersList } from "playroomkit";
-
+import PlayersHostInit from "./systems/PlayersHostInit.jsx";
 
 import TimeDebugPanel from "./ui/TimeDebugPanel.jsx";
 import { useGameClock } from "./systems/dayNightClock";
 import Lobby from "./components/Lobby.jsx";
 
-// effects
+// effects (no team spawn hooks here; PlayersHostInit handles spawns)
 import {
     useLobbyReady,
     useDayTicker,
     useAssignCrewRoles,
     useProcessActions,
-    useTeamSpawns, 
-    useResetSpawnOnLobby,
-    useMetersInitAndDailyDecay
+    useMetersInitAndDailyDecay,
 } from "./game/effects";
 import {
     useSyncPhaseToClock,
@@ -30,13 +28,13 @@ import {
 } from "./game/timePhaseEffects";
 
 // UI
-import { TopBar, VotePanel, Centered, VoteResultsPanel } from "./ui";
+import { TopBar, VotePanel, Centered } from "./ui";
 import HUD from "./ui/HUD.jsx";
 
 // items state (source of truth for floor + held items)
 import useItemsSync from "./systems/useItemsSync.js";
 
-// 🔹 NEW: meeting room bounds + my position getter
+// meeting room bounds + my position getter
 import { MEETING_ROOM_AABB } from "./map/deckA";
 import { getMyPos } from "./network/playroom";
 
@@ -51,8 +49,8 @@ export default function App() {
     const [timer, setTimer] = useTimer();
     const { meetingLength } = useLengths();
 
-    const [dead, setDead] = useDead();
-    const { oxygen, power, cctv, setOxygen, setPower, setCCTV } = useMeters();
+    const [dead] = useDead();
+    const { oxygen, power, setOxygen, setPower, setCCTV } = useMeters();
     const [events, setEvents] = useEvents();
     const [rolesAssigned, setRolesAssigned] = useRolesAssigned();
 
@@ -71,10 +69,6 @@ export default function App() {
     useDayTicker({ ready, inGame, dayNumber, maxDays, setEvents });
     useAssignCrewRoles({ ready, phaseLabel, rolesAssigned, players, dead, setRolesAssigned, setEvents });
     useProcessActions({ ready, inGame, players, dead, setOxygen, setPower, setCCTV, setEvents });
-    // place players at team rooms (Alpha→TeamA, Beta→TeamB, Gamma→TeamC, Delta→TeamD)
-    useTeamSpawns({ ready, inGame, players, setEvents });
-    useResetSpawnOnLobby({ matchPhase, players });
-    // useMeetingVoteResolution — intentionally not used here
     useMetersInitAndDailyDecay({
         ready,
         inGame,
@@ -97,14 +91,7 @@ export default function App() {
         }
     }, [ready]);
 
-    // (Optional) host-only quick launch
-    function launchGame() {
-        if (!isHost()) return;
-        setPhase("day", true);
-        hostAppendEvent(setEvents, "Mission launch — Day 1");
-    }
-
-    // === Item presentation for HUD (updated types) ===
+    // === Item presentation for HUD
     const TYPE_COLORS = {
         food: "#22c55e",
         fuel: "#a855f7",
@@ -173,7 +160,7 @@ export default function App() {
     // Also treat locally-flagged dead as dead (extra safety)
     const amDead = dead.includes(myId) || Boolean(meP?.getState?.("dead"));
 
-    // 🔹 NEW: detect whether THIS player is inside the meeting room
+    // Detect whether THIS player is inside the meeting room
     const [inMeetingRoom, setInMeetingRoom] = useState(false);
     useEffect(() => {
         let raf;
@@ -184,7 +171,7 @@ export default function App() {
                 const inside = !!(a && pos &&
                     pos.x >= a.minX && pos.x <= a.maxX &&
                     pos.z >= a.minZ && pos.z <= a.maxZ);
-                setInMeetingRoom(prev => (prev === inside ? prev : inside));
+                setInMeetingRoom((prev) => (prev === inside ? prev : inside));
             } catch {
                 // swallow
             }
@@ -220,6 +207,9 @@ export default function App() {
 
     return (
         <div style={{ height: "100dvh", display: "grid", gridTemplateRows: "auto 1fr" }}>
+            {/* Host-only initializer: teleports players to their team rooms once */}
+            <PlayersHostInit />
+
             <TopBar phase={phaseLabel} timer={timer} players={aliveCount} events={events} />
 
             <div style={{ position: "relative" }}>
@@ -237,7 +227,7 @@ export default function App() {
                 </div>
             </div>
 
-            {/* 🔒 Only show voting UI if: meeting phase, alive, not yet voted, and INSIDE meeting room */}
+            {/* Only show voting UI if: meeting phase, alive, not yet voted, and INSIDE meeting room */}
             {matchPhase === "meeting" && !amDead && !hasVoted && inMeetingRoom && (
                 <VotePanel dead={dead} />
             )}

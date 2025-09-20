@@ -29,8 +29,11 @@ export function useTeamSpawns({ ready, inGame, players, setEvents }) {
                 "alpha";
 
             const spawn = spawnPointForTeam(team); // { x, y, z }
-            const prev = p.state || {};
-            p.setState?.({ ...prev, x: spawn.x, y: spawn.y, z: spawn.z, spawned: true }, true);
+            p.setState?.("x", spawn.x, true);
+            p.setState?.("y", spawn.y, true);
+            p.setState?.("z", spawn.z, true);
+            p.setState?.("spawned", true, true);
+
 
             const displayName = p.getProfile?.()?.name || "Player";
             hostAppendEvent(setEvents, `Spawned ${displayName} at team ${team}.`);
