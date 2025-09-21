@@ -479,7 +479,6 @@
 
 .bp--illustrated .bp__title,
 .bp--illustrated .bp-btn,
-.bp--illustrated .bp-item__name,
 .bp--illustrated .bp__cap {
     font-family: var(--tech-font);
     letter-spacing: .06em;
