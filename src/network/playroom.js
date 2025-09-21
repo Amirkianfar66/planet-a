@@ -8,49 +8,6 @@ import {
 } from "playroomkit";
 import { GUN_OFFSETS } from "../game/gunOffsets";
 
-/* -------------------- Team helpers (canonical id + URL sync) -------------------- */
-const _safe = (v) => String(v ?? "").trim();
-
-/** Normalize "Team A", " team-a ", "TEAM a" => "team-a" (<=32 chars). */
-export const normTeamId = (s) =>
-    _safe(s || "team").toLowerCase().replace(/\s+/g, "-").slice(0, 32);
-
-/** Human-readable label from player state (team → teamName → "Team"). */
-export function getLiveTeamLabel(player = undefined) {
-    const p = player || myPlayer();
-    return _safe(p?.getState?.("team")) || _safe(p?.getState?.("teamName")) || "Team";
-}
-
-/** Canonical id derived from the label. */
-export function getLiveTeamId(player = undefined) {
-    return normTeamId(getLiveTeamLabel(player));
-}
-
-/** Chat channel key for the player’s current team. */
-export function teamChannelKey(player = undefined) {
-    return `chat:${getLiveTeamId(player)}`;
-}
-
-/** Set my player's team label (syncs both "team" and "teamName"). Returns canonical id. */
-export function setMyTeam(label) {
-    const p = myPlayer();
-    const t = _safe(label) || "Team";
-    p.setState("team", t, true);
-    p.setState("teamName", t, true);
-    return normTeamId(t);
-}
-
-/** If URL has ?team=..., apply it to the local player after joining. */
-export function applyTeamFromUrl() {
-    if (typeof window === "undefined") return;
-    try {
-        const u = new URL(window.location.href);
-        const t = _safe(u.searchParams.get("team"));
-        if (!t) return;
-        setMyTeam(t);
-    } catch { /* noop */ }
-}
-
 /* -------------------- Room code helpers -------------------- */
 export async function ensureRoomCodeInUrl(retries = 120) {
     if (typeof window === "undefined") return undefined;
@@ -105,9 +62,6 @@ export async function openLobby() {
 
         await insertCoin({ skipLobby: true, roomCode: roomCodeFromUrl });
         await ensureRoomCodeInUrl();
-
-        // NEW: consume ?team= from URL so everyone joins the intended team
-        applyTeamFromUrl();
     } catch (e) {
         console.error("insertCoin failed:", e);
         throw e;
@@ -356,17 +310,17 @@ export function hostRouteAction(fromPlayer, type, target, setEvents) {
         return true;
     }
     if (type === "ability" && target === "disguise") {
-        hostHandleDisguise({ player: fromPlayer, setEvents });
-        return true;
-    }
+            hostHandleDisguise({ player: fromPlayer, setEvents });
+            return true;
+          }
     if (type === "ability" && target === "arrest") {
-        const players = (window.playroom?.players?.() || []);
-        hostHandleArrest({ officer: fromPlayer, players, setEvents });
-        return true;
+         const players = (window.playroom?.players?.() || []);
+         hostHandleArrest({ officer: fromPlayer, players, setEvents });
+         return true;
     }
     if (type === "ability" && target === "scan") {
-        const players = (window.playroom?.players?.() || []);
-        hostHandleScan({ officer: fromPlayer, players, setEvents });
+         const players = (window.playroom?.players?.() || []);
+         hostHandleScan({ officer: fromPlayer, players, setEvents });
         return true;
     }
     if (type === "ability" && target === "pet_order") {
@@ -648,6 +602,9 @@ export function hostHandleDisguise({ player, setEvents }) {
         }
     } catch { }
 }
+
+/** Extend the host-side router so ItemsHostLogic can just call one function. */
+
 
 /* -------------------- Utility -------------------- */
 export async function waitForLocalPlayer(timeoutMs = 5000) {
