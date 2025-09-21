@@ -1,8 +1,8 @@
 // src/ui/HUD.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
-import { MetersPanel, RolePanel, TeamChatPanel } from ".";
-import BackpackPanelCartoon from "./BackpackPanelCartoon.jsx"; // NEW
+import { MetersPanel, RolePanel, TeamChatPanel, BackpackPanel } from ".";
+
 import { useGameState } from "../game/GameStateProvider";
 import { requestAction as prRequestAction } from "../network/playroom";
 import { getAbilitiesForRole } from "../game/roleAbilities";
@@ -288,7 +288,7 @@ export default function HUD({ game = {} }) {
                     pointerEvents: "auto",
                 }}
             >
-                <BackpackPanelCartoon
+                <BackpackPanel
                     items={items}
                     capacity={capacity}
                     onUse={handleUseItem}

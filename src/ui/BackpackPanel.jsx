@@ -2,10 +2,10 @@
 import "./ui.css";
 
 /**
- * Cartoon-styled Backpack panel
+ * Backpack panel (cartoon style)
  * Props: items, capacity, onUse, onDrop, onThrow, title
  */
-export default function BackpackPanelCartoon({
+export default function BackpackPanel({
     items = [],
     capacity,
     onUse,
@@ -15,13 +15,17 @@ export default function BackpackPanelCartoon({
 }) {
     const [selectedKey, setSelectedKey] = useState(null);
 
+    // Food Tank stays single (not stacked)
     const NO_STACK = new Set(["food_tank"]);
+
+    // Group identical items into stacks; keep NO_STACK singles
     const stacks = useMemo(() => {
         const groups = new Map();
         const singles = [];
         for (const it of items) {
             const type = String(it.type || it.kind || "").trim().toLowerCase();
             const qty = Math.max(1, Number(it.qty) || 1);
+
             if (NO_STACK.has(type)) {
                 singles.push({
                     key: it.id,
@@ -36,6 +40,7 @@ export default function BackpackPanelCartoon({
                 });
                 continue;
             }
+
             const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
             if (!groups.has(key)) {
                 groups.set(key, { key, type, name: it.name || type || "Item", icon: it.icon, qty: 0, ids: [] });
@@ -50,6 +55,7 @@ export default function BackpackPanelCartoon({
 
     const usedSlots = items.length;
 
+    // Display buckets like the reference (Food / Cure / Protection)
     const buckets = useMemo(() => {
         const bucket = { food: [], cure: [], protection: [] };
         for (const g of stacks) {
@@ -60,7 +66,7 @@ export default function BackpackPanelCartoon({
         return bucket;
     }, [stacks]);
 
-    const allInOrder = [
+    const tiles = [
         { label: "FOOD", key: "food", icon: "🥫" },
         { label: "CURE", key: "cure", icon: "🧪" },
         { label: "PROTECTION", key: "protection", icon: "🛡️" },
@@ -82,7 +88,7 @@ export default function BackpackPanelCartoon({
 
                 <div className="bp-inner">
                     <div className="bp-rows">
-                        {allInOrder.map(({ label, key, icon }) => {
+                        {tiles.map(({ label, key, icon }) => {
                             const content = buckets[key];
                             const g = content?.[0];
                             const qty =
