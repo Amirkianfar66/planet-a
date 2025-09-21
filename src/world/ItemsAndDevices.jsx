@@ -246,7 +246,7 @@ function prettyLabel(it) {
 // Single floor item
 // ---------------------------------
 function ItemEntity({ it }) {
-    if (!it || it.holder) return null;
+    if (!it || it.holder || it.hidden) return null; // <-- hide when picked/hidden
     if (String(it.type).toLowerCase() === "pet") return null; // Pets handled by Pets3D
 
     const actionable = canPickUp(it);
@@ -318,6 +318,18 @@ function ItemEntity({ it }) {
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
+    // OPTIONAL: support "optimistic ghost hide" if your InteractionSystem sets window.__ghostItems
+    const [ghostVer, setGhostVer] = useState(0);
+    useEffect(() => {
+        const onGhost = () => setGhostVer((v) => v + 1);
+        if (typeof window !== "undefined") {
+            window.addEventListener("planetA:ghostItems", onGhost);
+            return () => window.removeEventListener("planetA:ghostItems", onGhost);
+        }
+    }, []);
+    const ghostIds =
+        (typeof window !== "undefined" && window.__ghostItems) || new Set();
+
     // Latch fallback until we see any non-pet from sync
     const [useFallback, setUseFallback] = useState(true);
     const hasNonPet =
@@ -333,9 +345,14 @@ export default function ItemsAndDevices() {
     const floorItems = useMemo(
         () =>
             (renderItems || []).filter(
-                (i) => i && !i.holder && String(i.type).toLowerCase() !== "pet"
+                (i) =>
+                    i &&
+                    !i.holder &&                // not held
+                    !i.hidden &&                // not explicitly hidden by host
+                    !ghostIds.has(i.id) &&      // not ghost-hidden (optimistic)
+                    String(i.type).toLowerCase() !== "pet"
             ),
-        [renderItems]
+        [renderItems, ghostVer]
     );
 
     // Debug once when source switches
@@ -377,8 +394,6 @@ export default function ItemsAndDevices() {
             {floorItems.map((it) => (
                 <ItemEntity key={it.id} it={it} />
             ))}
-
-
         </group>
     );
 }
