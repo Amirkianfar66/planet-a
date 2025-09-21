@@ -1,12 +1,37 @@
 ﻿// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan } from "../network/playroom";
+import {
+    hostHandleShoot,
+    readActionPayload,
+    hostHandleBite,
+    usePhase,
+    hostHandleArrest,
+    hostHandleDisguise,
+    hostHandleScan,
+} from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
-import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
+import {
+    PICKUP_RADIUS,
+    DEVICE_RADIUS,
+    BAG_CAPACITY,
+    PICKUP_COOLDOWN,
+} from "../data/constants.js";
 import { useGameClock } from "../systems/dayNightClock";
-import { isOutsideByRoof } from "../map/deckA"; // inside/outside by roof
+import {
+    OUTSIDE_AREA,
+    pointInRect,
+    clampToRect,
+    isOutsideByRoof,
+    randomPointInRoom,
+} from "../map/deckA";
+
+// id helper (prevents seeding from crashing if id is missing)
+const cryptoRandomId = () =>
+    (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `id_${Math.random().toString(36).slice(2, 10)}`;
 
 const FLOOR_Y = 0;
 const GRAV = 16;
@@ -15,10 +40,28 @@ const THROW_SPEED = 8;
 const TANK_CAP_DEFAULT = 6;
 const UNITS_PER_LOAD = 2;
 
+// Keep spawned things inside the designated outdoor rectangle.
+const OUT_MARGIN = 0.75; // small buffer so they don't hug the edge
+function ensureOutdoorPos(x, z) {
+    if (pointInRect(OUTSIDE_AREA, x, z, OUT_MARGIN)) return { x, z };
+    const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
+    return { x: c.x, z: c.z };
+}
+
+// Prefer a random point in the Meeting Room (if it exists).
+function spawnInMeetingRoom(fallbackX = 0, fallbackZ = 0) {
+    const p = randomPointInRoom("meeting_room", 0.8); // {x,y,z} or null
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) {
+        return { x: p.x, z: p.z };
+    }
+    return ensureOutdoorPos(fallbackX, fallbackZ);
+}
+
 /* --- HELPERS (single, case-insensitive) --- */
 
 // normalize type match (case-insensitive)
-const isType = (v, t) => String(v || "").toLowerCase() === String(t || "").toLowerCase();
+const isType = (v, t) =>
+    String(v || "").toLowerCase() === String(t || "").toLowerCase();
 
 // Tank helpers
 const TANK_ACCEPTS = {
@@ -26,22 +69,20 @@ const TANK_ACCEPTS = {
     fuel_tank: "fuel",
     protection_tank: "protection",
 };
-const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+const isTankType = (t) =>
+    t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
 
 // Find an actual world item of a given type held by player p
 const findHeldItemByType = (type, p, itemsList) =>
     (itemsList || []).find((i) => isType(i.type, type) && i.holder === p.id);
 
 // Remove exactly ONE unit from the backpack.
-// Works for {id,type} entries and stacked {type, qty:n} entries.
 const removeOneByType = (bp, type, idToRemove) => {
     if (!Array.isArray(bp)) return [];
-    // Prefer exact id if available
     if (idToRemove) {
         const idx = bp.findIndex((b) => b.id === idToRemove);
         if (idx !== -1) return bp.slice(0, idx).concat(bp.slice(idx + 1));
     }
-    // Otherwise, remove/decrement the first matching type (case-insensitive)
     const idx = bp.findIndex((b) => isType(b.type, type));
     if (idx === -1) return bp;
     const entry = bp[idx];
@@ -59,7 +100,14 @@ const removeOneByType = (bp, type, idToRemove) => {
  * Adds UNITS_PER_LOAD to tank (clamped to cap) and removes one matching item from backpack.
  * Returns true if a load happened.
  */
-const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack, setItems }) => {
+const tryLoadIntoTank = ({
+    player: p,
+    tank,
+    itemsList,
+    getBackpack,
+    setBackpack,
+    setItems,
+}) => {
     const cap = Number(tank.cap ?? TANK_CAP_DEFAULT);
     const stored = Number(tank.stored || 0);
     if (stored >= cap) return false;
@@ -85,18 +133,19 @@ const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack,
     if (entity && entity.holder === p.id) {
         // consume the world entity
         setItems(
-            (prev) => prev.map((j) => (j.id === entity.id ? { ...j, holder: "_gone_", y: -999 } : j)),
+            (prev) =>
+                prev.map((j) =>
+                    j.id === entity.id ? { ...j, holder: "_gone_", y: -999 } : j
+                ),
             true
         );
         removed = true;
         nextBp = removeOneByType(bp, want, entry?.id);
 
-        // clear carry if it pointed at the consumed item
         if (String(p.getState("carry") || "") === entity.id) {
             p.setState("carry", "", true);
         }
     } else {
-        // fallback: decrement backpack even if entity couldn't be found
         const after = removeOneByType(bp, want, entry?.id);
         removed = after !== bp;
         nextBp = after;
@@ -105,12 +154,17 @@ const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack,
     if (!removed) return false;
 
     setBackpack(p, nextBp);
-    // increment using live j.stored and clamp to capacity
     setItems(
         (prev) =>
             prev.map((j) =>
                 j.id === tank.id
-                    ? { ...j, stored: Math.min(Number(j.cap ?? cap), Number(j.stored || 0) + addUnits) }
+                    ? {
+                        ...j,
+                        stored: Math.min(
+                            Number(j.cap ?? cap),
+                            Number(j.stored || 0) + addUnits
+                        ),
+                    }
                     : j
             ),
         true
@@ -119,14 +173,14 @@ const tryLoadIntoTank = ({ player: p, tank, itemsList, getBackpack, setBackpack,
     return true;
 };
 
-/* ---- NEW: role helper for Officer/Guard/Security ---- */
+/* ---- role helper for Officer/Guard/Security ---- */
 const isOfficerRole = (r) => {
     const s = String(r || "").toLowerCase();
     return s.includes("officer") || s.includes("guard") || s.includes("security");
 };
-/* --- END HELPERS --- */
 
 export default function ItemsHostLogic() {
+    const seededOnce = useRef(false);
     const host = isHost();
     const players = usePlayersList(true);
     const [phase] = usePhase();
@@ -135,6 +189,8 @@ export default function ItemsHostLogic() {
     const itemsRef = useRef(items);
     useEffect(() => {
         itemsRef.current = items;
+        // lightweight global read hook for host handlers
+        window.__itemsCache__ = () => itemsRef.current || [];
     }, [items]);
 
     const playersRef = useRef(players);
@@ -146,58 +202,79 @@ export default function ItemsHostLogic() {
 
     // Day/phase tracking (energy decay uses this)
     const dayNumber = useGameClock((s) => s.dayNumber);
-    const prevDayRef = useRef(dayNumber);
     const clockPhase = useGameClock((s) => s.phase);
-    const prevPhaseRef = useRef(clockPhase);
 
     const getBackpack = (p) => {
         const raw = p?.getState("backpack");
         return Array.isArray(raw) ? raw : [];
     };
-    const setBackpack = (p, arr) => p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
-    const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
+    const setBackpack = (p, arr) =>
+        p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
+    const hasCapacity = (p) =>
+        getBackpack(p).length < Number(BAG_CAPACITY || 8);
 
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
         if (!host) return;
-        const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
-        if (needsSeed) {
-            const seeded = (INITIAL_ITEMS || []).map((it) => ({
-                holder: null,
+        if (seededOnce.current) return;
+
+        const list = itemsRef.current || [];
+        if (Array.isArray(list) && list.length > 0) {
+            // already have items; nothing to do
+            seededOnce.current = true;
+            return;
+        }
+
+        const seeded = (INITIAL_ITEMS || []).map((it) => {
+            const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
+            return {
+                holder: "",
                 vx: 0,
                 vy: 0,
                 vz: 0,
                 y: 0,
                 ...it,
-            }));
-            setItems(seeded, true);
-            console.log("[HOST] Seeded", seeded.length, "items.");
-        }
+                x: p.x,
+                z: p.z,
+                id: it.id || cryptoRandomId(),
+            };
+        });
+
+        setItems((prev) => {
+            const base = Array.isArray(prev) ? prev : [];
+            const existingIds = new Set(base.map((i) => i?.id));
+            const add = seeded.filter((i) => !existingIds.has(i.id));
+            return base.length ? base : [...add];
+        }, true);
+
+        seededOnce.current = true;
+        console.log("[ITEMS] Seeded items. Count:", seeded.length);
     }, [host, setItems]);
 
     // Simple throw physics
     useEffect(() => {
         if (!host) return;
         const h = setInterval(() => {
-            setItems((prev) =>
-                prev.map((it) => {
-                    if (it.holder) return it;
-                    let { x, y = FLOOR_Y, z, vx = 0, vy = 0, vz = 0 } = it;
-                    if (!(vx || vy || vz)) return it;
-                    vy -= GRAV * DT;
-                    x += vx * DT;
-                    y += vy * DT;
-                    z += vz * DT;
-                    if (y <= FLOOR_Y) {
-                        y = FLOOR_Y;
-                        vy = 0;
-                        vx *= 0.6;
-                        vz *= 0.6;
-                        if (Math.abs(vx) < 0.02) vx = 0;
-                        if (Math.abs(vz) < 0.02) vz = 0;
-                    }
-                    return { ...it, x, y, z, vx, vy, vz };
-                }),
+            setItems(
+                (prev) =>
+                    prev.map((it) => {
+                        if (it.holder) return it;
+                        let { x, y = FLOOR_Y, z, vx = 0, vy = 0, vz = 0 } = it;
+                        if (!(vx || vy || vz)) return it;
+                        vy -= GRAV * DT;
+                        x += vx * DT;
+                        y += vy * DT;
+                        z += vz * DT;
+                        if (y <= FLOOR_Y) {
+                            y = FLOOR_Y;
+                            vy = 0;
+                            vx *= 0.6;
+                            vz *= 0.6;
+                            if (Math.abs(vx) < 0.02) vx = 0;
+                            if (Math.abs(vz) < 0.02) vz = 0;
+                        }
+                        return { ...it, x, y, z, vx, vy, vz };
+                    }),
                 true
             );
         }, DT * 1000);
@@ -209,7 +286,9 @@ export default function ItemsHostLogic() {
         if (!host) return;
 
         const readClock = () =>
-            (typeof useGameClock.getState === "function" ? useGameClock.getState() : null);
+        (typeof useGameClock.getState === "function"
+            ? useGameClock.getState()
+            : null);
 
         let lastDay = Number(readClock()?.dayNumber ?? 0);
 
@@ -224,7 +303,9 @@ export default function ItemsHostLogic() {
                 const next = Math.max(0, Math.min(100, cur - 25));
                 pl.setState?.("energy", next, true);
             }
-            console.log(`[HOST] Day ${d}: reduced personal energy by 25 for all alive players.`);
+            console.log(
+                `[HOST] Day ${d}: reduced personal energy by 25 for all alive players.`
+            );
         };
 
         let rafId = 0;
@@ -301,7 +382,7 @@ export default function ItemsHostLogic() {
         return () => clearInterval(timer);
     }, [host]);
 
-    /* -------- NEW: give Officers one CCTV camera at the start of each day -------- */
+    /* -------- give Officers one CCTV camera at the start of each day -------- */
     useEffect(() => {
         if (!host) return;
 
@@ -314,7 +395,7 @@ export default function ItemsHostLogic() {
             if (!isOfficerRole(role)) continue;
 
             const camId = `cam_${p.id}_d${dayNumber}`;
-            const bp = (p.getState?.("backpack") || []);
+            const bp = p.getState?.("backpack") || [];
             const hasTodayCam = Array.isArray(bp) && bp.some((b) => b.id === camId);
 
             if (!hasTodayCam) {
@@ -338,412 +419,454 @@ export default function ItemsHostLogic() {
 
         const loop = () => {
             if (cancelled) return;
+            try {
+                const everyone = [...(playersRef.current || [])];
+                const self = myPlayer();
+                if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
-            const everyone = [...(playersRef.current || [])];
-            const self = myPlayer();
-            if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
-
-            // Ensure baseline per-player state (kept for late joiners)
-            for (const pl of everyone) {
-                const hasLife = pl.getState?.("life");
-                if (hasLife === undefined || hasLife === null) {
-                    pl.setState?.("life", 100, true);
-                }
-                const role = String(pl.getState?.("role") || "");
-                const arrests = pl.getState?.("arrestsLeft");
-                if (role === "StationDirector" && (arrests === undefined || arrests === null)) {
-                    pl.setState?.("arrestsLeft", 1, true);
-                }
-                // keep oxygen present for late joiners
-                const oxy = pl.getState?.("oxygen");
-                if (oxy === undefined || oxy === null) {
-                    pl.setState?.("oxygen", 100, true);
-                }
-            }
-
-            const list = itemsRef.current || [];
-            const findItem = (id) => list.find((i) => i.id === id);
-
-            // unique id helper (kept)
-            const mkId = (prefix) => {
-                const existing = new Set((itemsRef.current || []).map((i) => i.id));
-                let i = 1,
-                    id = `${prefix}${i}`;
-                while (existing.has(id)) {
-                    i += 1;
-                    id = `${prefix}${i}`;
-                }
-                return id;
-            };
-
-            for (const p of everyone) {
-                const reqId = Number(p?.getState("reqId") || 0);
-                if (!reqId) continue;
-                if (processed.current.get(p.id) === reqId) continue;
-
-                const type = String(p.getState("reqType") || "");
-                const target = String(p.getState("reqTarget") || "");
-                const value = Number(p.getState("reqValue") || 0);
-
-                const px = Number(p.getState("x") || 0);
-                const py = Number(p.getState("y") || 0);
-                const pz = Number(p.getState("z") || 0);
-
-                // --------- ABILITIES ----------
-                if (type === "ability" && target === "shoot") {
-                    const payload = readActionPayload(p);
-                    hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-                if (type === "ability" && target === "bite") {
-                    hostHandleBite({ biter: p, setEvents: undefined, players: everyone });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-                // ABILITY: disguise (infected-only cosmetic)
-                if (type === "ability" && target === "disguise") {
-                    hostHandleDisguise({ player: p, setEvents: undefined });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                if (type === "ability" && target === "arrest") {
-                    hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                // ABILITY: scan (Officer blood test)
-                if (type === "ability" && target === "scan") {
-                    hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-                // --------- END ABILITIES ----------
-
-                // CONTAINER (any Tank) — stationary, load-only, must be near
-                if (type === "container") {
-                    const payload = readActionPayload(p) || {};
-                    const { containerId, op } = payload || {};
-                    const tank = findItem(String(containerId));
-                    if (!tank || !isTankType(tank.type)) {
-                        processed.current.set(p.id, reqId);
-                        continue;
+                // Ensure baseline per-player state (kept for late joiners)
+                for (const pl of everyone) {
+                    const hasLife = pl.getState?.("life");
+                    if (hasLife === undefined || hasLife === null) {
+                        pl.setState?.("life", 100, true);
                     }
-
-                    // must be close to the stationary tank
-                    const dx = px - tank.x,
-                        dz = pz - tank.z;
-                    if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
-                        processed.current.set(p.id, reqId);
-                        continue;
+                    const role = String(pl.getState?.("role") || "");
+                    const arrests = pl.getState?.("arrestsLeft");
+                    if (role === "StationDirector" && (arrests === undefined || arrests === null)) {
+                        pl.setState?.("arrestsLeft", 1, true);
                     }
+                    const oxy = pl.getState?.("oxygen");
+                    if (oxy === undefined || oxy === null) {
+                        pl.setState?.("oxygen", 100, true);
+                    }
+                }
 
-                    let changed = false;
-                    if (op === "load" || op === "toggle") {
-                        changed = tryLoadIntoTank({
-                            player: p,
-                            tank,
-                            itemsList: list,
-                            getBackpack,
-                            setBackpack,
-                            setItems,
+                const list = itemsRef.current || [];
+                const findItem = (id) => list.find((i) => i && i.id === id);
+
+                // unique id helper
+                const mkId = (prefix) => {
+                    const existing = new Set((itemsRef.current || []).map((i) => i.id));
+                    let i = 1,
+                        id = `${prefix}${i}`;
+                    while (existing.has(id)) {
+                        i += 1;
+                        id = `${prefix}${i}`;
+                    }
+                    return id;
+                };
+
+                for (const p of everyone) {
+                    const reqId = Number(p?.getState("reqId") || 0);
+                    if (!reqId) continue;
+                    if (processed.current.get(p.id) === reqId) continue;
+
+                    const type = String(p.getState("reqType") || "");
+                    const target = String(p.getState("reqTarget") || "");
+                    const value = Number(p.getState("reqValue") || 0);
+
+                    const px = Number(p.getState("x") || 0);
+                    const py = Number(p.getState("y") || 0);
+                    const pz = Number(p.getState("z") || 0);
+
+                    // --------- ABILITIES ----------
+                    if (type === "ability" && target === "shoot") {
+                        const payload = readActionPayload(p);
+                        hostHandleShoot({
+                            shooter: p,
+                            payload,
+                            setEvents: undefined,
+                            players: everyone,
                         });
-                    }
-
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                // PICKUP
-                if (type === "pickup") {
-                    const nowSec = Math.floor(Date.now() / 1000);
-                    let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000);
-                    if (nowSec < until) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-
-                    const it = findItem(target);
-                    if (!it) {
+                    if (type === "ability" && target === "bite") {
+                        hostHandleBite({ biter: p, setEvents: undefined, players: everyone });
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+                    // disguise (infected-only cosmetic)
+                    if (type === "ability" && target === "disguise") {
+                        hostHandleDisguise({ player: p, setEvents: undefined });
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    if (type === "ability" && target === "arrest") {
+                        hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    // Officer blood test
+                    if (type === "ability" && target === "scan") {
+                        hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    // --------- END ABILITIES ----------
 
-                    // Tanks are NOT pickable — treat P near any tank as "load one matching item"
-                    if (isTankType(it.type)) {
-                        const dx = px - it.x,
-                            dz = pz - it.z;
-                        if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
-                            const ok = tryLoadIntoTank({
+                    // CONTAINER (any Tank) — stationary, load-only, must be near
+                    if (type === "container") {
+                        const payload = readActionPayload(p) || {};
+                        const { containerId, op } = payload || {};
+                        const tank = findItem(String(containerId));
+                        if (!tank || !isTankType(tank.type)) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        const dx = px - tank.x,
+                            dz = pz - tank.z;
+                        if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        let changed = false;
+                        if (op === "load" || op === "toggle") {
+                            changed = tryLoadIntoTank({
                                 player: p,
-                                tank: it,
+                                tank,
                                 itemsList: list,
                                 getBackpack,
                                 setBackpack,
                                 setItems,
                             });
-                            if (ok) {
-                                p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                            }
-                        }
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-
-                    if (it.holder && it.holder !== p.id) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-                    if (!hasCapacity(p)) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-
-                    const dx = px - it.x,
-                        dz = pz - it.z;
-                    if (Math.hypot(dx, dz) > PICKUP_RADIUS) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-
-                    setItems(
-                        (prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
-                        true
-                    );
-
-                    const carry = String(p.getState("carry") || "");
-                    if (!carry) p.setState("carry", it.id, true);
-
-                    // add to backpack (with role bonuses)
-                    const bp = getBackpack(p);
-                    if (!bp.find((b) => b.id === it.id)) {
-                        // put the picked world item in as usual
-                        let nextBp = [...bp, { id: it.id, type: it.type }];
-
-                        const role = String(p.getState?.("role") || "");
-
-                        // --- FoodSupplier bonus: +1 FOOD (stacked, no extra slot)
-                        if (role === "FoodSupplier" && isType(it.type, "food")) {
-                            const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
-                            if (idx >= 0) {
-                                const entry = nextBp[idx];
-                                nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
-                            } else {
-                                nextBp.push({ type: "food", qty: 1, bonus: true });
-                            }
                         }
 
-                        // --- Engineer bonus: +1 FUEL (stacked, no extra slot)
-                        if (role === "Engineer" && isType(it.type, "fuel")) {
-                            const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
-                            if (idx >= 0) {
-                                const entry = nextBp[idx];
-                                nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
-                            } else {
-                                nextBp.push({ type: "fuel", qty: 1, bonus: true });
-                            }
-                        }
-
-                        setBackpack(p, nextBp);
-                    }
-
-
-
-                    p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                // DROP
-                if (type === "drop") {
-                    const it = findItem(target);
-                    if (!it || it.holder !== p.id) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
 
-                    setItems(
-                        (prev) =>
-                            prev.map((j) =>
-                                j.id === it.id
-                                    ? {
-                                        ...j,
-                                        holder: null,
-                                        x: px,
-                                        y: Math.max(py + 0.5, FLOOR_Y + 0.01),
-                                        z: pz,
-                                        vx: 0,
-                                        vy: 0,
-                                        vz: 0,
-                                    }
-                                    : j
-                            ),
-                        true
-                    );
-
-                    if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                    setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                // THROW
-                if (type === "throw") {
-                    const it = findItem(target);
-                    if (!it || it.holder !== p.id) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-                    const yaw = Number(p.getState("yaw") || value || 0);
-                    const vx = Math.sin(yaw) * THROW_SPEED;
-                    const vz = Math.cos(yaw) * THROW_SPEED;
-                    const vy = 4.5;
-
-                    setItems(
-                        (prev) =>
-                            prev.map((j) =>
-                                j.id === it.id
-                                    ? {
-                                        ...j,
-                                        holder: null,
-                                        x: px,
-                                        y: Math.max(py + 1.1, FLOOR_Y + 0.2),
-                                        z: pz,
-                                        vx,
-                                        vy,
-                                        vz,
-                                    }
-                                    : j
-                            ),
-                        true
-                    );
-
-                    if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                    setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
-                // USE (includes CCTV place)
-                if (type === "use") {
-                    const [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
-                    const it = findItem(idStr);
-                    const bp = getBackpack(p);
-
-                    // --- NEW: PLACE CCTV from backpack (or while held) ---
-                    if (kind === "place") {
-                        // Allowed if:
-                        //  - item exists and is held by player, OR
-                        //  - camera entry exists in backpack (id match) even if not a world item yet
-                        const heldOk = !!it && it.holder === p.id && it.type === "cctv";
-                        const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
-
-                        if (!heldOk && !bpCam) {
+                    // PICKUP
+                    if (type === "pickup") {
+                        const nowSec = Math.floor(Date.now() / 1000);
+                        let until = Number(p.getState("pickupUntil") || 0);
+                        if (until > 1e11) until = Math.floor(until / 1000);
+                        if (nowSec < until) {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        const yaw = Number(p.getState("yaw") || 0);
-                        const fdx = Math.sin(yaw), fdz = Math.cos(yaw);
-
-                        // If camera not a world item yet, spawn it; otherwise move+drop the held one to mounted pose
+                        const it = findItem(target);
                         if (!it) {
-                            setItems((prev) => [
-                                ...prev,
-                                {
-                                    id: idStr,
-                                    type: "cctv",
-                                    name: "CCTV Camera",
-                                    holder: null,
-                                    x: px + fdx * 0.6,
-                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                    z: pz + fdz * 0.6,
-                                    yaw,
-                                    placed: true,
-                                    owner: p.id,
-                                    day: useGameClock.getState().dayNumber,
-                                },
-                            ], true);
-                        } else {
-                            setItems((prev) =>
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+                        // Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                        if (isTankType(it.type)) {
+                            const dx = px - it.x,
+                                dz = pz - it.z;
+                            if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                                const ok = tryLoadIntoTank({
+                                    player: p,
+                                    tank: it,
+                                    itemsList: list,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                                if (ok) {
+                                    p.setState(
+                                        "pickupUntil",
+                                        nowSec + Number(PICKUP_COOLDOWN || 20),
+                                        true
+                                    );
+                                }
+                            }
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        if (it.holder && it.holder !== p.id) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+                        if (!hasCapacity(p)) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        const dx = px - it.x,
+                            dz = pz - it.z;
+                        if (Math.hypot(dx, dz) > PICKUP_RADIUS) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        setItems(
+                            (prev) =>
+                                prev.map((j) =>
+                                    j.id === it.id
+                                        ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 }
+                                        : j
+                                ),
+                            true
+                        );
+
+                        const carry = String(p.getState("carry") || "");
+                        if (!carry) p.setState("carry", it.id, true);
+
+                        // add to backpack (with role bonuses)
+                        const bp = getBackpack(p);
+                        if (!bp.find((b) => b.id === it.id)) {
+                            let nextBp = [...bp, { id: it.id, type: it.type }];
+
+                            const role = String(p.getState?.("role") || "");
+                            // FoodSupplier bonus: +1 FOOD (stacked)
+                            if (role === "FoodSupplier" && isType(it.type, "food")) {
+                                const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
+                                if (idx >= 0) {
+                                    const entry = nextBp[idx];
+                                    nextBp[idx] = {
+                                        ...entry,
+                                        qty: Number(entry?.qty || 1) + 1,
+                                        bonus: true,
+                                    };
+                                } else {
+                                    nextBp.push({ type: "food", qty: 1, bonus: true });
+                                }
+                            }
+                            // Engineer bonus: +1 FUEL (stacked)
+                            if (role === "Engineer" && isType(it.type, "fuel")) {
+                                const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
+                                if (idx >= 0) {
+                                    const entry = nextBp[idx];
+                                    nextBp[idx] = {
+                                        ...entry,
+                                        qty: Number(entry?.qty || 1) + 1,
+                                        bonus: true,
+                                    };
+                                } else {
+                                    nextBp.push({ type: "fuel", qty: 1, bonus: true });
+                                }
+                            }
+
+                            setBackpack(p, nextBp);
+                        }
+
+                        p.setState(
+                            "pickupUntil",
+                            nowSec + Number(PICKUP_COOLDOWN || 20),
+                            true
+                        );
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
+                    // DROP
+                    if (type === "drop") {
+                        const it = findItem(target);
+                        if (!it || it.holder !== p.id) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        setItems(
+                            (prev) =>
                                 prev.map((j) =>
                                     j.id === it.id
                                         ? {
                                             ...j,
                                             holder: null,
-                                            x: px + fdx * 0.6,
-                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                            z: pz + fdz * 0.6,
-                                            vx: 0, vy: 0, vz: 0,
-                                            yaw,
-                                            placed: true,
-                                            owner: p.id,
+                                            x: px,
+                                            y: Math.max(py + 0.5, FLOOR_Y + 0.01),
+                                            z: pz,
+                                            vx: 0,
+                                            vy: 0,
+                                            vz: 0,
                                         }
                                         : j
                                 ),
-                                true);
+                            true
+                        );
+
+                        if (String(p.getState("carry") || "") === it.id)
+                            p.setState("carry", "", true);
+                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
+                    // THROW
+                    if (type === "throw") {
+                        const it = findItem(target);
+                        if (!it || it.holder !== p.id) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+                        const yaw = Number(p.getState("yaw") || value || 0);
+                        const vx = Math.sin(yaw) * THROW_SPEED;
+                        const vz = Math.cos(yaw) * THROW_SPEED;
+                        const vy = 4.5;
+
+                        setItems(
+                            (prev) =>
+                                prev.map((j) =>
+                                    j.id === it.id
+                                        ? {
+                                            ...j,
+                                            holder: null,
+                                            x: px,
+                                            y: Math.max(py + 1.1, FLOOR_Y + 0.2),
+                                            z: pz,
+                                            vx,
+                                            vy,
+                                            vz,
+                                        }
+                                        : j
+                                ),
+                            true
+                        );
+
+                        if (String(p.getState("carry") || "") === it.id)
+                            p.setState("carry", "", true);
+                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+
+                    // USE (includes CCTV place)
+                    if (type === "use") {
+                        const [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
+                        const it = findItem(idStr);
+                        const bp = getBackpack(p);
+
+                        // PLACE CCTV from backpack (or while held)
+                        if (kind === "place") {
+                            const heldOk = !!it && it.holder === p.id && it.type === "cctv";
+                            const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
+
+                            if (!heldOk && !bpCam) {
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
+
+                            const yaw = Number(p.getState("yaw") || 0);
+                            const fdx = Math.sin(yaw),
+                                fdz = Math.cos(yaw);
+
+                            if (!it) {
+                                setItems(
+                                    (prev) => [
+                                        ...prev,
+                                        {
+                                            id: idStr,
+                                            type: "cctv",
+                                            name: "CCTV Camera",
+                                            holder: null,
+                                            x: px + fdx * 0.6,
+                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                            z: pz + fdz * 0.6,
+                                            yaw,
+                                            placed: true,
+                                            owner: p.id,
+                                            day: useGameClock.getState().dayNumber,
+                                        },
+                                    ],
+                                    true
+                                );
+                            } else {
+                                setItems(
+                                    (prev) =>
+                                        prev.map((j) =>
+                                            j.id === it.id
+                                                ? {
+                                                    ...j,
+                                                    holder: null,
+                                                    x: px + fdx * 0.6,
+                                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                                    z: pz + fdz * 0.6,
+                                                    vx: 0,
+                                                    vy: 0,
+                                                    vz: 0,
+                                                    yaw,
+                                                    placed: true,
+                                                    owner: p.id,
+                                                }
+                                                : j
+                                        ),
+                                    true
+                                );
+                            }
+
+                            setBackpack(p, bp.filter((b) => b.id !== idStr));
+                            if (String(p.getState("carry") || "") === idStr)
+                                p.setState("carry", "", true);
+
+                            processed.current.set(p.id, reqId);
+                            continue;
                         }
 
-                        // Remove from backpack and clear carry if needed
-                        setBackpack(p, bp.filter((b) => b.id !== idStr));
-                        if (String(p.getState("carry") || "") === idStr) p.setState("carry", "", true);
+                        // From here down: legacy "use" flows that require a held world item
+                        if (!it || it.holder !== p.id) {
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
 
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-                    // --- END PLACE CCTV ---
+                        // eat food
+                        if (kind === "eat" && it.type === "food") {
+                            setItems(
+                                (prev) =>
+                                    prev.map((j) =>
+                                        j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j
+                                    ),
+                                true
+                            );
+                            setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                            if (String(p.getState("carry") || "") === it.id)
+                                p.setState("carry", "", true);
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
 
-                    // From here down: legacy "use" flows that require a held world item
-                    if (!it || it.holder !== p.id) {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-
-                    // eat food
-                    if (kind === "eat" && it.type === "food") {
-                        setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
-                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                        if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-
-                    // use on device (reactor/medbay/shield/etc.)
-                    const dev = DEVICES.find((d) => d.id === kind);
-                    if (dev) {
-                        const dx = px - dev.x, dz = pz - dev.z;
-                        const r = Number(dev.radius || DEVICE_RADIUS);
-                        if (dx * dx + dz * dz <= r * r) {
-                            const eff = USE_EFFECTS?.[it.type]?.[dev.type];
-                            if (eff) {
-                                // Apply effects in your meters system if desired
-                                // Consume item
-                                setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j)), true);
-                                setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                        // use on device (reactor/medbay/shield/etc.)
+                        const dev = DEVICES.find((d) => d.id === kind);
+                        if (dev) {
+                            const dx = px - dev.x,
+                                dz = pz - dev.z;
+                            const r = Number(dev.radius || DEVICE_RADIUS);
+                            if (dx * dx + dz * dz <= r * r) {
+                                const eff = USE_EFFECTS?.[it.type]?.[dev.type];
+                                if (eff) {
+                                    // Apply effects in your meters system if desired
+                                    // Consume item
+                                    setItems(
+                                        (prev) =>
+                                            prev.map((j) =>
+                                                j.id === it.id
+                                                    ? { ...j, holder: "_used_", y: -999 }
+                                                    : j
+                                            ),
+                                        true
+                                    );
+                                    setBackpack(
+                                        p,
+                                        getBackpack(p).filter((b) => b.id !== it.id)
+                                    );
+                                    if (String(p.getState("carry") || "") === it.id)
+                                        p.setState("carry", "", true);
+                                }
                             }
                         }
+                        processed.current.set(p.id, reqId);
+                        continue;
                     }
+
+                    // Fallback
                     processed.current.set(p.id, reqId);
-                    continue;
                 }
-
-                // Fallback
-                processed.current.set(p.id, reqId);
+            } catch (err) {
+                console.error("[HOST] Items loop crashed:", err);
+            } finally {
+                timerId = setTimeout(loop, 50);
             }
-
-            // schedule next tick
-            timerId = setTimeout(loop, 50);
-        };
+        }; // end loop
 
         loop();
 
-        // cleanup
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);
