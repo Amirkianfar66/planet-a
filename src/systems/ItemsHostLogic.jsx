@@ -387,6 +387,8 @@ export default function ItemsHostLogic() {
 
         const loop = () => {
             if (cancelled) return;
+            try {
+
 
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
@@ -1070,16 +1072,25 @@ export default function ItemsHostLogic() {
 
 
 
+            // --- END PET AI ---
         } catch (err) {
-                console.error("[HOST] Items loop crashed:", err);
-                // swallow to avoid killing the loop for everyone (P pickup stops otherwise)
-                  } finally {
-                // ALWAYS reschedule, even if something above threw
-                    timerId = setTimeout(loop, 50);
-              }
-        };
+            console.error("[HOST] Items loop crashed:", err);
+            // keep running even if one tick fails (prevents P from breaking)
+        } finally {
+            // ALWAYS reschedule the next tick here
+            timerId = setTimeout(loop, 50);
+        }
+    }; // <== end of const loop
 
-        loop();
+    // kick off the loop once; it will keep rescheduling itself
+    loop();
+
+    // cleanup
+    return () => {
+        cancelled = true;
+        if (timerId) clearTimeout(timerId);
+    };
+
 
         // cleanup
         return () => {
