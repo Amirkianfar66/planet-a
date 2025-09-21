@@ -573,67 +573,61 @@ export default function ItemsHostLogic() {
 
                 // PICKUP
                 if (type === "pickup") {
-                    // super simple pickup: nearest free item (any type, incl. pets)
-                    const list = itemsRef.current || [];
-
-                    // player position
-                    const px = Number(p.getState("x") || 0);
-                    const pz = Number(p.getState("z") || 0);
-
-                    // try explicit target first if it's free and near
-                    let pick = null;
-                    let bestD2 = Infinity;
-
-                    const direct = list.find(i => i && i.id === target && !i.holder);
-                    if (direct) {
-                        const dx = px - direct.x, dz = pz - direct.z;
-                        const d2 = dx * dx + dz * dz;
-                        if (d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
-                            pick = direct;
-                            bestD2 = d2;
-                        }
-                    }
-
-                    // otherwise pick nearest free item within radius
-                    if (!pick) {
-                        for (const it of list) {
-                            if (!it || it.holder) continue; // must be free
-                            const dx = px - it.x, dz = pz - it.z;
-                            const d2 = dx * dx + dz * dz;
-                            if (d2 < bestD2 && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
-                                pick = it;
-                                bestD2 = d2;
-                            }
-                        }
-                    }
-
-                    if (!pick) {
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    let until = Number(p.getState("pickupUntil") || 0);
+                    if (until > 1e11) until = Math.floor(until / 1000);
+                    if (nowSec < until) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
 
-                    // claim the item for this player
-                    const pickedId = pick.id;
-                    setItems(
-                        prev => prev.map(j => j.id === pickedId ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j),
-                        true
-                    );
-
-                    // always carry what we just picked
-                    p.setState("carry", pickedId, true);
-
-                    // add to backpack (no capacity/bonus rules)
-                    const bp = getBackpack(p);
-                    if (!bp.some(b => b.id === pickedId)) {
-                        setBackpack(p, [...bp, { id: pickedId, type: pick.type }]);
+                    const it = findItem(target);
+                    if (!it) {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    // Pets cannot be picked up
+                     if (it.type === "pet") {
+                           processed.current.set(p.id, reqId);
+                           continue;
+                         }
+                    // Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                    if (isTankType(it.type)) {
+                        const dx = px - it.x,
+                            dz = pz - it.z;
+                        if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                            const ok = tryLoadIntoTank({
+                                player: p,
+                                tank: it,
+                                itemsList: list,
+                                getBackpack,
+                                setBackpack,
+                                setItems,
+                            });
+                            if (ok) {
+                                p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
+                            }
+                        }
+                        processed.current.set(p.id, reqId);
+                        continue;
                     }
 
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
+                    if (it.holder && it.holder !== p.id) {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
+                    if (!hasCapacity(p)) {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
 
+                    const dx = px - it.x,
+                        dz = pz - it.z;
+                    if (Math.hypot(dx, dz) > PICKUP_RADIUS) {
+                        processed.current.set(p.id, reqId);
+                        continue;
+                    }
 
-                    // claim the item
                     setItems(
                         (prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
                         true
@@ -642,12 +636,15 @@ export default function ItemsHostLogic() {
                     const carry = String(p.getState("carry") || "");
                     if (!carry) p.setState("carry", it.id, true);
 
-                    // add to backpack (+ role bonuses)
-                    const bp2 = getBackpack(p);
-                    if (!bp2.find((b) => b.id === it.id)) {
-                        let nextBp = [...bp2, { id: it.id, type: it.type }];
+                    // add to backpack (with role bonuses)
+                    const bp = getBackpack(p);
+                    if (!bp.find((b) => b.id === it.id)) {
+                        // put the picked world item in as usual
+                        let nextBp = [...bp, { id: it.id, type: it.type }];
 
                         const role = String(p.getState?.("role") || "");
+
+                        // --- FoodSupplier bonus: +1 FOOD (stacked, no extra slot)
                         if (role === "FoodSupplier" && isType(it.type, "food")) {
                             const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
                             if (idx >= 0) {
@@ -657,6 +654,8 @@ export default function ItemsHostLogic() {
                                 nextBp.push({ type: "food", qty: 1, bonus: true });
                             }
                         }
+
+                        // --- Engineer bonus: +1 FUEL (stacked, no extra slot)
                         if (role === "Engineer" && isType(it.type, "fuel")) {
                             const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
                             if (idx >= 0) {
@@ -670,12 +669,12 @@ export default function ItemsHostLogic() {
                         setBackpack(p, nextBp);
                     }
 
+
+
                     p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                    console.debug("[PICKUP] success", it.id, "->", p.id);
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-
 
                 // DROP
                 if (type === "drop") {
