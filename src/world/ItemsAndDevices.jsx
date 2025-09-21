@@ -375,11 +375,9 @@ export default function ItemsAndDevices() {
             })}
 
             {floorItems.map((it) => (
-                <>
-                    {/* stable key */}
-                    <ItemEntity key={it.id} it={it} />
-                </>
+                <ItemEntity key={it.id} it={it} />
             ))}
+
 
         </group>
     );

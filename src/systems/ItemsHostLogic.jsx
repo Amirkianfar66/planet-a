@@ -498,13 +498,13 @@ export default function ItemsHostLogic() {
                 }
                 // ---------- END ABILITIES ----------
 
-                // ---------- SUPER-SIMPLE PICKUP (allows pets, no rules) ----------
+                // ---------- PICKUP (skip pets unless explicitly targeted) ----------
                 if (type === "pickup") {
                     const listNow = itemsRef.current || [];
 
-                    // prefer explicit target if free & near
+                    // try explicit id first
                     let pick = null, bestD2 = Infinity;
-                    const direct = listNow.find((i) => i && i.id === target && !i.holder);
+                    const direct = listNow.find(i => i && i.id === target && !i.holder);
                     if (direct) {
                         const dx = px - direct.x, dz = pz - direct.z;
                         const d2 = dx * dx + dz * dz;
@@ -512,10 +512,16 @@ export default function ItemsHostLogic() {
                             pick = direct; bestD2 = d2;
                         }
                     }
-                    // otherwise find nearest free item
+
+                    const wantPet = !!direct && String(direct.type).toLowerCase() === "pet";
+
+                    // fallback: nearest free item; unless the explicit target was a pet,
+                    // do NOT auto-pick pets (they hover closest and "steal" P presses)
                     if (!pick) {
                         for (const it of listNow) {
                             if (!it || it.holder) continue;
+                            if (!wantPet && String(it.type).toLowerCase() === "pet") continue; // <-- key line
+
                             const dx = px - it.x, dz = pz - it.z;
                             const d2 = dx * dx + dz * dz;
                             if (d2 < bestD2 && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
@@ -534,18 +540,18 @@ export default function ItemsHostLogic() {
                         true
                     );
 
-                    // carry the picked item
+                    // carry + backpack
                     p.setState("carry", pickedId, true);
-
-                    // put in backpack (no capacity/bonus/cooldown)
                     const bp = p.getState("backpack") || [];
-                    if (!bp.some((b) => b.id === pickedId)) {
+                    if (!bp.some(b => b.id === pickedId)) {
                         p.setState("backpack", [...bp, { id: pickedId, type: pick.type }], true);
                     }
 
                     processed.current.set(p.id, reqId);
                     continue;
                 }
+                // ---------- END PICKUP ----------
+
                 // ---------- END PICKUP ----------
 
                 // DROP
