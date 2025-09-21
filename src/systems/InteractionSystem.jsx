@@ -40,7 +40,7 @@ export default function InteractionSystem() {
                 let pick = null, best = Infinity;
                 for (const it of (itemsRef.current || [])) {
                     if (it.holder) continue;
-                   
+                    if (String(it.type || "").toLowerCase() === "pet") continue; // ← don't target pets
                     const dx = px - it.x, dz = pz - it.z, d2 = dx * dx + dz * dz;
                     if (d2 < best && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) { pick = it; best = d2; }
                 }
