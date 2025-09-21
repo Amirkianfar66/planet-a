@@ -374,10 +374,13 @@ export default function ItemsAndDevices() {
                 );
             })}
 
-            {/* Floor items */}
             {floorItems.map((it) => (
-                <ItemEntity key={it.id} it={it} /> {/* stable key */ }
+                <>
+                    {/* stable key */}
+                    <ItemEntity key={it.id} it={it} />
+                </>
             ))}
+
         </group>
     );
 }
