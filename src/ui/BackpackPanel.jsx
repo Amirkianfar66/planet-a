@@ -2,7 +2,7 @@
 import "./ui.css";
 
 /**
- * Backpack panel (cartoon style)
+ * BackpackPanel (illustrated shell + your own styling)
  * Props: items, capacity, onUse, onDrop, onThrow, title
  */
 export default function BackpackPanel({
@@ -15,17 +15,14 @@ export default function BackpackPanel({
 }) {
     const [selectedKey, setSelectedKey] = useState(null);
 
-    // Food Tank stays single (not stacked)
+    // ----- grouping logic (unchanged)
     const NO_STACK = new Set(["food_tank"]);
-
-    // Group identical items into stacks; keep NO_STACK singles
     const stacks = useMemo(() => {
         const groups = new Map();
         const singles = [];
         for (const it of items) {
             const type = String(it.type || it.kind || "").trim().toLowerCase();
             const qty = Math.max(1, Number(it.qty) || 1);
-
             if (NO_STACK.has(type)) {
                 singles.push({
                     key: it.id,
@@ -40,7 +37,6 @@ export default function BackpackPanel({
                 });
                 continue;
             }
-
             const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
             if (!groups.has(key)) {
                 groups.set(key, { key, type, name: it.name || type || "Item", icon: it.icon, qty: 0, ids: [] });
@@ -54,69 +50,59 @@ export default function BackpackPanel({
     }, [items]);
 
     const usedSlots = items.length;
-
-    // Display buckets like the reference (Food / Cure / Protection)
-    const buckets = useMemo(() => {
-        const bucket = { food: [], cure: [], protection: [] };
-        for (const g of stacks) {
-            if (g.type?.startsWith("food")) bucket.food.push(g);
-            else if (g.type?.startsWith("cure")) bucket.cure.push(g);
-            else if (g.type?.startsWith("protection")) bucket.protection.push(g);
-        }
-        return bucket;
-    }, [stacks]);
-
-    const tiles = [
-        { label: "FOOD", key: "food", icon: "🥫" },
-        { label: "CURE", key: "cure", icon: "🧪" },
-        { label: "PROTECTION", key: "protection", icon: "🛡️" },
-    ];
-
     const selected = stacks.find((s) => s.key === selectedKey) || null;
 
-    const handleDrop = () => selected && onDrop?.(selected.primaryId);
     const handleUse = () => selected && onUse?.(selected.primaryId);
+    const handleDrop = () => selected && onDrop?.(selected.primaryId);
 
     return (
-        <section className="bp-pack">
-            <div className="bp-shell">
-                <header className="bp-top">
-                    <div className="bp-handle" />
-                    <div className="bp-title">{title.toUpperCase()}</div>
-                    <div className="bp-cap">{capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}</div>
+        <section className="bp bp--illustrated" data-component="backpack">
+            {/* Decorative shell (handle, sides, bumper) */}
+            <div className="bp-shell" aria-hidden>
+                <div className="bp-shell__handle" />
+                <div className="bp-shell__side bp-shell__side--l" />
+                <div className="bp-shell__side bp-shell__side--r" />
+                <div className="bp-shell__bumper" />
+            </div>
+
+            {/* Content sits on a white “rim” and teal “screen” */}
+            <div className="bp-rim">
+                <header className="bp__header">
+                    <h3 className="bp__title">{title.toUpperCase()}</h3>
+                    <div className="bp__cap">{capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}</div>
                 </header>
 
-                <div className="bp-inner">
-                    <div className="bp-rows">
-                        {tiles.map(({ label, key, icon }) => {
-                            const content = buckets[key];
-                            const g = content?.[0];
-                            const qty =
-                                g?.type === "food_tank"
-                                    ? `${g.stored}/${g.cap}`
-                                    : content?.reduce((n, s) => n + (s.qty || 1), 0) || 0;
-
-                            return (
-                                <button
-                                    key={key}
-                                    className={`bp-card ${selected && buckets[key]?.some((s) => s.key === selected.key) ? "is-active" : ""}`}
-                                    onClick={() => setSelectedKey(g ? g.key : null)}
-                                    onContextMenu={(e) => {
-                                        if (!onThrow || !g) return;
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setSelectedKey(g.key);
-                                        onThrow(g.primaryId);
-                                    }}
-                                    title={g ? `${g.name}${g.type === "food_tank" ? ` — ${g.stored}/${g.cap}` : ` × ${qty}`}` : "Empty"}
-                                >
-                                    <div className="bp-card__title">{label}</div>
-                                    <div className="bp-card__icon">{g ? renderIcon(g) : icon}</div>
-                                    <div className="bp-card__qty">{g ? (g.type === "food_tank" ? qty : `×${qty}`) : "—"}</div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                <div className="bp-screen">
+                    {stacks.length === 0 ? (
+                        <div className="bp__empty">No items.</div>
+                    ) : (
+                        <div className="bp__grid" style={{ "--bp-columns": 3 }}>
+                            {stacks.map((g) => {
+                                const isTank = g.type === "food_tank";
+                                const qtyBadge = isTank ? `${g.stored}/${g.cap}` : g.qty > 1 ? `×${g.qty}` : null;
+                                return (
+                                    <button
+                                        key={g.key}
+                                        className="bp-item"
+                                        data-type={g.type || "item"}
+                                        data-selected={selected?.key === g.key || undefined}
+                                        onClick={() => setSelectedKey(g.key)}
+                                        onContextMenu={(e) => {
+                                            if (!onThrow) return;
+                                            e.preventDefault(); e.stopPropagation();
+                                            setSelectedKey(g.key);
+                                            onThrow(g.primaryId);
+                                        }}
+                                        title={isTank ? `${g.name} — ${g.stored}/${g.cap}` : `${g.name}${g.qty > 1 ? ` × ${g.qty}` : ""}`}
+                                    >
+                                        <span className="bp-item__icon">{renderIcon(g)}</span>
+                                        <span className="bp-item__name">{g.name}</span>
+                                        {qtyBadge && <span className="bp-item__qty">{qtyBadge}</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     <div className="bp-actions">
                         <button className="bp-btn bp-btn--ghost" disabled={!selected || !onDrop} onClick={handleDrop}>
@@ -127,14 +113,10 @@ export default function BackpackPanel({
                         </button>
                     </div>
 
-                    {onThrow && (
-                        <div className="bp-hint">
-                            Tip: <b>Right-click</b> a card to throw <b>one</b>.
-                        </div>
+                    {onThrow && stacks.length > 0 && (
+                        <div className="bp__hint">Right-click a tile to throw one.</div>
                     )}
                 </div>
-
-                <div className="bp-bumper" />
             </div>
         </section>
     );
@@ -143,12 +125,7 @@ export default function BackpackPanel({
 function renderIcon(it) {
     if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
     const TYPE_ICON = {
-        food: "🥫",
-        fuel: "🔋",
-        protection: "🛡️",
-        cure_red: "🧪",
-        cure_blue: "🧪",
-        food_tank: "🧃",
+        food: "🥫", fuel: "🔋", protection: "🛡️", cure_red: "🧪", cure_blue: "🧪", food_tank: "🧃",
     };
     if (it.type && TYPE_ICON[it.type]) return <span style={{ fontSize: 26 }}>{TYPE_ICON[it.type]}</span>;
     const ch = (it.name || "?").trim()[0] || "?";

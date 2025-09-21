@@ -1,0 +1,271 @@
+html, body, #root { height: 100%; margin: 0; }
+button { cursor: pointer; }
+canvas { display: block; }
+/* ================================
+   CARTOON THEME � drop-in overrides
+   ================================ */
+
+/* Palette & radii */
+:root {
+    --ctn-ink: #07334a; /* dark outline */
+    --ctn-base: #0f4f68; /* backpack blue */
+    --ctn-screen: #1d6a8a; /* inner screen blue */
+    --ctn-screen-2: #16607c;
+    --ctn-cream: #e8f1ff; /* light text/fill */
+    --ctn-accent: #ffc14a; /* orange highlight */
+    --ctn-chip: #bfe1ff; /* soft blue chip */
+    --ctn-border-w: 4px;
+    --ctn-radius-lg: 18px;
+    --ctn-radius-md: 14px;
+    --ctn-radius-sm: 10px;
+}
+
+/* ---------- Role panel ---------- */
+.role-objective__label {
+    color: var(--ctn-cream);
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    font-weight: 900;
+    font-size: 11px;
+    opacity: .85;
+    text-shadow: 0 1px 0 rgba(0,0,0,.35);
+}
+
+.role-objective__text {
+    background: var(--ctn-screen);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-md);
+    padding: 12px;
+    line-height: 1.35;
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
+}
+
+/* ---------- Generic helpers ---------- */
+.ui-list {
+    color: #cfe3ff;
+}
+
+.ui-empty {
+    color: #cfe3ff;
+    opacity: .9;
+}
+
+.ui-chip {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .4px;
+    color: #0a2130;
+    background: var(--ctn-chip);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: 999px;
+    padding: 4px 10px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
+}
+
+/* ---------- Inventory grid ---------- */
+.inv-grid {
+    gap: 12px;
+}
+
+.inv-slot {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    gap: 8px;
+    background: var(--ctn-screen);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-md);
+    padding: 12px;
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
+    transition: transform .08s ease, filter .08s ease;
+}
+
+    .inv-slot:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+    }
+
+.inv-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--ctn-radius-sm);
+    display: grid;
+    place-items: center;
+    background: var(--ctn-screen-2);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    font-weight: 900;
+    font-size: 22px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.1);
+}
+
+.inv-name {
+    font-weight: 900;
+    letter-spacing: .3px;
+    text-shadow: 0 1px 0 rgba(0,0,0,.3);
+}
+
+.inv-qty {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-variant-numeric: tabular-nums;
+    background: var(--ctn-cream);
+    color: #0a2130;
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 900;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
+}
+
+/* Action buttons row in slots */
+.inv-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* ---------- Team chat ---------- */
+.team-chat .member-row {
+    gap: 8px;
+}
+
+.member-pill {
+    background: var(--ctn-chip);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: 999px;
+    color: #102234;
+    font-weight: 800;
+    padding: 4px 8px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
+}
+
+    .member-pill .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        border: var(--ctn-border-w) solid var(--ctn-ink);
+        background: #7a8696;
+    }
+
+        .member-pill .dot.on {
+            background: #35d07f;
+        }
+
+        .member-pill .dot.off {
+            background: #7a8696;
+        }
+
+.chat-body {
+    gap: 12px;
+}
+
+.chat-list {
+    gap: 10px;
+}
+
+.bubble {
+    max-width: 85%;
+    display: grid;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: var(--ctn-radius-md);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    background: var(--ctn-screen);
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
+}
+
+    .bubble.me {
+        align-self: flex-end;
+        background: linear-gradient(180deg, #19324a, #102234);
+    }
+
+.bubble-author {
+    color: #cfe3ff;
+    font-size: 12px;
+}
+
+.bubble-text {
+    line-height: 1.38;
+}
+
+.bubble-time {
+    color: #cfe3ff;
+    font-size: 10px;
+    opacity: .9;
+}
+
+.chat-input {
+    gap: 10px;
+    border-top: var(--ctn-border-w) solid var(--ctn-ink);
+    padding-top: 10px;
+}
+
+    .chat-input input {
+        flex: 1;
+        background: #0e141f;
+        border: var(--ctn-border-w) solid var(--ctn-ink);
+        color: var(--ctn-cream);
+        padding: 10px 12px;
+        border-radius: var(--ctn-radius-md);
+        box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+    }
+
+/* ---------- Item buttons ---------- */
+.item-btn {
+    font: 900 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    letter-spacing: .5px;
+    color: #0a2130;
+    background: var(--ctn-accent);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-sm);
+    padding: 8px 12px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform .06s ease, filter .06s ease;
+}
+
+    .item-btn:hover {
+        filter: brightness(1.05);
+    }
+
+    .item-btn:active {
+        transform: translateY(1px);
+    }
+
+    .item-btn:disabled {
+        cursor: not-allowed;
+        opacity: .7;
+        background: #e5e7eb;
+        border-color: var(--ctn-ink);
+    }
+
+.item-btn--pulse {
+    animation: itemPulse .18s ease-in;
+}
+
+@keyframes itemPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(.97);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Optional ghost variant (e.g., Drop) */
+.item-btn--ghost {
+    background: var(--ctn-cream);
+    color: #0a2130;
+    text-shadow: none;
+}
