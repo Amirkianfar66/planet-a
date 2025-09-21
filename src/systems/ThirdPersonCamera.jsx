@@ -5,7 +5,7 @@ import { myPlayer } from "playroomkit";
 
 export default function ThirdPersonCamera({
     height = 3.0,
-    distance = 6,
+    distance = 7,
     shoulder = 0.3,
     lerp = 0.12,
     camRadius = 0.35,
