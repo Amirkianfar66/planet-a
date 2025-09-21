@@ -11,7 +11,7 @@ export default function ThirdPersonCamera({
     camRadius = 0.35,
     ignoreNear = 0.6,
     lookAhead = 1,  // NEW: look this many meters ahead of the player
-    fov = 40,         // NEW: narrower FOV (default three.js is 50)
+    fov = 45,         // NEW: narrower FOV (default three.js is 50)
 }) {
     const { camera, scene } = useThree();
     const curPos = useRef(new THREE.Vector3(0, 5, 8));
