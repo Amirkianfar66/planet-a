@@ -288,6 +288,7 @@ export default function HUD({ game = {} }) {
                     pointerEvents: "auto",
                 }}
             >
+                <div ref={bpWrapRef} className="bp-docked" style={{ maxHeight: "60vh", overflow: "hidden auto" }}>
                 <BackpackPanel
                     items={items}
                     capacity={capacity}

@@ -579,3 +579,32 @@
     .bp--illustrated .bp__hint {
         font-size: calc(11px * var(--bp-scale));
     }
+
+/* ===========================
+   Dock & center adjustments
+   =========================== */
+
+/* Pin the backpack container to the bottom-right of the viewport */
+.bp-docked {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+/* Center icon + name within each tile, consistent tile height */
+.bp--illustrated .bp-item {
+    justify-items: center; /* horizontal centering */
+    align-content: center; /* vertical centering of grid content */
+    text-align: center;
+    min-height: calc(110px * var(--bp-scale)); /* tweak 100–140 as you like */
+}
+
+.bp--illustrated .bp-item__icon {
+    margin-bottom: 2px;
+}
+
+.bp--illustrated .bp-item__name {
+    justify-self: center;
+}

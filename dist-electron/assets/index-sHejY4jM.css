@@ -1,0 +1,584 @@
+html, body, #root { height: 100%; margin: 0; }
+button { cursor: pointer; }
+canvas { display: block; }
+/* ===========================
+   Base UI styles
+   =========================== */
+
+/* ----- Role panel ----- */
+.role-objective__label {
+    color: var(--ui-sub);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.role-objective__text {
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 10px;
+    padding: 10px;
+    line-height: 1.35;
+}
+
+.ui-list {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--ui-sub);
+}
+
+.ui-empty {
+    color: var(--ui-sub);
+    opacity: .85;
+}
+
+/* ----- Inventory grid ----- */
+.inv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px;
+}
+
+@media (min-width: 460px) {
+    .inv-grid {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+}
+
+.inv-slot {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    align-items: start;
+    gap: 6px;
+    background: var(--ui-card);
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.inv-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #1a2230;
+    border: 1px solid var(--ui-border);
+    font-weight: 700;
+}
+
+.inv-name {
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
+.inv-qty {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-variant-numeric: tabular-nums;
+    background: #162030;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: var(--ui-sub);
+}
+
+.inv-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* ----- Team chat ----- */
+.team-chat .member-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.member-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    background: var(--ui-chip-bg);
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+}
+
+    .member-pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #666;
+    }
+
+        .member-pill .dot.on {
+            background: #35d07f;
+        }
+
+        .member-pill .dot.off {
+            background: #7a8696;
+        }
+
+.chat-body {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+}
+
+.chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 36vh;
+    overflow: auto;
+}
+
+.bubble {
+    max-width: 85%;
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--ui-border);
+    background: var(--ui-card);
+}
+
+    .bubble.me {
+        align-self: flex-end;
+        background: linear-gradient(180deg, #19324a, #102234);
+    }
+
+.bubble-author {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ui-sub);
+    font-size: 12px;
+}
+
+.bubble-text {
+    line-height: 1.35;
+}
+
+.bubble-time {
+    align-self: end;
+    justify-self: end;
+    color: var(--ui-sub);
+    font-size: 10px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    border-top: 1px solid var(--ui-border);
+    padding-top: 8px;
+}
+
+    .chat-input input {
+        flex: 1;
+        background: #0e141f;
+        border: 1px solid var(--ui-border);
+        color: var(--ui-txt);
+        padding: 8px 10px;
+        border-radius: 10px;
+    }
+
+/* ----- Generic item button ----- */
+.item-btn {
+    font: 600 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    color: #0b1220;
+    background: #bfe1ff;
+    border: 1px solid #93c5fd;
+    border-radius: 10px;
+    padding: 6px 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+    .item-btn:hover {
+        filter: brightness(1.05);
+    }
+
+    .item-btn:active {
+        transform: translateY(1px);
+    }
+
+    .item-btn:disabled {
+        cursor: not-allowed;
+        opacity: .6;
+        background: #e5e7eb;
+        border-color: #d1d5db;
+    }
+
+.item-btn--pulse {
+    animation: itemPulse .18s ease-in;
+}
+
+@keyframes itemPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(0.97);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ===========================
+   Illustrated �Backpack� skin
+   =========================== */
+.bp--illustrated {
+    --bp-ink: #07334a; /* dark outline */
+    --bp-blue: #0f4f68; /* outer shell */
+    --bp-rim: #f4fbff; /* white rim */
+    --bp-teal: #1d6a8a; /* inner screen */
+    --bp-teal-2: #16607c; /* screen darker */
+    --bp-orange: #ffb340; /* bumper / buttons */
+    --bp-text: #e8f1ff;
+    --bp-sub: #cfe3ff;
+    --bp-border-w: 6px;
+    --bp-radius-lg: 32px;
+    --bp-radius-md: 18px;
+    position: relative;
+    width: 340px; /* base width before scaling */
+    color: var(--bp-text);
+}
+
+    /* outer blue shell with thick ink */
+    .bp--illustrated .bp-shell {
+        position: absolute;
+        inset: 0;
+        border-radius: var(--bp-radius-lg);
+        background: var(--bp-blue);
+        border: var(--bp-border-w) solid var(--bp-ink);
+        box-shadow: 0 12px 24px rgba(0,0,0,.25);
+    }
+
+    /* handle on top */
+    .bp--illustrated .bp-shell__handle {
+        position: absolute;
+        left: 50%;
+        top: -22px;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 34px;
+        border-radius: 18px;
+        background: #e8f1ff;
+        border: var(--bp-border-w) solid var(--bp-ink);
+        box-shadow: inset 0 0 0 6px var(--bp-orange);
+    }
+
+    /* side pads (purely decorative) */
+    .bp--illustrated .bp-shell__side {
+        position: absolute;
+        top: 64px;
+        bottom: 68px;
+        width: 22px;
+        border-radius: 12px;
+        background: #0c3e54;
+        border: var(--bp-border-w) solid var(--bp-ink);
+    }
+
+    .bp--illustrated .bp-shell__side--l {
+        left: -18px;
+    }
+
+    .bp--illustrated .bp-shell__side--r {
+        right: -18px;
+    }
+
+    /* orange bottom bumper */
+    .bp--illustrated .bp-shell__bumper {
+        position: absolute;
+        left: 50%;
+        bottom: -18px;
+        transform: translateX(-50%);
+        width: 140px;
+        height: 34px;
+        border-radius: 14px;
+        background: var(--bp-orange);
+        border: var(--bp-border-w) solid var(--bp-ink);
+    }
+
+    /* white rim that holds title + screen */
+    .bp--illustrated .bp-rim {
+        position: relative;
+        margin: 18px;
+        border-radius: 26px;
+        background: var(--bp-rim);
+        border: var(--bp-border-w) solid var(--bp-ink);
+        padding: 18px 16px 20px 16px;
+    }
+
+    /* title */
+    .bp--illustrated .bp__header {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .bp--illustrated .bp__title {
+        margin: 0;
+        font-weight: 900;
+        letter-spacing: .8px;
+        font-size: 22px;
+        color: #0a2130;
+    }
+
+    .bp--illustrated .bp__cap {
+        margin-top: 2px;
+        font-size: 12px;
+        font-weight: 800;
+        color: #224568;
+        opacity: .75;
+    }
+
+    /* teal �screen� */
+    .bp--illustrated .bp-screen {
+        border-radius: 22px;
+        background: var(--bp-teal);
+        border: var(--bp-border-w) solid var(--bp-ink);
+        padding: 14px;
+        box-shadow: inset 0 -4px 0 var(--bp-ink), inset 0 0 0 6px #0f5f7e;
+    }
+
+    /* grid (you control how many tiles appear) */
+    .bp--illustrated .bp__grid {
+        display: grid;
+        grid-template-columns: repeat(var(--bp-columns, 3), minmax(0,1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    /* tile styling to match the card look */
+    .bp--illustrated .bp-item {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 6px;
+        border-radius: 14px;
+        background: var(--bp-teal-2);
+        border: var(--bp-border-w) solid var(--bp-ink);
+        color: var(--bp-text);
+        padding: 10px 8px;
+        box-shadow: inset 0 2px 0 rgba(255,255,255,.12);
+        transition: transform .08s ease, filter .08s ease;
+    }
+
+        .bp--illustrated .bp-item:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.05);
+        }
+
+        .bp--illustrated .bp-item[data-selected] {
+            box-shadow: 0 0 0 4px var(--bp-orange), inset 0 2px 0 rgba(255,255,255,.15);
+        }
+
+    .bp--illustrated .bp-item__icon {
+        font-size: 30px;
+        line-height: 1;
+        display: grid;
+        place-items: center;
+    }
+
+    .bp--illustrated .bp-item__name {
+        font-weight: 800;
+        letter-spacing: .3px;
+    }
+
+    .bp--illustrated .bp-item__qty {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: #e8f1ff;
+        color: #0a2130;
+        border: var(--bp-border-w) solid var(--bp-ink);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    /* big buttons row */
+    .bp--illustrated .bp-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .bp--illustrated .bp-btn {
+        height: 44px;
+        border-radius: 14px;
+        border: var(--bp-border-w) solid var(--bp-ink);
+        background: var(--bp-orange);
+        color: #0a2130;
+        font-weight: 900;
+        letter-spacing: .6px;
+        box-shadow: inset 0 -4px 0 rgba(0,0,0,.25);
+    }
+
+    .bp--illustrated .bp-btn--ghost {
+        background: #e8f1ff;
+        color: #0a2130;
+    }
+
+    .bp--illustrated .bp-btn:disabled {
+        filter: grayscale(.9) contrast(.9);
+        opacity: .75;
+        cursor: not-allowed;
+    }
+
+    .bp--illustrated .bp__empty,
+    .bp--illustrated .bp__hint {
+        text-align: center;
+        color: var(--bp-sub);
+        font-size: 11px;
+    }
+
+    .bp--illustrated .bp__hint {
+        margin-top: 8px;
+    }
+
+/* ===========================
+   Modern system font + scaling
+   =========================== */
+
+/* Techy system fonts (fast, no downloads) */
+:root {
+    --tech-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    --tech-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.bp--illustrated .bp__title,
+.bp--illustrated .bp-btn,
+.bp--illustrated .bp-item__name,
+.bp--illustrated .bp__cap {
+    font-family: var(--tech-font);
+    letter-spacing: .06em;
+    font-weight: 900;
+}
+
+.bp--illustrated .bp-item__qty {
+    font-family: var(--tech-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Scalable dimensions: default 1, half-size via .bp--half */
+.bp--illustrated {
+    --bp-scale: 1;
+}
+
+.bp--half {
+    --bp-scale: .5;
+}
+
+.bp--illustrated {
+    width: calc(340px * var(--bp-scale));
+}
+
+    .bp--illustrated .bp-shell {
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-shell__handle {
+        top: calc(-22px * var(--bp-scale));
+        width: calc(140px * var(--bp-scale));
+        height: calc(34px * var(--bp-scale));
+        border-radius: calc(18px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+        box-shadow: inset 0 0 0 calc(6px * var(--bp-scale)) var(--bp-orange);
+    }
+
+    .bp--illustrated .bp-shell__side {
+        top: calc(64px * var(--bp-scale));
+        bottom: calc(68px * var(--bp-scale));
+        width: calc(22px * var(--bp-scale));
+        border-radius: calc(12px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-shell__side--l {
+        left: calc(-18px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-shell__side--r {
+        right: calc(-18px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-shell__bumper {
+        bottom: calc(-18px * var(--bp-scale));
+        width: calc(140px * var(--bp-scale));
+        height: calc(34px * var(--bp-scale));
+        border-radius: calc(14px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-rim {
+        margin: calc(18px * var(--bp-scale));
+        padding: calc(18px * var(--bp-scale)) calc(16px * var(--bp-scale)) calc(20px * var(--bp-scale));
+        border-radius: calc(26px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp__title {
+        font-size: calc(22px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp__cap {
+        font-size: calc(12px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-screen {
+        padding: calc(14px * var(--bp-scale));
+        border-radius: calc(22px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+        box-shadow: inset 0 calc(-4px * var(--bp-scale)) 0 var(--bp-ink), inset 0 0 0 calc(6px * var(--bp-scale)) #0f5f7e;
+    }
+
+    .bp--illustrated .bp__grid {
+        gap: calc(10px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-item {
+        padding: calc(10px * var(--bp-scale)) calc(8px * var(--bp-scale));
+        border-radius: calc(14px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-item__icon {
+        font-size: calc(30px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-item__qty {
+        top: calc(8px * var(--bp-scale));
+        right: calc(8px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+        padding: calc(2px * var(--bp-scale)) calc(8px * var(--bp-scale));
+        font-size: calc(12px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-actions {
+        gap: calc(10px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp-btn {
+        height: calc(44px * var(--bp-scale));
+        border-radius: calc(14px * var(--bp-scale));
+        border-width: calc(6px * var(--bp-scale));
+    }
+
+    .bp--illustrated .bp__hint {
+        font-size: calc(11px * var(--bp-scale));
+    }
