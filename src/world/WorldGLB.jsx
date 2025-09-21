@@ -13,7 +13,11 @@ export const WORLD_GLB = {
     position: [0, 0, 0],
     rotation: [0, 0, 0],     // radians: [x, y, z]
     scale: 1,
-    showColliderDebug: false
+    showColliderDebug: false,
+    // NEW (optional): bake colliders from "all" meshes or only "tagged" blockers
+    bakeColliders: "all",     // "all" | "tagged"
+    // NEW (optional): also place cam blockers on a dedicated layer for fast raycasts
+    blockerLayer: 2
 };
 
 export default function WorldGLB(props) {
@@ -32,6 +36,8 @@ function WorldGLBInner({
     receiveShadows = true,
     castShadows = true,
     showColliderDebug = false,
+    bakeColliders = "all",  // "all" | "tagged"
+    blockerLayer = 2,
     ...rest
 }) {
     const gltf = useLoader(
@@ -48,18 +54,48 @@ function WorldGLBInner({
     // Clone once so we can mutate flags safely
     const cloned = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
 
-    // Basic render flags
+    // Tag camera blockers on the GLB meshes
     useLayoutEffect(() => {
+        const nameIsBlocker = (name) => {
+            const n = (name || "").toLowerCase();
+            // Tweak this list to your naming scheme
+            return (
+                n.includes("wall") ||
+                n.includes("floor") ||
+                n.includes("door") ||        // covers doorframe / door_panel names
+                n.includes("frame") ||
+                n.includes("roof") ||
+                n.includes("ceiling") ||
+                n.includes("column") ||
+                n.includes("pillar")
+            );
+        };
+
         cloned.traverse((o) => {
-            if (o.isMesh || o.isSkinnedMesh) {
-                o.castShadow = castShadows;
-                o.receiveShadow = receiveShadows;
-                o.frustumCulled = true;
+            if (!(o.isMesh || o.isSkinnedMesh)) return;
+
+            // Render flags
+            o.castShadow = castShadows;
+            o.receiveShadow = receiveShadows;
+            o.frustumCulled = true;
+
+            // Keep author-tagged blockers (from Blender → glTF extras → userData)
+            const authored = o.userData?.camBlocker === true;
+
+            // Heuristic by name if not authored
+            if (authored || nameIsBlocker(o.name)) {
+                o.userData.camBlocker = true;
+                // Optional: put blockers on a dedicated layer
+                if (typeof blockerLayer === "number" && blockerLayer >= 0) {
+                    o.layers?.set?.(blockerLayer);
+                }
             }
         });
-    }, [cloned, castShadows, receiveShadows]);
+    }, [cloned, castShadows, receiveShadows, blockerLayer]);
 
-    // 🔒 Bake AABBs from *all* meshes (no tags) in world-space XZ
+    // 🔒 Bake AABBs for movement collision
+    // - "all":  from every mesh (original behavior)
+    // - "tagged": only from meshes flagged camBlocker (or authored staticCollider)
     const aabbs = useMemo(() => {
         if (!cloned) return [];
         const groupMatrix = new THREE.Matrix4();
@@ -74,6 +110,11 @@ function WorldGLBInner({
         cloned.updateMatrixWorld(true);
         cloned.traverse((obj) => {
             if (!(obj.isMesh || obj.isSkinnedMesh)) return;
+
+            if (bakeColliders === "tagged") {
+                const isTagged = obj.userData?.camBlocker === true || obj.userData?.staticCollider === true;
+                if (!isTagged) return;
+            }
             tmp.setFromObject(obj);
             if (tmp.isEmpty()) return;
 
@@ -87,7 +128,7 @@ function WorldGLBInner({
             });
         });
         return boxes;
-    }, [cloned, position, rotation, scale]);
+    }, [cloned, position, rotation, scale, bakeColliders]);
 
     // Publish to collision registry
     useEffect(() => {

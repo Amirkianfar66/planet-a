@@ -72,13 +72,13 @@ function FloorAndWalls() {
 
     return (
         <group>
-            {/* Ground (should NOT block) */}
+            {/* Ground (visual only, should not block) */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
             </mesh>
 
-            {/* Area tints (should NOT block) */}
+            {/* Area tints (visual only) */}
             <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
                 <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
@@ -88,7 +88,7 @@ function FloorAndWalls() {
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
-            {/* Grid (should NOT block) */}
+            {/* Grid (visual only) */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
@@ -98,19 +98,14 @@ function FloorAndWalls() {
             {FLOORS?.map((f, i) => {
                 const mat = getMaterial("floor", f.mat);
                 return (
-                    <mesh
-                        key={`floor_${i}`}
-                        position={[f.x, f.y, f.z]}
-                        receiveShadow
-                        userData={{ camBlocker: true }}   // ✅ blocks camera
-                    >
+                    <mesh key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow userData={{ camBlocker: true }}>
                         <boxGeometry args={[f.w, f.t, f.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Walls (BLOCK camera) — removed {...noRay}! */}
+            {/* Walls (BLOCK camera) */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
                 const baseY = r?.floorY ?? 0;
@@ -121,7 +116,7 @@ function FloorAndWalls() {
                         key={`wall_${i}`}
                         position={[w.x, baseY + h / 2, w.z]}
                         rotation={[0, w.rotY || 0, 0]}
-                        userData={{ camBlocker: true }}   // ✅ blocks camera
+                        userData={{ camBlocker: true }}
                     >
                         <boxGeometry args={[w.w, h, w.d]} />
                         <primitive object={mat} attach="material" />
@@ -129,7 +124,7 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Doors (Door3D should set camBlocker on closed panels internally) */}
+            {/* Doors (GLB with animation + colliders) */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
@@ -147,29 +142,27 @@ function FloorAndWalls() {
                             closeDelaySeconds={0.15}
                             openSpeed={6}
                             closeSpeed={4}
-
-                        // (Door3D should toggle camBlocker on its panel meshes when closed)
+                            colliderId={d.id || `door_${i}`}
+                            yaw={d.rotY || 0}
+                            wallThickness={d.thickness ?? 0.6}
+                            collisionOpenThreshold={0.2}
                         />
                     </group>
                 ))}
             </Suspense>
 
-            {/* Roofs (OPTIONAL block — enable if you want overhead to occlude) */}
+            {/* Roofs (OPTIONAL: set camBlocker true if you want roofs to occlude) */}
             {ROOFS?.map((rf, i) => {
                 const mat = getMaterial("roof", rf.mat);
                 return (
-                    <mesh
-                        key={`roof_${i}`}
-                        position={[rf.x, rf.y, rf.z]}
-                        userData={{ camBlocker: true }}     {/* set to true if you want roofs to block */}
-                    >
+                    <mesh key={`roof_${i}`} position={[rf.x, rf.y, rf.z]} userData={{ camBlocker: true }}>
                         <boxGeometry args={[rf.w, rf.t, rf.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Labels (should NOT block) */}
+            {/* Labels (visual only) */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
             {ROOMS.map((r) => (
                 <TextLabel
