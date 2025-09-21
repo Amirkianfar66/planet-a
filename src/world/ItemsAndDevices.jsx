@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
-import { DEVICES, INITIAL_ITEMS } from "../data/gameObjects.js";
+import { DEVICES, INITIAL_ITEMS, ITEM_TYPES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
 import { OUTSIDE_AREA, pointInRect, clampToRect, MEETING_ROOM_AABB } from "../map/deckA";
 
@@ -18,23 +18,7 @@ function ensureOutdoorPos(x, z) {
 }
 
 /* ---------- Type metadata (labels + colors) ---------- */
-const TYPE_META = {
-    food: { label: "Food", color: "#22c55e" }, // green
-    fuel: { label: "Fuel", color: "#a855f7" }, // purple
-    protection: { label: "Protection", color: "#f59e0b" }, // orange
-    cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
-    cure_blue: { label: "Cure (Blue)", color: "#3b82f6" }, // blue
-
-    // containers (non-pickable)
-    food_tank: { label: "Food Tank", color: "#10b981" },          // teal
-    fuel_tank: { label: "Fuel Tank", color: "#a855f7" },          // purple
-    protection_tank: { label: "Protection Tank", color: "#f59e0b" }, // orange
-    cctv: { label: "CCTV Camera", color: "#94a3b8" },
-    // legacy/compat
-    battery: { label: "Battery", color: "#2dd4bf" },
-    o2can: { label: "O₂ Canister", color: "#9bd1ff" },
-};
-
+const TYPE_META = ITEM_TYPES;
 const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
