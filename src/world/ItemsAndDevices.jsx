@@ -310,9 +310,10 @@ function ItemEntity({ it }) {
 // ---------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-
+    const hasNonPet = Array.isArray(items) && items.some(i => i && String(i.type).toLowerCase() !== "pet");
+    const renderItems = hasNonPet ? items : INITIAL_ITEMS;
     // Fallback: render INITIAL_ITEMS until the host sync arrives
-    const renderItems = items && items.length ? items : INITIAL_ITEMS;
+   
 
     // Pets are rendered in <Pets3D />, so exclude them here.
     const floorItems = useMemo(

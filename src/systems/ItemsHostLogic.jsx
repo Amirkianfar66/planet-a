@@ -188,25 +188,34 @@ export default function ItemsHostLogic() {
     
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
-        const needsSeed = !Array.isArray(itemsRef.current) || itemsRef.current.length === 0;
-        if (!host && !needsSeed) return;
-        if (needsSeed) {
-            const seeded = (INITIAL_ITEMS || []).map(it => {
-                const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
-                   return {
-                     holder: "",
-                     vx: 0, vy: 0, vz: 0,
-                     y: 0,
-                     ...it,
-                     x: p.x,
-                     z: p.z,
-                     id: it.id || cryptoRandomId(),
-                   };
-         });
-            setItems(seeded, true);
-            console.log("[ITEMS] Seeded", seeded.length, "items (host:", host, ").");
-        }
-    }, [host, setItems]);
+        if (!host) return; // only the host seeds
+          const list = itemsRef.current || [];
+          const hasNonPet = Array.isArray(list) && list.some(i => i && String(i.type).toLowerCase() !== "pet");
+          if (hasNonPet) return; // already have real items
+        
+              const seeded = (INITIAL_ITEMS || []).map(it => {
+                    const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
+                    return {
+ holder: "",
+                          vx: 0, vy: 0, vz: 0,
+                              y: 0,
+                                  ...it,
+                      x: p.x,
+                      z: p.z,
+                      id: it.id || cryptoRandomId(),
+                    };
+      });
+
+      setItems(prev => {
+            const base = Array.isArray(prev) ? prev : [];
+            const pets = base.filter(i => i && String(i.type).toLowerCase() === "pet");
+            const existingIds = new Set(base.map(i => i?.id));
+            const add = seeded.filter(i => !existingIds.has(i.id));
+            return [...pets, ...add];
+          }, true);
+
+      console.log("[ITEMS] Seeded non-pet items (merged). Count:", seeded.length);
+ }, [host, setItems]);
 
     // Simple throw physics
     useEffect(() => {
