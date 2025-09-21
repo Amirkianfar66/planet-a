@@ -1,184 +1,166 @@
+// src/ui/TeamChatPanel.jsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { myPlayer, usePlayersList } from "playroomkit";
+import { myPlayer, usePlayersList, useMultiplayerState } from "playroomkit";
 import "./ui.css";
 
+/* ---------- helpers ---------- */
+const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; } };
+const firstNonEmpty = (...vals) => vals.find(v => safe(v)) || "";
+const normTeamId = (s) =>
+    safe(s || "team").toLowerCase().replace(/\s+/g, "-").slice(0, 32);
+
 export default function TeamChatPanel({
-    teamName,
-    members,
-    messages,
-    myId,
-    onSend,
+    teamName,               // optional override; else reads myPlayer().state.team / teamName
     inputDisabled = false,
     style,
 }) {
-    // force refresh so remote state changes render even if parent doesn't re-render
+    // force refresh so remote presence changes render even if parent doesn't re-render
     const [, force] = useReducer((x) => x + 1, 0);
     useEffect(() => { const id = setInterval(force, 400); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
-    const allPlayers = usePlayersList();
+    const myId = me?.id || "me";
+    const allPlayers = usePlayersList(true); // live presence list
 
-    // TEAM name: prop wins; else my state; else "Team"
-    const liveTeam =
-        firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
-    const teamKey = `chat:${liveTeam}`;
+    // Canonical team id
+    const liveTeam = firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName"), "Team");
+    const teamId = normTeamId(liveTeam);
+    const channel = `chat:${teamId}`;
 
-    // Local fallback buffer (instant echo)
-    const [localMsgs, setLocalMsgs] = useState([]);
+    // One shared, networked message array for this team
+    const [netMsgs, setMsgs] = useMultiplayerState(channel, []);  // [{id, fromId, name, text, ts}]
+    const msgs = Array.isArray(netMsgs) ? netMsgs : [];
 
-    // Roster: props win; else build from all players (filter by team)
-    const roster = useMemo(() => {
-        if (Array.isArray(members) && members.length > 0) return members;
-        const built = allPlayers.map((p) => ({
-            id: p.id,
-            name: firstNonEmpty(p?.profile?.name, p?.name, p?.getState?.("name"), shortId(p.id)),
-            role: safeString(p?.getState?.("role")),
-            team: firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")),
-            isOnline: true,
-            color: p?.profile?.color,
-        }));
-        return built.filter((m) => !liveTeam || m.team === liveTeam);
-    }, [members, allPlayers, liveTeam]);
+    // Team presence list
+    const members = useMemo(() => {
+        return (allPlayers || []).filter(p => {
+            const t = normTeamId(firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")));
+            return t === teamId;
+        });
+    }, [allPlayers, teamId]);
 
-    const liveMyId = myId || me?.id || "me";
+    // compose + send
+    const [draft, setDraft] = useState("");
+    const send = (textRaw) => {
+        const text = safe(textRaw);
+        if (!text) return;
 
-    // Aggregate messages from all players on this team
-    const aggregatedFromPlayers = useMemo(() => {
-        const collected = [];
-        for (const p of allPlayers) {
-            const pTeam = firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName"));
-            if (liveTeam && pTeam !== liveTeam) continue;
-            const arr = p?.getState?.(teamKey);
-            if (Array.isArray(arr)) {
-                for (const m of arr) {
-                    collected.push({
-                        id: String(m.id ?? `${m.senderId ?? p.id}-${m.ts ?? 0}`),
-                        senderId: m.senderId ?? p.id,
-                        text: String(m.text ?? ""),
-                        ts: Number(m.ts ?? 0),
-                        _from: p.id,
-                    });
-                }
-            }
+        const name =
+            me?.getState?.("name") ||
+            me?.getProfile?.().name ||
+            me?.name ||
+            `Player-${String(myId).slice(-4)}`;
+
+        const ts = Date.now();
+        const msg = {
+            id: `${myId}:${ts}:${Math.random().toString(36).slice(2, 7)}`,
+            fromId: myId,
+            name,
+            text: text.slice(0, 500),
+            ts,
+        };
+
+        // IMPORTANT: pass 'true' so this replicates to everyone on the team channel
+        setMsgs((prev) => {
+            const base = Array.isArray(prev) ? prev : [];
+            const next = [...base, msg];
+            if (next.length > 120) next.splice(0, next.length - 120); // trim history
+            return next;
+        }, true);
+
+        setDraft("");
+    };
+
+    // Enter to send
+    const onKey = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (!inputDisabled) send(draft);
         }
-        const map = new Map();
-        for (const m of collected) if (!map.has(m.id)) map.set(m.id, m);
-        return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
-    }, [allPlayers, liveTeam, teamKey]);
+    };
 
-    // Final messages: props → aggregated → my own state → local buffer
-    const liveMessages = useMemo(() => {
-        if (Array.isArray(messages)) return messages;
-        const fromMe = me?.getState?.(teamKey);
-        const combined = [
-            ...(aggregatedFromPlayers || []),
-            ...(Array.isArray(fromMe)
-                ? fromMe.map((m) => ({
-                    id: String(m.id ?? `${m.senderId ?? liveMyId}-${m.ts ?? 0}`),
-                    senderId: m.senderId ?? liveMyId,
-                    text: String(m.text ?? ""),
-                    ts: Number(m.ts ?? 0),
-                }))
-                : []),
-            ...(localMsgs || []),
-        ];
-        const map = new Map();
-        for (const m of combined) if (!map.has(m.id)) map.set(m.id, m);
-        return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
-    }, [messages, aggregatedFromPlayers, me, teamKey, localMsgs, liveMyId]);
-
-    // ui state
-    const [text, setText] = useState("");
+    // autoscroll to latest
     const listRef = useRef(null);
-
-    // autoscroll when near bottom
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
-        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 6;
-        if (atBottom) el.scrollTop = el.scrollHeight;
-    }, [liveMessages]);
+        el.scrollTop = el.scrollHeight;
+    }, [msgs?.length]);
 
-    const send = (e) => {
-        e.preventDefault();
-        const t = text.trim();
-        if (!t) return;
-
-        const now = Date.now();
-        const msg = {
-            id: `${now}-${Math.random().toString(36).slice(2, 7)}`,
-            senderId: liveMyId,
-            text: t,
-            ts: now,
-        };
-
-        // 1) local echo
-        setLocalMsgs((curr) => [...curr, msg]);
-
-        // 2) broadcast via Playroom
+    // tiny time label
+    const fmt = (ts) => {
         try {
-            const prev = me?.getState?.(teamKey);
-            const next = Array.isArray(prev) ? [...prev, msg] : [msg];
-            me?.setState?.(teamKey, next, true);
-        } catch { }
-
-        // 3) optional host action
-        try { onSend?.(t); } catch { }
-
-        setText("");
+            const d = new Date(ts);
+            const hh = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            return `${hh}:${mm}`;
+        } catch { return ""; }
     };
 
     return (
-        <section className="tc tc--illustrated" data-component="teamchat" style={style}>
-            <div className="tc-card">
-                {/* Messages only (no team/members headers) */}
-                <div className="tc__list" ref={listRef}>
-                    {liveMessages.length === 0 && (
-                        <div className="tc__empty">No messages yet.</div>
-                    )}
-
-                    {liveMessages.map((m) => {
-                        const mine = m.senderId === liveMyId;
-                        const sender = roster.find((x) => x.id === m.senderId);
-                        const senderLabel = sender
-                            ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}`
-                            : "Unknown";
-                        const time = new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
+        <div
+            className="team-chat"
+            style={{
+                background: "rgba(14,17,22,0.9)",
+                border: "1px solid #2a3242",
+                borderRadius: 12,
+                color: "white",
+                padding: 10,
+                fontFamily: "ui-sans-serif",
+                width: "100%",
+                ...style,
+            }}
+        >
+            {/* header with teammates */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
+                <div className="member-row">
+                    {members.map((p) => {
+                        const name =
+                            p?.getState?.("name") ||
+                            p?.getProfile?.().name ||
+                            p?.name ||
+                            `Player-${String(p?.id || "").slice(-4)}`;
                         return (
-                            <div
-                                key={m.id}
-                                className={`tc-bubble ${mine ? "me" : ""}`}
-                                title={`${senderLabel} — ${time}`}
-                            >
-                                {m.text}
+                            <span key={p.id} className="member-pill" title={name}>
+                                <span className="dot on" />
+                                <span style={{ fontSize: 12 }}>{name}</span>
+                            </span>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* body */}
+            <div className="chat-body">
+                <div ref={listRef} className="chat-list">
+                    {(msgs || []).map((m) => {
+                        const isMe = m.fromId === myId;
+                        return (
+                            <div key={m.id} className={`bubble ${isMe ? "me" : ""}`}>
+                                <div className="bubble-author">
+                                    <span style={{ fontWeight: 700 }}>{m.name || "Player"}</span>
+                                    <span style={{ opacity: 0.7 }}>· {fmt(m.ts)}</span>
+                                </div>
+                                <div className="bubble-text">{String(m.text || "")}</div>
                             </div>
                         );
                     })}
                 </div>
 
-                <form className="tc__inputRow" onSubmit={send}>
+                <div className="chat-input">
                     <input
-                        className="tc-input"
-                        type="text"
-                        placeholder="Message your team…"
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
                         disabled={inputDisabled}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        onKeyDown={onKey}
+                        placeholder={inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"}
                     />
-                    <button
-                        className="tc-send"
-                        disabled={inputDisabled || text.trim() === ""}
-                    >
+                    <button className="item-btn" disabled={inputDisabled || !draft.trim()} onClick={() => send(draft)}>
                         Send
                     </button>
-                </form>
+                </div>
             </div>
-        </section>
+        </div>
     );
 }
-
-/* helpers */
-function safeString(v) { if (v == null) return ""; try { return String(v).trim(); } catch { return ""; } }
-function shortId(id) { const s = safeString(id); return s ? s.slice(0, 6) : "player"; }
-function firstNonEmpty(...vals) { for (const v of vals) { const s = safeString(v); if (s) return s; } return ""; }
