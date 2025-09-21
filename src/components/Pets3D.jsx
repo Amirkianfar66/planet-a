@@ -27,8 +27,11 @@ function PetFollower({ pet }) {
         walkPhase: 0,
         animSpeed: 0,
 
+        // movement hysteresis
+        isMoving: false,
+
         // idle engine
-        idleClock: 0,          // always advances; tiny breathing even when still
+        idleClock: 0,     // always advances; “breathing” even when still
         stillTime: 0,
         idleAction: null,
         idleT: 0,
@@ -61,17 +64,27 @@ function PetFollower({ pet }) {
         const speed = (dt > 0) ? frameDist / dt : 0;
         state.visSpeed = lerp(state.visSpeed, speed, 0.25);
 
-        // advance an idle-only timer regardless of movement
+        // advance idle clock
         state.idleClock += dt;
+
+        // ----- MOVEMENT STATE with HYSTERESIS -----
+        // Require speed > MOVE_ON to start moving; < MOVE_OFF to be still.
+        // This filters jitter so idle can reliably trigger.
+        const MOVE_ON = 0.06;
+        const MOVE_OFF = 0.01;
+
+        if (state.isMoving) {
+            if (state.visSpeed < MOVE_OFF) state.isMoving = false;
+        } else {
+            if (state.visSpeed > MOVE_ON) state.isMoving = true;
+        }
 
         // ----- animation floor during seek -----
         const isSeek = String(pet.mode || "").toLowerCase() === "seekcure";
-        const hostWalking = Boolean(pet.walking);           // server intent flag
-        // deadband + hysteresis to ignore tiny jitter
-        const movingLocal = state.visSpeed > 0.02;          // was 0.03 (slightly more permissive)
-        const shouldWalkAnim = isSeek && (hostWalking || movingLocal);
+        const hostWalking = Boolean(pet.walking); // server intent (seek/approach)
+        const shouldWalkAnim = isSeek && (hostWalking || state.isMoving);
 
-        const ANIM_WALK_FLOOR = 1.1;                        // purely visual tempo
+        const ANIM_WALK_FLOOR = 1.1; // purely visual tempo
         const animSpeed = shouldWalkAnim ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
         state.animSpeed = animSpeed;
 
@@ -84,7 +97,7 @@ function PetFollower({ pet }) {
             group.current.rotation.set(0, state.yaw, 0);
         }
 
-        // Ground-flat during seek: kill Y bob, keep reduced tilts so it feels alive
+        // Ground-flat during seek: remove root Y bob, keep reduced tilts
         const bobAmp = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08); // 0 in seek
         const bob = Math.sin(state.walkPhase * 2) * bobAmp;
 
@@ -94,15 +107,14 @@ function PetFollower({ pet }) {
         const tiltRoll = isSeek ? tiltRollBase * 0.4 : tiltRollBase;
 
         if (inner.current) {
-            inner.current.position.y = bob;                  // 0 in seek (flat)
+            inner.current.position.y = bob; // 0 in seek
             inner.current.rotation.set(tiltPitch, 0, tiltRoll);
         }
 
         // ---------- IDLE ACTION LOGIC ----------
-        // consider "moving" only if host says walking OR local speed above 0.02
-        const isMoving = hostWalking || movingLocal;
+        const effectivelyMoving = hostWalking || state.isMoving;
 
-        if (isMoving) {
+        if (effectivelyMoving) {
             state.stillTime = 0;
             state.idleCooldown = Math.max(0, state.idleCooldown - dt);
             state.idleAction = null;
@@ -112,7 +124,7 @@ function PetFollower({ pet }) {
             state.stillTime += dt;
             state.idleCooldown = Math.max(0, state.idleCooldown - dt);
 
-            // choose a random idle after 1s of stillness
+            // pick a random idle after 1s of stillness
             if (state.stillTime > 1 && !state.idleAction && state.idleCooldown === 0) {
                 state.idleAction = pick(["tail", "head", "paw", "shake"]);
                 state.idleDur = ({ tail: 0.9, head: 0.7, paw: 0.8, shake: 0.6 })[state.idleAction] || 0.8;
@@ -120,14 +132,14 @@ function PetFollower({ pet }) {
                 state.idleT = 0;
             }
 
-            // advance current idle action
+            // advance the current idle action
             if (state.idleAction) {
                 state.idleT += dt / state.idleDur;
                 if (state.idleT >= 1) {
                     state.idleAction = null;
                     state.idleT = 0;
                     state.idleDur = 0;
-                    state.idleCooldown = 1.2 + Math.random() * 0.8;
+                    state.idleCooldown = 1.2 + Math.random() * 0.8; // cooldown before next
                 }
             }
         }
