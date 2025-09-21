@@ -72,13 +72,13 @@ function FloorAndWalls() {
 
     return (
         <group>
-            {/* Ground */}
+            {/* Ground (should NOT block) */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
                 <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshStandardMaterial color="#141a22" />
             </mesh>
 
-            {/* Area tints */}
+            {/* Area tints (should NOT block) */}
             <mesh {...noRay} position={[OUTSIDE_AREA.x, 0.002, OUTSIDE_AREA.z]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[OUTSIDE_AREA.w, OUTSIDE_AREA.d]} />
                 <meshStandardMaterial color="#0e1420" opacity={0.9} transparent />
@@ -88,24 +88,29 @@ function FloorAndWalls() {
                 <meshStandardMaterial color="#1b2431" opacity={0.95} transparent />
             </mesh>
 
-            {/* Grid */}
+            {/* Grid (should NOT block) */}
             <mesh {...noRay} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
                 <planeGeometry args={[FLOOR.w, FLOOR.d, 20, 12]} />
                 <meshBasicMaterial wireframe transparent opacity={0.12} />
             </mesh>
 
-            {/* Floors */}
+            {/* Floors (BLOCK camera) */}
             {FLOORS?.map((f, i) => {
                 const mat = getMaterial("floor", f.mat);
                 return (
-                    <mesh key={`floor_${i}`} position={[f.x, f.y, f.z]} receiveShadow>
+                    <mesh
+                        key={`floor_${i}`}
+                        position={[f.x, f.y, f.z]}
+                        receiveShadow
+                        userData={{ camBlocker: true }}   // ✅ blocks camera
+                    >
                         <boxGeometry args={[f.w, f.t, f.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Walls (already split in deckA) */}
+            {/* Walls (BLOCK camera) — removed {...noRay}! */}
             {walls.map((w, i) => {
                 const r = roomByKey[w.room];
                 const baseY = r?.floorY ?? 0;
@@ -113,10 +118,10 @@ function FloorAndWalls() {
                 const mat = getMaterial("wall", w.mat || r?.wallMat);
                 return (
                     <mesh
-                        {...noRay}
                         key={`wall_${i}`}
                         position={[w.x, baseY + h / 2, w.z]}
                         rotation={[0, w.rotY || 0, 0]}
+                        userData={{ camBlocker: true }}   // ✅ blocks camera
                     >
                         <boxGeometry args={[w.w, h, w.d]} />
                         <primitive object={mat} attach="material" />
@@ -124,20 +129,18 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Doors (GLB with animation + colliders) */}
+            {/* Doors (Door3D should set camBlocker on closed panels internally) */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
                             glbUrl="/models/door.glb"
-                            clipName="all"          // scrub all clips if present
-                            elevation={0.1}         // lift a hair so it doesn't sink
+                            clipName="all"
+                            elevation={0.1}
                             doorWidth={4.5}
                             doorHeight={3}
                             thickness={0.3}
                             panels={d.panels || 2}
-
-                            // Proximity open with dwell — inside/outside doesn’t matter
                             playerRef={playerRef}
                             triggerRadius={3}
                             dwellSeconds={1}
@@ -145,28 +148,28 @@ function FloorAndWalls() {
                             openSpeed={6}
                             closeSpeed={4}
 
-                            // Collider so closed door blocks movement
-                            colliderId={d.id || `door_${i}`}
-                            yaw={d.rotY || 0}
-                            wallThickness={d.thickness ?? 0.6}
-                            collisionOpenThreshold={0.2}
+                        // (Door3D should toggle camBlocker on its panel meshes when closed)
                         />
                     </group>
                 ))}
             </Suspense>
 
-            {/* Roofs */}
+            {/* Roofs (OPTIONAL block — enable if you want overhead to occlude) */}
             {ROOFS?.map((rf, i) => {
                 const mat = getMaterial("roof", rf.mat);
                 return (
-                    <mesh key={`roof_${i}`} position={[rf.x, rf.y, rf.z]}>
+                    <mesh
+                        key={`roof_${i}`}
+                        position={[rf.x, rf.y, rf.z]}
+                        userData={{ camBlocker: true }}     {/* set to true if you want roofs to block */}
+                    >
                         <boxGeometry args={[rf.w, rf.t, rf.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Labels */}
+            {/* Labels (should NOT block) */}
             <TextLabel text="Outside" position={[OUTSIDE_AREA.x, 0.01, OUTSIDE_AREA.z]} width={8} color="#9fb6ff" />
             {ROOMS.map((r) => (
                 <TextLabel
@@ -180,6 +183,7 @@ function FloorAndWalls() {
         </group>
     );
 }
+
 
 export default function GameCanvas({ dead = [] }) {
     return (
