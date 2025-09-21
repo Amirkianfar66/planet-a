@@ -36,16 +36,41 @@ export default function InteractionSystem() {
             const carryId = me.getState("carry") || "";
 
             if (k === "p") {
-                // nearest free item
-                let pick = null, best = Infinity;
-                for (const it of (itemsRef.current || [])) {
-                    if (it.holder) continue;
-                    if (it.type === "pet") continue; // don't allow picking up pets
-                    const dx = px - it.x, dz = pz - it.z, d2 = dx * dx + dz * dz;
-                    if (d2 < best && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) { pick = it; best = d2; }
-                }
-                if (pick) sendReq("pickup", pick.id, 0);
-                return;
+                const me = myPlayer(); if (!me) return;
+                const bp = Array.isArray(me.getState("backpack")) ? me.getState("backpack") : [];
+                const hasType = (t) => bp.some(b => String(b.type).toLowerCase() === t);
+                const isTank = (t) => ["food_tank", "fuel_tank", "protection_tank"].includes(String(t).toLowerCase());
+                const tankWants = { food_tank: "food", fuel_tank: "fuel", protection_tank: "protection" };
+                
+                      // 1) Gather candidates within radius, excluding pets and held items
+                        const near = [];
+                        for (const it of (itemsRef.current || [])) {
+                        if (!it || it.holder) continue;
+                        if (String(it.type).toLowerCase() === "pet") continue;
+                        const dx = px - it.x, dz = pz - it.z, d2 = dx * dx + dz * dz;
+                        if (d2 <= PICKUP_RADIUS * PICKUP_RADIUS) near.push([it, d2]);
+                     }
+                     if (!near.length) return;
+                
+                      // 2) Split into (A) real items and (B) tanks-that-can-load-now
+                      const canLoadTank = (it) => {
+                            if (!isTank(it.type)) return false;
+                            const want = tankWants[String(it.type).toLowerCase()];
+                           const cap = Number(it.cap ?? 6);
+                            const stored = Number(it.stored ?? 0);
+                            return stored < cap && hasType(want);
+                          };
+                      const realItems = near.filter(([it]) => !isTank(it.type));
+                      const loadableTanks = near.filter(([it]) => canLoadTank(it));
+                
+                      // 3) Prefer nearest real item; otherwise nearest loadable tank
+                      const pickEntry =
+                            (realItems.sort((a, b) => a[1] - b[1])[0]) ||
+                            (loadableTanks.sort((a, b) => a[1] - b[1])[0]);
+                  if (!pickEntry) return;
+                  const [pick] = pickEntry;
+                  sendReq("pickup", pick.id, 0);
+                  return;
             }
 
             if (k === "o") { if (carryId) sendReq("drop", carryId, 0); return; }
