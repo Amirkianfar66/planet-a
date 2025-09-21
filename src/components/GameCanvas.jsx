@@ -1,14 +1,22 @@
-﻿import React, { useMemo, Suspense, useRef } from "react";
+﻿import React, { useMemo, useRef, Suspense } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
+// Map data
 import {
-    OUTSIDE_AREA, STATION_AREA, ROOMS,
-    FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
+    OUTSIDE_AREA,
+    STATION_AREA,
+    ROOMS,
+    FLOOR,
+    WALL_HEIGHT,
+    walls,
+    FLOORS,
+    ROOFS,
     DOORS,
 } from "../map/deckA";
 
-import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
+// World + systems
+import WorldGLB from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
 import Pets3D from "./Pets3D.jsx";
 import LocalController from "../systems/LocalController.jsx";
@@ -20,13 +28,16 @@ import NetworkGunTracers from "../world/NetworkGunTracers.jsx";
 import BeamLasers from "../world/BeamLasers.jsx";
 import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
-import { getMaterial } from "../map/materials";
-
-import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 import CCTVViewer from "../systems/CCTVViewer.jsx";
 import CCTVControlPanel from "../ui/CCTVControlPanel.jsx";
-// live player position (updated by your LocalController via window.__playerPos)
+import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
+import { getMaterial } from "../map/materials";
+
+// ----------------------------
+// Small helpers used below
+// ----------------------------
 function usePlayerPosRefFromWindow() {
+    // updated by LocalController -> window.__playerPos = [x,y,z]
     const ref = useRef([0, 0, 0]);
     useFrame(() => {
         const g = (typeof window !== "undefined" && window.__playerPos) || null;
@@ -35,40 +46,43 @@ function usePlayerPosRefFromWindow() {
     return ref;
 }
 
-function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff", outline = "#0d1117" }) {
+function TextLabel({ text, position = [0, 0.01, 0], width = 6, color = "#cfe7ff" }) {
     const { texture, aspect } = useMemo(() => {
         const canvas = document.createElement("canvas");
         canvas.width = 1024; canvas.height = 256;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = "bold 120px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineWidth = 18;
-        ctx.strokeStyle = outline;
-        ctx.strokeText(text, canvas.width / 2, canvas.height / 2);
-        ctx.fillStyle = color;
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.minFilter = THREE.LinearFilter;
-        tex.anisotropy = 4;
-        return { texture: tex, aspect: canvas.width / canvas.height };
-    }, [text, color, outline]);
 
-    const h = width / (aspect || 4);
-    const noRay = useMemo(() => ({ raycast: () => null }), []);
+        // bg
+        ctx.fillStyle = "rgba(9,14,22,0.85)";
+        const x = 12, y = 74, w = canvas.width - 24, h = 108, r = 28;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
+
+        // text
+        ctx.fillStyle = color;
+        ctx.font = "700 88px system-ui, Segoe UI, Roboto, Arial";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(text, canvas.width / 2, y + h / 2);
+
+        const tex = new THREE.CanvasTexture(canvas); tex.minFilter = THREE.LinearFilter; tex.anisotropy = 4;
+        return { texture: tex, aspect: canvas.width / canvas.height };
+    }, [text, color]);
+
     return (
-        <mesh {...noRay} position={position} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[width, h]} />
+        <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[width, width / (1024 / 256)]} />
             <meshBasicMaterial map={texture} transparent depthWrite={false} />
         </mesh>
     );
 }
 
 function FloorAndWalls() {
-    const noRay = useMemo(() => ({ raycast: () => null }), []);
+    const noRay = { raycast: () => { } };
     const roomByKey = useMemo(() => Object.fromEntries(ROOMS.map((r) => [r.key, r])), []);
-    const playerRef = usePlayerPosRefFromWindow();
 
     return (
         <group>
@@ -105,48 +119,27 @@ function FloorAndWalls() {
                 );
             })}
 
-            {/* Walls (already split in deckA) */}
-            {walls.map((w, i) => {
-                const r = roomByKey[w.room];
-                const baseY = r?.floorY ?? 0;
+            {/* Walls */}
+            {walls?.map((w, i) => {
+                const mat = getMaterial("wall", w.mat);
                 const h = w.h ?? WALL_HEIGHT;
-                const mat = getMaterial("wall", w.mat || r?.wallMat);
                 return (
-                    <mesh
-                        {...noRay}
-                        key={`wall_${i}`}
-                        position={[w.x, baseY + h / 2, w.z]}
-                        rotation={[0, w.rotY || 0, 0]}
-                    >
+                    <mesh key={`wall_${i}`} position={[w.x, (w.y ?? 0) + h / 2, w.z]} castShadow receiveShadow>
                         <boxGeometry args={[w.w, h, w.d]} />
                         <primitive object={mat} attach="material" />
                     </mesh>
                 );
             })}
 
-            {/* Doors (GLB with animation + colliders) */}
+            {/* Doors */}
             <Suspense fallback={null}>
                 {DOORS?.map((d, i) => (
                     <group key={`door_${i}`} position={[d.x, d.y, d.z]} rotation={[0, d.rotY || 0, 0]}>
                         <Door3D
                             glbUrl="/models/door.glb"
-                            clipName="all"          // scrub all clips if present
-                            elevation={0.1}         // lift a hair so it doesn't sink
-                            doorWidth={4.5}
-                            doorHeight={3}
-                            thickness={0.3}
-                            panels={d.panels || 2}
-
-                            // Proximity open with dwell — inside/outside doesn’t matter
-                            playerRef={playerRef}
-                            triggerRadius={3}
-                            dwellSeconds={1}
-                            closeDelaySeconds={0.15}
-                            openSpeed={6}
-                            closeSpeed={4}
-
-                            // Collider so closed door blocks movement
-                            colliderId={d.id || `door_${i}`}
+                            clipName="all"
+                            elevation={0.1}
+                            doorWidth={d.w || 2.4}
                             yaw={d.rotY || 0}
                             wallThickness={d.thickness ?? 0.6}
                             collisionOpenThreshold={0.2}
@@ -181,60 +174,66 @@ function FloorAndWalls() {
     );
 }
 
+// ----------------------------
+// Debug overlay: are items syncing?
+// ----------------------------
+function ItemsDebugOverlay() {
+    // we lazy-import here to avoid adding a hard dependency to the render path
+    const useItemsSync = require("../systems/useItemsSync.js").default;
+    const { items } = useItemsSync();
+    const count = (items && items.length) || 0;
+    return (
+        <div style={{
+            position: "absolute", left: 10, bottom: 10, padding: "6px 10px",
+            font: "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+            color: "#cfe7ff", background: "rgba(9,14,22,0.65)", border: "1px solid #2a3a4f", borderRadius: 8,
+            pointerEvents: "none"
+        }}>
+            Items (synced): <b>{count}</b>
+        </div>
+    );
+}
+
+// ----------------------------
+// GameCanvas
+// ----------------------------
 export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
-            <Canvas
-                shadows
-                dpr={[1, 2]}
-                camera={{ position: [0, 8, 10], fov: 50 }}
-                gl={{ powerPreference: "high-performance" }}
-            >
-                <color attach="background" args={["#0b1220"]} />
-                <ambientLight intensity={0.7} />
-                <directionalLight position={[5, 10, 3]} intensity={1} />
+            <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 6.5, 10], fov: 55 }}>
+                {/* lighting */}
+                <ambientLight intensity={0.6} />
+                <directionalLight position={[6, 10, 6]} intensity={0.85} castShadow />
 
+                {/* World */}
                 <Suspense fallback={null}>
-                    {WORLD_GLB?.enabled && WORLD_GLB?.url && (
-                        <WorldGLB
-                            url={WORLD_GLB.url}
-                            position={WORLD_GLB.position || [0, 0, 0]}
-                            rotationYDeg={WORLD_GLB.rotationYDeg || 0}
-                            scale={WORLD_GLB.scale || 1}
-                        />
-                    )}
+                    <WorldGLB />
+                    <FloorAndWalls />
+
+                    {/* Items & players */}
+                    <ItemsAndDevices />
+                    <Players3D dead={dead} />
+                    <Pets3D />
+
+                    {/* FX */}
+                    <DeathMarkers />
                 </Suspense>
 
-                <FloorAndWalls />
-
-                {/* Items & players */}
-                <Pets3D /> 
-                <ItemsAndDevices />
-                <Players3D dead={dead} />
-
-                {/* Death FX */}
-                <DeathMarkers />
-
-                {/* Local systems */}
+                {/* Local systems (inside Canvas so they can use frame & camera) */}
                 <LocalController />
                 <ThirdPersonCamera />
                 <BeamLasers />
                 <NetworkGunTracers />
                 <CCTVViewer />
-                <Pets3D /> 
-                
             </Canvas>
-            {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
-                <CCTVControlPanel />
-            {/* Input overlay (non-blocking) */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-                <InteractionSystem />
-            </div>
 
-            {/* Host-only logic */}
+            {/* UI overlays (DOM) */}
+            <InteractionSystem />
+            <CCTVControlPanel />
+            <ItemsDebugOverlay />
+
+            {/* Host-only logic & gameplay systems */}
             <ItemsHostLogic />
-
-            {/* Death logic */}
             <DeathSystem />
         </div>
     );

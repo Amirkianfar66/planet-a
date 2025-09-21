@@ -7,9 +7,9 @@ import { DEVICES, INITIAL_ITEMS, ITEM_TYPES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
 import { OUTSIDE_AREA, pointInRect, clampToRect } from "../map/deckA";
 
-// -------------------------------
+// ---------------------------------
 // Bounds / placement helpers
-// -------------------------------
+// ---------------------------------
 const OUT_MARGIN = 0.75;
 
 function ensureOutdoorPos(x = 0, z = 0) {
@@ -18,9 +18,9 @@ function ensureOutdoorPos(x = 0, z = 0) {
     return { x: c.x, z: c.z };
 }
 
-// -------------------------------
+// ---------------------------------
 // Type metadata (labels + colors)
-// -------------------------------
+// ---------------------------------
 const TYPE_META = ITEM_TYPES; // single source of truth from data/gameObjects.js
 
 const TANK_ACCEPTS = {
@@ -30,9 +30,9 @@ const TANK_ACCEPTS = {
 };
 const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
 
-// -------------------------------
+// ---------------------------------
 // Billboard / Text sprite
-// -------------------------------
+// ---------------------------------
 function Billboard({ children, position = [0, 0, 0] }) {
     const ref = useRef();
     const { camera } = useThree();
@@ -80,9 +80,9 @@ function TextSprite({ text = "", width = 0.95 }) {
     );
 }
 
-// -------------------------------
+// ---------------------------------
 // Item meshes for each type
-// -------------------------------
+// ---------------------------------
 function ItemMesh({ type = "crate" }) {
     const color = TYPE_META[type]?.color ?? "#9ca3af";
 
@@ -213,9 +213,9 @@ function ItemMesh({ type = "crate" }) {
     }
 }
 
-// -------------------------------
+// ---------------------------------
 // Helpers
-// -------------------------------
+// ---------------------------------
 function canPickUp(it) {
     const me = myPlayer?.(); if (!me) return false;
     const px = Number(me.getState("x") || 0);
@@ -235,9 +235,9 @@ function prettyLabel(it) {
     return it.name || t?.label || it.type || "Item";
 }
 
-// -------------------------------
+// ---------------------------------
 // Single floor item
-// -------------------------------
+// ---------------------------------
 function ItemEntity({ it }) {
     if (!it || it.holder) return null;
     if (String(it.type).toLowerCase() === "pet") return null; // Pets handled by Pets3D
@@ -305,9 +305,9 @@ function ItemEntity({ it }) {
     );
 }
 
-// -------------------------------
+// ---------------------------------
 // Main scene block (render-only)
-// -------------------------------
+// ---------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
 
