@@ -416,76 +416,58 @@ export default function ItemsHostLogic() {
 
                 const spawnPetIfMissing = (owner) => {
                     const ownerId = owner.id;
-
-                    // Fast guard: if we already spawned/tracked a pet for this owner, skip.
                     if (spawnedPetsForOwner.current.has(ownerId)) return;
 
-                    // If a pet for this owner is already in the list, remember and skip.
                     const existing = list.find((i) => i.type === "pet" && i.owner === ownerId);
                     if (existing) {
                         spawnedPetsForOwner.current.add(ownerId);
                         return;
                     }
 
-                    // Mark before writing to avoid double-spawns across ticks.
+                    // mark to prevent double-spawn on this tick
                     spawnedPetsForOwner.current.add(ownerId);
 
                     const ox = Number(owner.getState("x") || 0);
                     const oy = Number(owner.getState("y") || 0);
                     const oz = Number(owner.getState("z") || 0);
 
-                    // Unique id
-                    let idx = 1,
-                        newId = `pet_${ownerId}_${idx}`;
-                    while (haveIds.has(newId)) {
-                        idx++;
-                        newId = `pet_${ownerId}_${idx}`;
-                    }
+                    // unique id
+                    let idx = 1, newId = `pet_${ownerId}_${idx}`;
+                    while (haveIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
                     haveIds.add(newId);
 
-                    // Create the pet item
-                    setItems(
-                        (prev) => [
-                            ...(prev || []),
-                            {
-                                id: newId,
-                                type: "pet",
-                                name: "Research Bot",
-                                owner: ownerId,
-                                x: ox - 0.8,
-                                y: Math.max(oy + 0.2, 0.2),
-                                z: oz - 0.8,
-                                yaw: Number(owner.getState("yaw") || 0),
-                                mode: owner.getState("petMode") || "follow",
-                                speed: 2.2,
-                                hover: 0.35,
-                            },
-                        ],
-                        true
-                    );
+                    setItems(prev => ([
+                        ...(prev || []),
+                        {
+                            id: newId,
+                            type: "pet",
+                            name: "Research Bot",
+                            owner: ownerId,
+                            x: ox - 0.8,
+                            y: Math.max(oy + 0.2, 0.2),
+                            z: oz - 0.8,
+                            yaw: Number(owner.getState("yaw") || 0),
+                            mode: owner.getState("petMode") || "follow",
+                            speed: 2.2,
+                            hover: 0.35,
+                        }
+                    ]), true);
                 };
 
-                // For each player…
+                // spawn pets for Researchers
                 for (const pl of everyone) {
                     if (String(pl.getState?.("role") || "") === "Research") {
                         spawnPetIfMissing(pl);
                     } else {
-                        // optional: if they’re not Research now, allow respawn later
                         spawnedPetsForOwner.current.delete(pl.id);
                     }
                 }
 
-                // --- END SPAWN ---
-
-                // unique id helper (kept)
+                // id helper
                 const mkId = (prefix) => {
                     const existing = new Set((itemsRef.current || []).map((i) => i.id));
-                    let i = 1,
-                        id = `${prefix}${i}`;
-                    while (existing.has(id)) {
-                        i += 1;
-                        id = `${prefix}${i}`;
-                    }
+                    let i = 1, id = `${prefix}${i}`;
+                    while (existing.has(id)) { i += 1; id = `${prefix}${i}`; }
                     return id;
                 };
 
@@ -502,80 +484,50 @@ export default function ItemsHostLogic() {
                     const py = Number(p.getState("y") || 0);
                     const pz = Number(p.getState("z") || 0);
 
-                    // --------- ABILITIES ----------
+                    // ---------- ABILITIES ----------
                     if (type === "ability" && target === "shoot") {
                         const payload = readActionPayload(p);
                         hostHandleShoot({ shooter: p, payload, setEvents: undefined, players: everyone });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
                     if (type === "ability" && target === "bite") {
                         hostHandleBite({ biter: p, setEvents: undefined, players: everyone });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
-                    // ABILITY: disguise (infected-only cosmetic)
                     if (type === "ability" && target === "disguise") {
                         hostHandleDisguise({ player: p, setEvents: undefined });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
-
                     if (type === "ability" && target === "arrest") {
                         hostHandleArrest({ officer: p, players: everyone, setEvents: undefined });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
-
-                    // ABILITY: scan (Officer blood test)
                     if (type === "ability" && target === "scan") {
                         hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
-
-                    // ABILITY: pet order (Research)
+                    // Researcher pet order
                     if (type === "ability" && target === "pet_order") {
                         const payload = readActionPayload(p);
                         hostHandlePetOrder({ researcher: p, setEvents: undefined, payload });
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
+                    // ---------- END ABILITIES ----------
 
-                    // --------- END ABILITIES ----------
-
-                    // CONTAINER (any Tank) — stationary, load-only, must be near
+                    // CONTAINER (Tank) — must be near
                     if (type === "container") {
                         const payload = readActionPayload(p) || {};
                         const { containerId, op } = payload || {};
                         const tank = findItem(String(containerId));
-                        if (!tank || !isTankType(tank.type)) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (!tank || !isTankType(tank.type)) { processed.current.set(p.id, reqId); continue; }
 
-                        // must be close to the stationary tank
-                        const dx = px - tank.x,
-                            dz = pz - tank.z;
-                        if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        const dx = px - tank.x, dz = pz - tank.z;
+                        if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) { processed.current.set(p.id, reqId); continue; }
 
-                        let changed = false;
                         if (op === "load" || op === "toggle") {
-                            changed = tryLoadIntoTank({
-                                player: p,
-                                tank,
-                                itemsList: list,
-                                getBackpack,
-                                setBackpack,
-                                setItems,
-                            });
+                            tryLoadIntoTank({ player: p, tank, itemsList: list, getBackpack, setBackpack, setItems });
                         }
-
-                        processed.current.set(p.id, reqId);
-                        continue;
+                        processed.current.set(p.id, reqId); continue;
                     }
 
                     // PICKUP
@@ -583,95 +535,48 @@ export default function ItemsHostLogic() {
                         const nowSec = Math.floor(Date.now() / 1000);
                         let until = Number(p.getState("pickupUntil") || 0);
                         if (until > 1e11) until = Math.floor(until / 1000);
-                        if (nowSec < until) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (nowSec < until) { processed.current.set(p.id, reqId); continue; }
 
                         const it = findItem(target);
-                        if (!it) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
-                        // Pets cannot be picked up
-                        if (it.type === "pet") {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
-                        // Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                        if (!it) { processed.current.set(p.id, reqId); continue; }
+                        if (it.type === "pet") { processed.current.set(p.id, reqId); continue; } // never pick pets
+
+                        // Tanks aren’t pickable — treat as “load into tank”
                         if (isTankType(it.type)) {
-                            const dx = px - it.x,
-                                dz = pz - it.z;
+                            const dx = px - it.x, dz = pz - it.z;
                             if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
-                                const ok = tryLoadIntoTank({
-                                    player: p,
-                                    tank: it,
-                                    itemsList: list,
-                                    getBackpack,
-                                    setBackpack,
-                                    setItems,
-                                });
-                                if (ok) {
-                                    p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                                }
+                                const ok = tryLoadIntoTank({ player: p, tank: it, itemsList: list, getBackpack, setBackpack, setItems });
+                                if (ok) p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
                             }
-                            processed.current.set(p.id, reqId);
-                            continue;
+                            processed.current.set(p.id, reqId); continue;
                         }
 
-                        if (it.holder && it.holder !== p.id) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
-                        if (!hasCapacity(p)) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (it.holder && it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
+                        if (!hasCapacity(p)) { processed.current.set(p.id, reqId); continue; }
 
-                        const dx = px - it.x,
-                            dz = pz - it.z;
-                        if (Math.hypot(dx, dz) > PICKUP_RADIUS) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        const dx = px - it.x, dz = pz - it.z;
+                        if (Math.hypot(dx, dz) > PICKUP_RADIUS) { processed.current.set(p.id, reqId); continue; }
 
-                        setItems(
-                            (prev) =>
-                                prev.map((j) => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)),
-                            true
-                        );
+                        setItems(prev => prev.map(j => (j.id === it.id ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j)), true);
 
-                        const carry = String(p.getState("carry") || "");
-                        if (!carry) p.setState("carry", it.id, true);
+                        if (!String(p.getState("carry") || "")) p.setState("carry", it.id, true);
 
-                        // add to backpack (with role bonuses)
+                        // add to backpack (+role bonuses)
                         const bp = getBackpack(p);
                         if (!bp.find((b) => b.id === it.id)) {
-                            // put the picked world item in as usual
                             let nextBp = [...bp, { id: it.id, type: it.type }];
-
                             const role = String(p.getState?.("role") || "");
 
-                            // --- FoodSupplier bonus: +1 FOOD (stacked, no extra slot)
                             if (role === "FoodSupplier" && isType(it.type, "food")) {
                                 const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
-                                if (idx >= 0) {
-                                    const entry = nextBp[idx];
-                                    nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
-                                } else {
-                                    nextBp.push({ type: "food", qty: 1, bonus: true });
-                                }
+                                if (idx >= 0) nextBp[idx] = { ...nextBp[idx], qty: Number(nextBp[idx]?.qty || 1) + 1, bonus: true };
+                                else nextBp.push({ type: "food", qty: 1, bonus: true });
                             }
 
-                            // --- Engineer bonus: +1 FUEL (stacked, no extra slot)
                             if (role === "Engineer" && isType(it.type, "fuel")) {
                                 const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
-                                if (idx >= 0) {
-                                    const entry = nextBp[idx];
-                                    nextBp[idx] = { ...entry, qty: Number(entry?.qty || 1) + 1, bonus: true };
-                                } else {
-                                    nextBp.push({ type: "fuel", qty: 1, bonus: true });
-                                }
+                                if (idx >= 0) nextBp[idx] = { ...nextBp[idx], qty: Number(nextBp[idx]?.qty || 1) + 1, bonus: true };
+                                else nextBp.push({ type: "fuel", qty: 1, bonus: true });
                             }
 
                             setBackpack(p, nextBp);
@@ -685,29 +590,11 @@ export default function ItemsHostLogic() {
                     // DROP
                     if (type === "drop") {
                         const it = findItem(target);
-                        if (!it || it.holder !== p.id) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
 
-                        setItems(
-                            (prev) =>
-                                prev.map((j) =>
-                                    j.id === it.id
-                                        ? {
-                                            ...j,
-                                            holder: null,
-                                            x: px,
-                                            y: Math.max(py + 0.5, FLOOR_Y + 0.01),
-                                            z: pz,
-                                            vx: 0,
-                                            vy: 0,
-                                            vz: 0,
-                                        }
-                                        : j
-                                ),
-                            true
-                        );
+                        setItems(prev => prev.map(j => j.id === it.id
+                            ? { ...j, holder: null, x: px, y: Math.max(py + 0.5, FLOOR_Y + 0.01), z: pz, vx: 0, vy: 0, vz: 0 }
+                            : j), true);
 
                         if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                         setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
@@ -719,33 +606,15 @@ export default function ItemsHostLogic() {
                     // THROW
                     if (type === "throw") {
                         const it = findItem(target);
-                        if (!it || it.holder !== p.id) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
                         const yaw = Number(p.getState("yaw") || value || 0);
                         const vx = Math.sin(yaw) * THROW_SPEED;
                         const vz = Math.cos(yaw) * THROW_SPEED;
                         const vy = 4.5;
 
-                        setItems(
-                            (prev) =>
-                                prev.map((j) =>
-                                    j.id === it.id
-                                        ? {
-                                            ...j,
-                                            holder: null,
-                                            x: px,
-                                            y: Math.max(py + 1.1, FLOOR_Y + 0.2),
-                                            z: pz,
-                                            vx,
-                                            vy,
-                                            vz,
-                                        }
-                                        : j
-                                ),
-                            true
-                        );
+                        setItems(prev => prev.map(j => j.id === it.id
+                            ? { ...j, holder: null, x: px, y: Math.max(py + 1.1, FLOOR_Y + 0.2), z: pz, vx, vy, vz }
+                            : j), true);
 
                         if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                         setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
@@ -760,104 +629,55 @@ export default function ItemsHostLogic() {
                         const it = findItem(idStr);
                         const bp = getBackpack(p);
 
-                        // --- NEW: PLACE CCTV from backpack (or while held) ---
                         if (kind === "place") {
-                            // Allowed if:
-                            //  - item exists and is held by player, OR
-                            //  - camera entry exists in backpack (id match) even if not a world item yet
                             const heldOk = !!it && it.holder === p.id && it.type === "cctv";
                             const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
-
-                            if (!heldOk && !bpCam) {
-                                processed.current.set(p.id, reqId);
-                                continue;
-                            }
+                            if (!heldOk && !bpCam) { processed.current.set(p.id, reqId); continue; }
 
                             const yaw = Number(p.getState("yaw") || 0);
-                            const fdx = Math.sin(yaw),
-                                fdz = Math.cos(yaw);
+                            const fdx = Math.sin(yaw), fdz = Math.cos(yaw);
 
-                            // If camera not a world item yet, spawn it; otherwise move+drop the held one to mounted pose
                             if (!it) {
-                                setItems(
-                                    (prev) => [
-                                        ...prev,
-                                        {
-                                            id: idStr,
-                                            type: "cctv",
-                                            name: "CCTV Camera",
-                                            holder: null,
-                                            x: px + fdx * 0.6,
-                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                            z: pz + fdz * 0.6,
-                                            yaw,
-                                            placed: true,
-                                            owner: p.id,
-                                            day: useGameClock.getState().dayNumber,
-                                        },
-                                    ],
-                                    true
-                                );
+                                setItems(prev => [...prev, {
+                                    id: idStr, type: "cctv", name: "CCTV Camera", holder: null,
+                                    x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
+                                    yaw, placed: true, owner: p.id, day: useGameClock.getState().dayNumber
+                                }], true);
                             } else {
-                                setItems(
-                                    (prev) =>
-                                        prev.map((j) =>
-                                            j.id === it.id
-                                                ? {
-                                                    ...j,
-                                                    holder: null,
-                                                    x: px + fdx * 0.6,
-                                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                                    z: pz + fdz * 0.6,
-                                                    vx: 0,
-                                                    vy: 0,
-                                                    vz: 0,
-                                                    yaw,
-                                                    placed: true,
-                                                    owner: p.id,
-                                                }
-                                                : j
-                                        ),
-                                    true
-                                );
+                                setItems(prev => prev.map(j => j.id === it.id
+                                    ? {
+                                        ...j, holder: null, x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
+                                        vx: 0, vy: 0, vz: 0, yaw, placed: true, owner: p.id
+                                    }
+                                    : j), true);
                             }
 
-                            // Remove from backpack and clear carry if needed
                             setBackpack(p, bp.filter((b) => b.id !== idStr));
                             if (String(p.getState("carry") || "") === idStr) p.setState("carry", "", true);
 
                             processed.current.set(p.id, reqId);
                             continue;
                         }
-                        // --- END PLACE CCTV ---
 
                         // From here down: legacy "use" flows that require a held world item
-                        if (!it || it.holder !== p.id) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
+                        if (!it || it.holder !== p.id) { processed.current.set(p.id, reqId); continue; }
 
-                        // eat food
                         if (kind === "eat" && it.type === "food") {
-                            setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
+                            setItems(prev => prev.map(j => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
                             setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
                             if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        // use on device (reactor/medbay/shield/etc.)
                         const dev = DEVICES.find((d) => d.id === kind);
                         if (dev) {
-                            const dx = px - dev.x,
-                                dz = pz - dev.z;
+                            const dx = px - dev.x, dz = pz - dev.z;
                             const r = Number(dev.radius || DEVICE_RADIUS);
                             if (dx * dx + dz * dz <= r * r) {
                                 const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                                 if (eff) {
-                                    // Apply effects in your meters system if desired
-                                    // Consume item
-                                    setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j)), true);
+                                    setItems(prev => prev.map(j => (j.id === it.id ? { ...j, holder: "_used_", y: -999 } : j)), true);
                                     setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
                                     if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
                                 }
@@ -872,9 +692,9 @@ export default function ItemsHostLogic() {
                 }
 
                 // --- PET AI: follow owner / stay / seekCure ---
-                {
+                try {
                     const PET_DT = 0.05;
-                    const pets = (itemsRef.current || []).filter((i) => i.type === "pet");
+                    const pets = (itemsRef.current || []).filter((i) => i && i.type === "pet");
                     if (pets.length) {
                         const updated = new Map();
 
@@ -884,27 +704,21 @@ export default function ItemsHostLogic() {
                         };
 
                         const nearestCure = (x, z) => {
-                            let best = null,
-                                bestD2 = Infinity;
+                            let best = null, bestD2 = Infinity;
                             for (const it of (itemsRef.current || [])) {
                                 if (!it || it.holder) continue;
                                 if (typeof it.x !== "number" || typeof it.z !== "number") continue;
                                 const t = String(it.type || "").toLowerCase();
                                 if (t !== "cure_red" && t !== "cure_blue") continue;
-                                const dx = it.x - x,
-                                    dz = it.z - z;
+                                const dx = it.x - x, dz = it.z - z;
                                 const d2 = dx * dx + dz * dz;
-                                if (d2 < bestD2) {
-                                    best = it;
-                                    bestD2 = d2;
-                                }
+                                if (d2 < bestD2) { best = it; bestD2 = d2; }
                             }
                             return best;
                         };
 
                         const dist2 = (ax, az, bx, bz) => {
-                            const dx = ax - bx,
-                                dz = az - bz;
+                            const dx = ax - bx, dz = az - bz;
                             return dx * dx + dz * dz;
                         };
 
@@ -915,9 +729,8 @@ export default function ItemsHostLogic() {
                         };
 
                         for (const pet of pets) {
-                            const owner =
-                                (playersRef.current || []).find((pl) => pl.id === pet.owner) || myPlayer();
-                            if (!owner || typeof owner.getState !== "function") continue; // skip this pet this tick
+                            const owner = (playersRef.current || []).find(pl => pl?.id === pet.owner) || myPlayer();
+                            if (!owner || typeof owner.getState !== "function") continue;
                             const mode = String(owner.getState("petMode") || pet.mode || "follow");
 
                             let { x, y, z } = pet;
@@ -927,23 +740,18 @@ export default function ItemsHostLogic() {
                             const speed = pet.speed ?? 2.2;
                             const hoverY = pet.hover ?? 0.35;
 
-                            // defaults = hold position
-                            let tgtX = x,
-                                tgtZ = z,
-                                tgtY = y,
-                                lookAtYaw = yaw;
+                            // defaults
+                            let tgtX = x, tgtZ = z, tgtY = y, lookAtYaw = yaw;
 
                             // FOLLOW
-                            if (mode === "follow" && owner) {
+                            if (mode === "follow") {
                                 const ox = Number(owner.getState("x") ?? 0);
                                 const oy = Number(owner.getState("y") ?? 0);
                                 const oz = Number(owner.getState("z") ?? 0);
                                 const ry = Number((owner.getState("ry") ?? owner.getState("yaw") ?? 0) || 0);
 
-                                const backX = -Math.sin(ry),
-                                    backZ = -Math.cos(ry);
-                                const rightX = Math.cos(ry),
-                                    rightZ = -Math.sin(ry);
+                                const backX = -Math.sin(ry), backZ = -Math.cos(ry);
+                                const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
 
                                 tgtX = ox + backX * 2.4 + rightX * 1.2;
                                 tgtZ = oz + backZ * 2.4 + rightZ * 1.2;
@@ -951,48 +759,39 @@ export default function ItemsHostLogic() {
                                 lookAtYaw = Math.atan2(ox - x, oz - z);
                             }
 
-                            // SEEK (search → detect → approach)
+                            // SEEK
                             if (mode === "seekCure") {
-                                // tuning
                                 const SENSE_RADIUS = 20.0;
                                 const LOST_RADIUS = 30.0;
-                                const SEARCH_SPEED = 0.18; // m/s
-                                const APPROACH = 0.08; // damping to stand-off
+                                const SEARCH_SPEED = 0.18;
+                                const APPROACH = 0.08;
                                 const STOP_DIST = 0.7;
                                 const WP_REACH = 0.25;
                                 const WP_TIMEOUT_S = 3.0;
 
-                                // pull prior state (DON'T mutate pet directly; write via updated.set)
                                 let tgtId = pet.seekTargetId || "";
-                                let wpX = typeof pet.seekWpX === "number" ? pet.seekWpX : undefined;
-                                let wpZ = typeof pet.seekWpZ === "number" ? pet.seekWpZ : undefined;
-                                let wpTtl = typeof pet.seekWpTtl === "number" ? pet.seekWpTtl : 0;
+                                let wpX = (typeof pet.seekWpX === "number") ? pet.seekWpX : undefined;
+                                let wpZ = (typeof pet.seekWpZ === "number") ? pet.seekWpZ : undefined;
+                                let wpTtl = (typeof pet.seekWpTtl === "number") ? pet.seekWpTtl : 0;
 
-                                // resolve/validate target
                                 let target = null;
                                 if (tgtId) {
-                                    target = (itemsRef.current || []).find(
-                                        (it) => it && !it.holder && it.id === tgtId && typeof it.x === "number" && typeof it.z === "number"
+                                    target = (itemsRef.current || []).find(it =>
+                                        it && !it.holder && it.id === tgtId && typeof it.x === "number" && typeof it.z === "number"
                                     );
-                                    if (target) {
-                                        if (dist2(x, z, target.x, target.z) > LOST_RADIUS * LOST_RADIUS) target = null;
-                                    }
+                                    if (target && dist2(x, z, target.x, target.z) > LOST_RADIUS * LOST_RADIUS) target = null;
                                     if (!target) tgtId = "";
                                 }
 
-                                // detect
                                 if (!tgtId) {
                                     const cand = nearestCure(x, z);
                                     if (cand && dist2(x, z, cand.x, cand.z) <= SENSE_RADIUS * SENSE_RADIUS) {
-                                        target = cand;
-                                        tgtId = cand.id;
+                                        target = cand; tgtId = cand.id;
                                     }
                                 }
 
                                 if (tgtId && target) {
-                                    // APPROACH: slow, ground-locked
-                                    const vx = target.x - x,
-                                        vz = target.z - z;
+                                    const vx = target.x - x, vz = target.z - z;
                                     const d = Math.hypot(vx, vz) || 1e-6;
 
                                     lookAtYaw = Math.atan2(vx, vz);
@@ -1004,50 +803,33 @@ export default function ItemsHostLogic() {
                                     z += (pz - z) * APPROACH;
 
                                     walking = Math.hypot(px - x, pz - z) > 0.05;
-                                    tgtY = y; // lock vertical
+                                    tgtY = y;
 
-                                    // gentle yaw while seeking
                                     yaw = lerpAngle(yaw, lookAtYaw, 0.15);
-                                    // vertical easing (no-op since tgtY==y)
                                     y += (tgtY - y) * 0.12;
 
-                                    // write and SKIP generic mover
                                     updated.set(pet.id, {
-                                        x,
-                                        y,
-                                        z,
-                                        yaw,
-                                        mode,
-                                        walking,
+                                        x, y, z, yaw, mode, walking,
                                         seekTargetId: tgtId,
-                                        seekWpX: wpX,
-                                        seekWpZ: wpZ,
-                                        seekWpTtl: wpTtl,
+                                        seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl
                                     });
                                     continue;
                                 } else {
-                                    // SEARCH: waypoints near owner (or current pos if no owner)
-                                    const ox = owner ? Number(owner.getState("x") || 0) : x;
-                                    const oz = owner ? Number(owner.getState("z") || 0) : z;
-                                    const ry = owner ? Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0) : yaw;
+                                    const ox = Number(owner.getState("x") || x);
+                                    const oz = Number(owner.getState("z") || z);
+                                    const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? yaw);
 
                                     let need = false;
                                     if (wpX === undefined || wpZ === undefined) need = true;
-                                    if (!need) {
-                                        const dwp = Math.hypot(wpX - x, wpZ - z);
-                                        if (dwp < WP_REACH) need = true;
-                                    }
+                                    if (!need && Math.hypot(wpX - x, wpZ - z) < WP_REACH) need = true;
                                     if (!need && wpTtl <= 0) need = true;
 
                                     if (need) {
                                         const wp = pickWaypoint(ox, oz, ry);
-                                        wpX = wp.x;
-                                        wpZ = wp.z;
-                                        wpTtl = WP_TIMEOUT_S;
+                                        wpX = wp.x; wpZ = wp.z; wpTtl = WP_TIMEOUT_S;
                                     }
 
-                                    const wx = wpX - x,
-                                        wz = wpZ - z;
+                                    const wx = wpX - x, wz = wpZ - z;
                                     const wd = Math.hypot(wx, wz) || 1e-6;
                                     const step = Math.min(wd, SEARCH_SPEED * PET_DT);
                                     if (step > 0.0005) {
@@ -1057,25 +839,16 @@ export default function ItemsHostLogic() {
                                         lookAtYaw = Math.atan2(wx, wz);
                                     }
 
-                                    tgtY = y; // lock vertical
+                                    tgtY = y;
                                     wpTtl = Math.max(0, wpTtl - PET_DT);
 
-                                    // gentle yaw while seeking
                                     yaw = lerpAngle(yaw, lookAtYaw, 0.15);
                                     y += (tgtY - y) * 0.12;
 
-                                    // write and SKIP generic mover
                                     updated.set(pet.id, {
-                                        x,
-                                        y,
-                                        z,
-                                        yaw,
-                                        mode,
-                                        walking,
+                                        x, y, z, yaw, mode, walking,
                                         seekTargetId: tgtId,
-                                        seekWpX: wpX,
-                                        seekWpZ: wpZ,
-                                        seekWpTtl: wpTtl,
+                                        seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl
                                     });
                                     continue;
                                 }
@@ -1083,28 +856,18 @@ export default function ItemsHostLogic() {
 
                             // STAY
                             if (mode === "stay") {
-                                // face owner if available
-                                if (owner) {
-                                    const ox = Number(owner.getState("x") || 0);
-                                    const oz = Number(owner.getState("z") || 0);
-                                    lookAtYaw = Math.atan2(ox - x, oz - z);
-                                }
-                                // hold position and ground-reference Y (no drift from pet.y)
-                                const baseY = owner ? Number(owner.getState("y") || 0) : 0;
-                                tgtX = x;
-                                tgtZ = z;
-                                tgtY = Math.max(baseY + hoverY, 0.2);
+                                const ox = Number(owner.getState("x") || 0);
+                                const oz = Number(owner.getState("z") || 0);
+                                lookAtYaw = Math.atan2(ox - x, oz - z);
+                                const baseY = Number(owner.getState("y") || 0);
+                                tgtX = x; tgtZ = z; tgtY = Math.max(baseY + hoverY, 0.2);
                             }
 
                             // generic mover (follow/stay)
-                            const mx = tgtX - x,
-                                mz = tgtZ - z;
+                            const mx = tgtX - x, mz = tgtZ - z;
                             const md = Math.hypot(mx, mz);
                             const mstep = Math.min(md, speed * PET_DT);
-                            if (md > 0.001) {
-                                x += (mx / md) * mstep;
-                                z += (mz / md) * mstep;
-                            }
+                            if (md > 0.001) { x += (mx / md) * mstep; z += (mz / md) * mstep; }
 
                             yaw = lerpAngle(yaw, lookAtYaw, 0.25);
                             y += (tgtY - y) * 0.12;
@@ -1113,36 +876,31 @@ export default function ItemsHostLogic() {
                         }
 
                         if (updated.size) {
-                            setItems(
-                                (prev) =>
-                                    prev.map((j) => {
-                                        const u = updated.get(j.id);
-                                        return u ? { ...j, ...u } : j;
-                                    }),
-                                true
-                            );
+                            setItems(prev => prev.map(j => {
+                                const u = updated.get(j.id);
+                                return u ? { ...j, ...u } : j;
+                            }), true);
                         }
                     }
+                } catch (e) {
+                    console.error("[HOST] PET AI error (ignored):", e);
                 }
                 // --- END PET AI ---
             } catch (err) {
                 console.error("[HOST] Items loop crashed:", err);
-                // keep running even if one tick fails (prevents P from breaking)
             } finally {
-                // ALWAYS reschedule the next tick here
                 timerId = setTimeout(loop, 50);
             }
-        }; // <== end of const loop
+        };
 
-        // kick off the loop once; it will keep rescheduling itself
         loop();
 
-        // cleanup
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);
         };
     }, [host, setItems]);
+
 
     return null;
 
