@@ -2,7 +2,8 @@
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
 import { readActionPayload, hostHandlePetOrder } from "../network/playroom";
-import useItemsSync from "./useItemsSync.js";
+import useItemsSync from "./useItemsSync.js";   // read-only: world items (for cure sensing)
+import usePetsSync from "./usePetsSync.js";     // authoritative: pets store
 
 /**
  * Host-only system that:
@@ -10,15 +11,21 @@ import useItemsSync from "./useItemsSync.js";
  *  - handles "pet_order" ability,
  *  - runs simple pet AI (follow / stay / seekCure).
  *
- * NOTE: ItemsHostLogic must seed world items using "hasNonPet" check.
+ * NOTE: ItemsHostLogic seeds world items; we only wait until items exist once.
  */
 export default function PetHostLogic() {
     const host = isHost();
     const players = usePlayersList(true);
 
-    const { items, setItems } = useItemsSync();
+    // READ-ONLY world items (used so pets can find cures on the ground)
+    const { items } = useItemsSync();
     const itemsRef = useRef(items);
     useEffect(() => { itemsRef.current = items; }, [items]);
+
+    // PETS live in their own stream
+    const { pets, setPets } = usePetsSync();
+    const petsRef = useRef(pets);
+    useEffect(() => { petsRef.current = pets; }, [pets]);
 
     const playersRef = useRef(players);
     useEffect(() => { playersRef.current = players; }, [players]);
@@ -39,40 +46,41 @@ export default function PetHostLogic() {
                 const self = myPlayer();
                 if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
-                const list = itemsRef.current || [];
-                const haveIds = new Set(list.map((i) => i?.id));
-                const hasNonPet = list.some((i) => i && String(i.type).toLowerCase() !== "pet");
+                const itemsNow = itemsRef.current || [];
+                const petsNow = petsRef.current || [];
+
+                // Wait until world items exist at least once (prevents old race)
+                const itemsSeeded = Array.isArray(itemsNow) && itemsNow.length > 0;
+
+                const petByOwner = new Map(petsNow.map((p) => [p.owner, p]));
+                const petIds = new Set(petsNow.map((p) => p.id));
 
                 const spawnPetIfMissing = (owner) => {
                     const ownerId = owner.id;
 
-                    // Fast guard: if already spawned for this owner in this session, skip
                     if (spawnedPetsForOwner.current.has(ownerId)) return;
-
-                    // If a pet for this owner is already present, just remember it
-                    const existing = list.find((i) => i?.type === "pet" && i.owner === ownerId);
-                    if (existing) {
+                    if (petByOwner.has(ownerId)) { // already have a pet for this owner
                         spawnedPetsForOwner.current.add(ownerId);
                         return;
                     }
 
-                    // Unique id
-                    let idx = 1, newId = `pet_${ownerId}_${idx}`;
-                    while (haveIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
-                    haveIds.add(newId);
+                    // Generate a pet id unique within PETS
+                    let idx = 1;
+                    let newId = `pet_${ownerId}_${idx}`;
+                    while (petIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
+                    petIds.add(newId);
 
                     const ox = Number(owner.getState("x") || 0);
                     const oy = Number(owner.getState("y") || 0);
                     const oz = Number(owner.getState("z") || 0);
 
                     spawnedPetsForOwner.current.add(ownerId);
-                    setItems(prev => ([
+                    setPets((prev) => ([
                         ...(prev || []),
                         {
                             id: newId,
-                            type: "pet",
-                            name: "Research Bot",
                             owner: ownerId,
+                            name: "Research Bot",
                             x: ox - 0.8,
                             y: Math.max(oy + 0.2, 0.2),
                             z: oz - 0.8,
@@ -80,15 +88,16 @@ export default function PetHostLogic() {
                             mode: owner.getState("petMode") || "follow",
                             speed: 2.2,
                             hover: 0.35,
+                            // transient seek state fields may be added during AI
                         },
                     ]), true);
                 };
 
-                // Spawn policy: only after at least one non-pet item exists (prevents the old race)
+                // Spawn policy: only after items are present at least once
                 for (const pl of everyone) {
                     const isResearch = String(pl.getState?.("role") || "") === "Research";
                     if (isResearch) {
-                        if (hasNonPet) spawnPetIfMissing(pl);
+                        if (itemsSeeded) spawnPetIfMissing(pl);
                     } else {
                         spawnedPetsForOwner.current.delete(pl.id);
                     }
@@ -105,7 +114,6 @@ export default function PetHostLogic() {
 
                     if (type === "ability" && target === "pet_order") {
                         const payload = readActionPayload(p);
-                        // Delegate to your existing handler (sets petMode / etc.)
                         hostHandlePetOrder({ researcher: p, setEvents: undefined, payload });
                         processed.current.set(p.id, reqId);
                         continue;
@@ -116,16 +124,15 @@ export default function PetHostLogic() {
 
                 // -------- PET AI (follow / stay / seekCure) ----------
                 {
-                    const PET_DT = 0.05; // ~50ms cadence
-                    const pets = (itemsRef.current || []).filter((i) => i?.type === "pet");
-                    if (pets.length) {
+                    const PET_DT = 0.05;
+                    const livePets = petsRef.current || [];
+                    if (livePets.length) {
                         const updated = new Map();
 
                         const lerpAngle = (a, b, t) => {
                             let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
                             return a + d * t;
                         };
-
                         const dist2 = (ax, az, bx, bz) => {
                             const dx = ax - bx, dz = az - bz;
                             return dx * dx + dz * dz;
@@ -150,8 +157,9 @@ export default function PetHostLogic() {
                             return { x: ox + Math.sin(a) * r, z: oz + Math.cos(a) * r };
                         };
 
-                        for (const pet of pets) {
-                            const owner = (playersRef.current || []).find((pl) => pl.id === pet.owner) || myPlayer();
+                        for (const pet of livePets) {
+                            const owner =
+                                (playersRef.current || []).find((pl) => pl.id === pet.owner) || myPlayer();
                             if (!owner || typeof owner.getState !== "function") continue;
 
                             const mode = String(owner.getState("petMode") || pet.mode || "follow");
@@ -277,7 +285,7 @@ export default function PetHostLogic() {
                                     updated.set(pet.id, {
                                         x, y, z, yaw, mode, walking,
                                         seekTargetId: tgtId,
-                                        seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl,
+                                        seekWpX: wpX, seekWpZ: wpZ, wpTtl,
                                     });
                                     continue;
                                 }
@@ -311,17 +319,19 @@ export default function PetHostLogic() {
                         }
 
                         if (updated.size) {
-                            setItems(
-                                (prev) => prev.map((j) => {
-                                    const u = updated.get(j.id);
-                                    return u ? { ...j, ...u } : j;
-                                }),
+                            setPets(
+                                (prev) =>
+                                    (prev || []).map((p) => {
+                                        const u = updated.get(p.id);
+                                        return u ? { ...p, ...u } : p;
+                                    }),
                                 true
                             );
                         }
                     }
                 }
                 // -------- END PET AI ----------
+
             } catch (err) {
                 console.error("[HOST] Pet loop crashed:", err);
             } finally {
@@ -331,7 +341,7 @@ export default function PetHostLogic() {
 
         loop();
         return () => { cancelled = true; if (timerId) clearTimeout(timerId); };
-    }, [host, setItems]);
+    }, [host, setPets]);
 
     return null;
 }

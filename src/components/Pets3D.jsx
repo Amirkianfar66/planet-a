@@ -1,7 +1,7 @@
 ﻿// src/components/Pets3D.jsx
 import React, { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import useItemsSync from "../systems/useItemsSync.js";
+import usePetsSync from "../systems/usePetsSync.js";
 import RobotDog from "./RobotDog.jsx";
 
 function lerp(a, b, t) { return a + (b - a) * t; }
@@ -133,8 +133,8 @@ function PetFollower({ pet }) {
 
 
 export default function Pets3D() {
-    const { items } = useItemsSync();
-    const pets = (items || []).filter(i => String(i.type).toLowerCase() === "pet");
+    const { pets } = usePetsSync();
+
     if (!pets.length) return null;
     return (
         <group>
