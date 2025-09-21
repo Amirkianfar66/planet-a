@@ -573,119 +573,65 @@ export default function ItemsHostLogic() {
 
                 // PICKUP
                 if (type === "pickup") {
-                    const nowSec = Math.floor(Date.now() / 1000);
-                    let until = Number(p.getState("pickupUntil") || 0);
-                    if (until > 1e11) until = Math.floor(until / 1000);
-                    if (nowSec < until) {
-                        console.debug("[PICKUP] cooldown active for", p.id, "until", until, "now", nowSec);
-                        processed.current.set(p.id, reqId);
-                        continue;
+                    // super simple pickup: nearest free item (any type, incl. pets)
+                    const list = itemsRef.current || [];
+
+                    // player position
+                    const px = Number(p.getState("x") || 0);
+                    const pz = Number(p.getState("z") || 0);
+
+                    // try explicit target first if it's free and near
+                    let pick = null;
+                    let bestD2 = Infinity;
+
+                    const direct = list.find(i => i && i.id === target && !i.holder);
+                    if (direct) {
+                        const dx = px - direct.x, dz = pz - direct.z;
+                        const d2 = dx * dx + dz * dz;
+                        if (d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
+                            pick = direct;
+                            bestD2 = d2;
+                        }
                     }
 
-                    // helpers
-                    const hasWantedInBp = (bpArr, wanted) =>
-                        Array.isArray(bpArr) && bpArr.some((b) => isType(b.type, wanted));
-
-                    const canLoadTankNow = (tankEnt, bpArr) => {
-                        if (!tankEnt || !isTankType(tankEnt.type)) return false;
-                        const cap = Number(tankEnt.cap ?? TANK_CAP_DEFAULT);
-                        const stored = Number(tankEnt.stored ?? 0);
-                        if (stored >= cap) return false;
-                        const want = TANK_ACCEPTS[tankEnt.type];
-                        if (!want) return false;
-                        return hasWantedInBp(bpArr, want);
-                    };
-
-                    // try the requested id first
-                    let it = findItem(target);
-                    const bp = getBackpack(p);
-
-                    // re-resolve server-side if stale / held / out of range
-                    const tooFar = (ent) => {
-                        const dx = px - ent.x, dz = pz - ent.z;
-                        return dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS;
-                    };
-                    if (!it || it.holder || tooFar(it)) {
-                        let bestReal = null, bestRealD2 = Infinity;
-                        let bestTank = null, bestTankD2 = Infinity;
-
-                        for (const cand of list) {
-                            if (!cand || cand.holder) continue;
-                            if (String(cand.type).toLowerCase() === "pet") continue;
-
-                            const dx = px - cand.x, dz = pz - cand.z;
+                    // otherwise pick nearest free item within radius
+                    if (!pick) {
+                        for (const it of list) {
+                            if (!it || it.holder) continue; // must be free
+                            const dx = px - it.x, dz = pz - it.z;
                             const d2 = dx * dx + dz * dz;
-                            if (d2 > PICKUP_RADIUS * PICKUP_RADIUS) continue;
-
-                            if (isTankType(cand.type)) {
-                                if (canLoadTankNow(cand, bp) && d2 < bestTankD2) {
-                                    bestTank = cand; bestTankD2 = d2;
-                                }
-                            } else {
-                                if (d2 < bestRealD2) {
-                                    bestReal = cand; bestRealD2 = d2;
-                                }
+                            if (d2 < bestD2 && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) {
+                                pick = it;
+                                bestD2 = d2;
                             }
                         }
-                        // prefer real item; otherwise a loadable tank
-                        it = bestReal || bestTank || it;
                     }
 
-                    if (!it) {
-                        console.debug("[PICKUP] no candidate near", p.id);
+                    if (!pick) {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
 
-                    // pets are never pickable
-                    if (String(it.type).toLowerCase() === "pet") {
-                        console.debug("[PICKUP] tried pet; ignoring", it.id);
-                        processed.current.set(p.id, reqId);
-                        continue;
+                    // claim the item for this player
+                    const pickedId = pick.id;
+                    setItems(
+                        prev => prev.map(j => j.id === pickedId ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 } : j),
+                        true
+                    );
+
+                    // always carry what we just picked
+                    p.setState("carry", pickedId, true);
+
+                    // add to backpack (no capacity/bonus rules)
+                    const bp = getBackpack(p);
+                    if (!bp.some(b => b.id === pickedId)) {
+                        setBackpack(p, [...bp, { id: pickedId, type: pick.type }]);
                     }
 
-                    // tanks are not pickable → attempt a load if in range
-                    if (isTankType(it.type)) {
-                        const dx = px - it.x, dz = pz - it.z;
-                        if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
-                            const ok = tryLoadIntoTank({
-                                player: p,
-                                tank: it,
-                                itemsList: list,
-                                getBackpack,
-                                setBackpack,
-                                setItems,
-                            });
-                            if (ok) {
-                                p.setState("pickupUntil", nowSec + Number(PICKUP_COOLDOWN || 20), true);
-                                console.debug("[PICKUP] loaded into tank", it.id, "by", p.id);
-                            } else {
-                                console.debug("[PICKUP] tank not loadable now", it.id, "by", p.id);
-                            }
-                        }
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
+                    processed.current.set(p.id, reqId);
+                    continue;
+                }
 
-                    // ordinary item flow
-                    if (it.holder && it.holder !== p.id) {
-                        console.debug("[PICKUP] already held by", it.holder, "candidate", it.id);
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-                    if (!hasCapacity(p)) {
-                        console.debug("[PICKUP] backpack full for", p.id);
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
-                    {
-                        const dx = px - it.x, dz = pz - it.z;
-                        if (Math.hypot(dx, dz) > PICKUP_RADIUS) {
-                            console.debug("[PICKUP] too far:", Math.hypot(dx, dz), ">", PICKUP_RADIUS, "for", it.id);
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
-                    }
 
                     // claim the item
                     setItems(
