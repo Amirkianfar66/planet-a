@@ -221,7 +221,7 @@ export default function GameCanvas({ dead = [] }) {
                 <BeamLasers />
                 <NetworkGunTracers />
                 <CCTVViewer />
-                <Pets3D /> 
+                
                 
             </Canvas>
             {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
