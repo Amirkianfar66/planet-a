@@ -78,7 +78,7 @@ export default function BackpackPanel({
                     {stacks.length === 0 ? (
                         <div className="bp__empty">No items.</div>
                     ) : (
-                        <div className="bp__grid" style={{ "--bp-columns": 3 }}>
+                            <div className="bp__grid">
                             {stacks.map((g) => {
                                 const isTank = g.type === "food_tank";
                                 const qtyBadge = isTank ? `${g.stored}/${g.cap}` : g.qty > 1 ? `×${g.qty}` : null;

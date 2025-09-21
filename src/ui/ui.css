@@ -30,7 +30,7 @@
     opacity: .85;
 }
 
-/* ----- Inventory grid ----- */
+/* ----- Inventory grid (generic) ----- */
 .inv-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0,1fr));
@@ -222,15 +222,15 @@
 
 @keyframes itemPulse {
     0% {
-        transform: scale(1);
+        transform: scale(1)
     }
 
     50% {
-        transform: scale(0.97);
+        transform: scale(.97)
     }
 
     100% {
-        transform: scale(1);
+        transform: scale(1)
     }
 }
 
@@ -250,12 +250,13 @@
     --bp-radius-lg: 32px;
     --bp-radius-md: 18px;
     --bp-item-gap: 14px;
+    --bp-item-h: calc(110px * var(--bp-scale)); /* uniform tile height */
     position: relative;
     width: 340px; /* base width before scaling */
     color: var(--bp-text);
 }
 
-    /* outer blue shell with thick ink */
+    /* Decorative shell */
     .bp--illustrated .bp-shell {
         position: absolute;
         inset: 0;
@@ -265,7 +266,6 @@
         box-shadow: 0 12px 24px rgba(0,0,0,.25);
     }
 
-    /* handle on top */
     .bp--illustrated .bp-shell__handle {
         position: absolute;
         left: 50%;
@@ -279,7 +279,6 @@
         box-shadow: inset 0 0 0 6px var(--bp-orange);
     }
 
-    /* side pads (purely decorative) */
     .bp--illustrated .bp-shell__side {
         position: absolute;
         top: 64px;
@@ -298,7 +297,6 @@
         right: -18px;
     }
 
-    /* orange bottom bumper */
     .bp--illustrated .bp-shell__bumper {
         position: absolute;
         left: 50%;
@@ -311,7 +309,7 @@
         border: var(--bp-border-w) solid var(--bp-ink);
     }
 
-    /* white rim that holds title + screen */
+    /* White rim */
     .bp--illustrated .bp-rim {
         position: relative;
         margin: 18px;
@@ -321,7 +319,7 @@
         padding: 18px 16px 20px 16px;
     }
 
-    /* title */
+    /* Header */
     .bp--illustrated .bp__header {
         text-align: center;
         margin-bottom: 10px;
@@ -343,7 +341,7 @@
         opacity: .75;
     }
 
-    /* teal “screen” */
+    /* Teal screen */
     .bp--illustrated .bp-screen {
         border-radius: 22px;
         background: var(--bp-teal);
@@ -352,67 +350,85 @@
         box-shadow: inset 0 -4px 0 var(--bp-ink), inset 0 0 0 6px #0f5f7e;
     }
 
-    /* grid (you control how many tiles appear) *
+    /* --- Backpack: fixed 2×4 grid + uniform tiles --- */
     .bp--illustrated .bp__grid {
         display: grid;
-        grid-template-columns: repeat(var(--bp-columns, 3), minmax(0,1fr));
-        gap: calc(var(--bp-item-gap, 10px) * var(--bp-scale)); /* was 10px */
+        grid-template-columns: repeat(4, minmax(0,1fr)); /* 4 columns */
+        grid-auto-rows: var(--bp-item-h); /* uniform row height */
+        gap: calc(var(--bp-item-gap) * var(--bp-scale)); /* consistent gaps */
+        height: calc(var(--bp-item-h) * 2 + calc(var(--bp-item-gap) * var(--bp-scale))); /* exactly 2 rows tall */
+        overflow-y: auto; /* scroll if >8 stacks */
         margin-bottom: 12px;
     }
 
-
-    /* tile styling to match the card look */
-/* tile styling to match the card look */
-.bp--illustrated .bp-item {
-    position: relative;
-    display: grid;
-    grid-template-rows: auto auto;
-    gap: 6px;
-    border-radius: 14px;
-    /* border: var(--bp-border-w) solid var(--bp-ink);  <-- remove this */
-    background: var(--bp-teal-2);
-    color: var(--bp-text);
-    padding: 10px 8px;
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.12);
-    transition: transform .08s ease, filter .08s ease;
-}
-
+    /* Item tiles — transparent (no border, no shadow, no fill) */
+    .bp--illustrated .bp-item {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 6px;
+        border: none;
+        border-radius: 14px;
+        background: transparent; /* <— no gray/teal background */
+        color: var(--bp-text);
+        padding: 10px 8px;
+        box-shadow: none; /* no inner/outer shadow */
+        transition: transform .08s ease, filter .08s ease;
+        height: var(--bp-item-h); /* uniform size */
+        justify-items: center; /* center horizontally */
+        align-content: center; /* center vertically */
+        text-align: center; /* name centered */
+    }
 
         .bp--illustrated .bp-item:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.05);
+            transform: translateY(-1px); /* keep a subtle hover */
+            filter: none; /* no brightness effect needed */
         }
 
+        /* Selected: keep it flat/transparent too */
         .bp--illustrated .bp-item[data-selected] {
-            box-shadow: 0 0 0 4px var(--bp-orange), inset 0 2px 0 rgba(255,255,255,.15);
+            background: transparent; /* no tint */
+            box-shadow: none; /* no ring */
         }
 
+    /* Icon stays centered */
     .bp--illustrated .bp-item__icon {
         font-size: 30px;
         line-height: 1;
         display: grid;
         place-items: center;
+        margin-bottom: 2px;
     }
 
+    /* Item name — inherit app’s default font */
     .bp--illustrated .bp-item__name {
-        font-weight: 800;
-        letter-spacing: .3px;
+        font: inherit; /* <— remove custom font/weight */
+        letter-spacing: normal;
+        font-weight: inherit;
+        max-width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        justify-self: center;
     }
 
+    /* Qty pill — flat, no border/shadow */
     .bp--illustrated .bp-item__qty {
         position: absolute;
         top: 8px;
         right: 8px;
         background: #e8f1ff;
         color: #0a2130;
-        border: var(--bp-border-w) solid var(--bp-ink);
+        border: none;
+        box-shadow: none;
         border-radius: 999px;
         padding: 2px 8px;
         font-size: 12px;
         font-weight: 900;
     }
 
-    /* big buttons row */
+
+    /* Actions */
     .bp--illustrated .bp-actions {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -441,8 +457,7 @@
         cursor: not-allowed;
     }
 
-    .bp--illustrated .bp__empty,
-    .bp--illustrated .bp__hint {
+    .bp--illustrated .bp__empty, .bp--illustrated .bp__hint {
         text-align: center;
         color: var(--bp-sub);
         font-size: 11px;
@@ -456,7 +471,7 @@
    Modern system font + scaling
    =========================== */
 
-/* Techy system fonts (fast, no downloads) */
+/* Fast system fonts */
 :root {
     --tech-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
     --tech-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -476,7 +491,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Scalable dimensions: default 1, half-size via .bp--half */
+/* Scaling (enable half-size via .bp--half) */
 .bp--illustrated {
     --bp-scale: 1;
 }
@@ -547,17 +562,13 @@
         border-width: calc(6px * var(--bp-scale));
         box-shadow: inset 0 calc(-4px * var(--bp-scale)) 0 var(--bp-ink), inset 0 0 0 calc(6px * var(--bp-scale)) #0f5f7e;
     }
-
-    .bp--illustrated .bp__grid {
-        gap: calc(10px * var(--bp-scale));
-    }
+    /* NOTE: grid gap is already scaled via var(--bp-scale) above; no override here */
 
     .bp--illustrated .bp-item {
         padding: calc(10px * var(--bp-scale)) calc(8px * var(--bp-scale));
         border-radius: calc(14px * var(--bp-scale));
-        /* border-width: calc(6px * var(--bp-scale)); <-- remove this (no border now) */
+        /* no border-width here; items have no border */
     }
-
 
     .bp--illustrated .bp-item__icon {
         font-size: calc(30px * var(--bp-scale));
@@ -586,30 +597,12 @@
     }
 
 /* ===========================
-   Dock & center adjustments
+   Dock helper
    =========================== */
-
-/* Pin the backpack container to the bottom-right of the viewport */
 .bp-docked {
     position: fixed;
     right: 16px;
     bottom: 16px;
     z-index: 50;
     pointer-events: auto;
-}
-
-/* Center icon + name within each tile, consistent tile height */
-.bp--illustrated .bp-item {
-    justify-items: center; /* horizontal centering */
-    align-content: center; /* vertical centering of grid content */
-    text-align: center;
-    min-height: calc(110px * var(--bp-scale)); /* tweak 100–140 as you like */
-}
-
-.bp--illustrated .bp-item__icon {
-    margin-bottom: 2px;
-}
-
-.bp--illustrated .bp-item__name {
-    justify-self: center;
 }
