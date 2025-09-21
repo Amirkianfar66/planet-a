@@ -5,11 +5,13 @@ import { myPlayer } from "playroomkit";
 
 export default function ThirdPersonCamera({
     height = 3.0,
-    distance = 3,   // was 6.0 → closer behind the player
-    shoulder = 0.3,   // slightly tighter shoulder offset
+    distance = 4.8,
+    shoulder = 0.3,
     lerp = 0.12,
     camRadius = 0.35,
     ignoreNear = 0.6,
+    lookAhead = 1.4,  // NEW: look this many meters ahead of the player
+    fov = 40,         // NEW: narrower FOV (default three.js is 50)
 }) {
     const { camera, scene } = useThree();
     const curPos = useRef(new THREE.Vector3(0, 5, 8));
@@ -17,12 +19,20 @@ export default function ThirdPersonCamera({
     const ray = useRef(new THREE.Raycaster());
     const blockers = useRef([]);
 
+    // Apply FOV once (and whenever prop changes)
+    useEffect(() => {
+        if (camera.isPerspectiveCamera && camera.fov !== fov) {
+            camera.fov = fov;
+            camera.updateProjectionMatrix();
+        }
+    }, [camera, fov]);
+
+    // Collect meshes explicitly tagged as camera blockers
     useEffect(() => {
         const collect = () => {
             const arr = [];
             scene.traverse((o) => {
-                if (!o?.isMesh) return;
-                if (o.userData?.camBlocker === true) arr.push(o);
+                if (o?.isMesh && o.userData?.camBlocker === true) arr.push(o);
             });
             blockers.current = arr;
         };
@@ -38,16 +48,19 @@ export default function ThirdPersonCamera({
         const z = Number(p.getState("z") ?? 0);
         const yaw = Number(p.getState("yaw") ?? 0);
 
+        // Player anchor (head)
         const head = new THREE.Vector3(x, y + 1.2, z);
         const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
         const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
 
+        // Desired camera spot (behind+above+shoulder)
         const desired = head
             .clone()
             .add(new THREE.Vector3(0, height, 0))
             .add(fwd.clone().multiplyScalar(-distance))
             .add(right.clone().multiplyScalar(shoulder));
 
+        // Raycast to avoid walls behind player
         const dir = desired.clone().sub(head);
         const len = Math.max(0.001, dir.length());
         dir.normalize();
@@ -65,9 +78,14 @@ export default function ThirdPersonCamera({
             camPos = head.clone().add(dir.clone().multiplyScalar(safeDist));
         }
 
+        // Smooth camera movement
         curPos.current.lerp(camPos, lerp);
         camera.position.copy(curPos.current);
-        lookAt.current.copy(head);
+
+        // Aim slightly ahead so you see more forward
+        const aim = head.clone()
+            .add(fwd.clone().multiplyScalar(lookAhead)); // forward lead
+        lookAt.current.copy(aim);
         camera.lookAt(lookAt.current);
     });
 
