@@ -56,7 +56,7 @@ export default function BackpackPanel({
     const handleDrop = () => selected && onDrop?.(selected.primaryId);
 
     return (
-        <section className="bp bp--illustrated" data-component="backpack">
+        <section className="bp bp--illustrated bp--half" data-component="backpack">
             {/* Decorative shell (handle, sides, bumper) */}
             <div className="bp-shell" aria-hidden>
                 <div className="bp-shell__handle" />
@@ -69,7 +69,9 @@ export default function BackpackPanel({
             <div className="bp-rim">
                 <header className="bp__header">
                     <h3 className="bp__title">{title.toUpperCase()}</h3>
-                    <div className="bp__cap">{capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}</div>
+                    <div className="bp__cap">
+                        {capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}
+                    </div>
                 </header>
 
                 <div className="bp-screen">
@@ -80,6 +82,7 @@ export default function BackpackPanel({
                             {stacks.map((g) => {
                                 const isTank = g.type === "food_tank";
                                 const qtyBadge = isTank ? `${g.stored}/${g.cap}` : g.qty > 1 ? `×${g.qty}` : null;
+
                                 return (
                                     <button
                                         key={g.key}
@@ -89,11 +92,16 @@ export default function BackpackPanel({
                                         onClick={() => setSelectedKey(g.key)}
                                         onContextMenu={(e) => {
                                             if (!onThrow) return;
-                                            e.preventDefault(); e.stopPropagation();
+                                            e.preventDefault();
+                                            e.stopPropagation();
                                             setSelectedKey(g.key);
                                             onThrow(g.primaryId);
                                         }}
-                                        title={isTank ? `${g.name} — ${g.stored}/${g.cap}` : `${g.name}${g.qty > 1 ? ` × ${g.qty}` : ""}`}
+                                        title={
+                                            isTank
+                                                ? `${g.name} — ${g.stored}/${g.cap}`
+                                                : `${g.name}${g.qty > 1 ? ` × ${g.qty}` : ""}`
+                                        }
                                     >
                                         <span className="bp-item__icon">{renderIcon(g)}</span>
                                         <span className="bp-item__name">{g.name}</span>
@@ -105,10 +113,18 @@ export default function BackpackPanel({
                     )}
 
                     <div className="bp-actions">
-                        <button className="bp-btn bp-btn--ghost" disabled={!selected || !onDrop} onClick={handleDrop}>
+                        <button
+                            className="bp-btn bp-btn--ghost"
+                            disabled={!selected || !onDrop}
+                            onClick={handleDrop}
+                        >
                             DROP
                         </button>
-                        <button className="bp-btn" disabled={!selected || !onUse} onClick={handleUse}>
+                        <button
+                            className="bp-btn"
+                            disabled={!selected || !onUse}
+                            onClick={handleUse}
+                        >
                             USE
                         </button>
                     </div>
@@ -121,7 +137,6 @@ export default function BackpackPanel({
         </section>
     );
 }
-
 function renderIcon(it) {
     if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
     const TYPE_ICON = {
