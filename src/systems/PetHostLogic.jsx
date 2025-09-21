@@ -245,7 +245,7 @@ export default function PetHostLogic() {
                                     updated.set(pet.id, {
                                         x, y, z, yaw, mode, walking,
                                         seekTargetId: tgtId,
-                                        seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl,
+                                         seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl,
                                     });
                                     continue;
                                 } else {
@@ -285,7 +285,8 @@ export default function PetHostLogic() {
                                     updated.set(pet.id, {
                                         x, y, z, yaw, mode, walking,
                                         seekTargetId: tgtId,
-                                        seekWpX: wpX, seekWpZ: wpZ, wpTtl,
+                                        seekWpX: wpX, seekWpZ: wpZ, seekWpTtl: wpTtl,
+
                                     });
                                     continue;
                                 }
