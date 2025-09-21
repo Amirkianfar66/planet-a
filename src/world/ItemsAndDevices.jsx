@@ -1,24 +1,28 @@
-﻿// src/world/ItemsAndDevices.jsx
-import React, { useMemo, useRef } from "react";
+﻿import React, { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES, INITIAL_ITEMS, ITEM_TYPES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS } from "../data/constants.js";
-import { OUTSIDE_AREA, pointInRect, clampToRect, MEETING_ROOM_AABB } from "../map/deckA";
+import { OUTSIDE_AREA, pointInRect, clampToRect } from "../map/deckA";
 
-
+// -------------------------------
+// Bounds / placement helpers
+// -------------------------------
 const OUT_MARGIN = 0.75;
 
-function ensureOutdoorPos(x, z) {
+function ensureOutdoorPos(x = 0, z = 0) {
     if (pointInRect(OUTSIDE_AREA, x, z, OUT_MARGIN)) return { x, z };
     const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
     return { x: c.x, z: c.z };
 }
 
-/* ---------- Type metadata (labels + colors) ---------- */
-const TYPE_META = ITEM_TYPES;
+// -------------------------------
+// Type metadata (labels + colors)
+// -------------------------------
+const TYPE_META = ITEM_TYPES; // single source of truth from data/gameObjects.js
+
 const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
@@ -26,19 +30,25 @@ const TANK_ACCEPTS = {
 };
 const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
 
-/* ---------- Billboard / Text sprite ---------- */
+// -------------------------------
+// Billboard / Text sprite
+// -------------------------------
 function Billboard({ children, position = [0, 0, 0] }) {
     const ref = useRef();
     const { camera } = useThree();
-    useFrame(() => { if (ref.current) ref.current.quaternion.copy(camera.quaternion); });
+    useFrame(() => {
+        if (ref.current) ref.current.quaternion.copy(camera.quaternion);
+    });
     return <group ref={ref} position={position}>{children}</group>;
 }
 
 function TextSprite({ text = "", width = 0.95 }) {
     const texture = useMemo(() => {
-        const c = document.createElement("canvas"); c.width = 512; c.height = 192;
+        const c = document.createElement("canvas");
+        c.width = 512; c.height = 192;
         const ctx = c.getContext("2d");
         ctx.clearRect(0, 0, c.width, c.height);
+
         const x = 6, y = 50, w = c.width - 12, h = 92, r = 20;
 
         // backdrop
@@ -70,7 +80,9 @@ function TextSprite({ text = "", width = 0.95 }) {
     );
 }
 
-/* ---------- Item meshes for each type ---------- */
+// -------------------------------
+// Item meshes for each type
+// -------------------------------
 function ItemMesh({ type = "crate" }) {
     const color = TYPE_META[type]?.color ?? "#9ca3af";
 
@@ -120,28 +132,28 @@ function ItemMesh({ type = "crate" }) {
                 </group>
             );
 
-        // Tanks: same big barrel mesh for all three tank types
         case "cctv":
-                        // small wall/ceiling pod with lens
-                            return (
-                                    <group>
-                                            {/* base mount */}
-                                            <mesh>
-                                                    <cylinderGeometry args={[0.07, 0.07, 0.05, 12]} />
-                                                    <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.4} />
-                                                </mesh>
-                                            {/* camera head */}
-                                            <mesh position={[0, 0, 0.14]}>
-                                                    <boxGeometry args={[0.16, 0.12, 0.22]} />
-                                                    <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
-                                                </mesh>
-                                            {/* lens */}
-                                            <mesh position={[0, 0, 0.27]}>
-                                                    <cylinderGeometry args={[0.04, 0.04, 0.03, 16]} />
-                                                    <meshStandardMaterial emissive="#22d3ee" emissiveIntensity={0.8} />
-                                                </mesh>
-                                        </group>
-                                );
+            // small wall/ceiling pod with lens
+            return (
+                <group>
+                    {/* base mount */}
+                    <mesh>
+                        <cylinderGeometry args={[0.07, 0.07, 0.05, 12]} />
+                        <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.4} />
+                    </mesh>
+                    {/* camera head */}
+                    <mesh position={[0, 0, 0.14]}>
+                        <boxGeometry args={[0.16, 0.12, 0.22]} />
+                        <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
+                    </mesh>
+                    {/* lens */}
+                    <mesh position={[0, 0, 0.27]}>
+                        <cylinderGeometry args={[0.04, 0.04, 0.03, 16]} />
+                        <meshStandardMaterial emissive="#22d3ee" emissiveIntensity={0.8} />
+                    </mesh>
+                </group>
+            );
+
         case "food_tank":
         case "fuel_tank":
         case "protection_tank":
@@ -168,7 +180,7 @@ function ItemMesh({ type = "crate" }) {
                 <group>
                     <mesh>
                         <cylinderGeometry args={[0.15, 0.15, 0.35, 12]} />
-                        <meshStandardMaterial color={TYPE_META.battery.color} />
+                        <meshStandardMaterial color={TYPE_META.battery?.color || "#f59e0b"} />
                     </mesh>
                     <mesh position={[0, 0.2, 0]}>
                         <cylinderGeometry args={[0.06, 0.06, 0.1, 12]} />
@@ -182,7 +194,7 @@ function ItemMesh({ type = "crate" }) {
                 <group>
                     <mesh>
                         <cylinderGeometry args={[0.2, 0.2, 0.5, 14]} />
-                        <meshStandardMaterial color={TYPE_META.o2can.color} />
+                        <meshStandardMaterial color={TYPE_META.o2can?.color || "#3b82f6"} />
                     </mesh>
                     <mesh position={[0, 0.28, 0]}>
                         <boxGeometry args={[0.08, 0.12, 0.08]} />
@@ -201,7 +213,9 @@ function ItemMesh({ type = "crate" }) {
     }
 }
 
-/* ---------- Helpers ---------- */
+// -------------------------------
+// Helpers
+// -------------------------------
 function canPickUp(it) {
     const me = myPlayer?.(); if (!me) return false;
     const px = Number(me.getState("x") || 0);
@@ -221,10 +235,13 @@ function prettyLabel(it) {
     return it.name || t?.label || it.type || "Item";
 }
 
-/* ---------- Single floor item ---------- */
+// -------------------------------
+// Single floor item
+// -------------------------------
 function ItemEntity({ it }) {
     if (!it || it.holder) return null;
-    if (it.type === "pet") return null; // Pets handled by Pets3D
+    if (String(it.type).toLowerCase() === "pet") return null; // Pets handled by Pets3D
+
     const actionable = canPickUp(it);
     const label = prettyLabel(it);
 
@@ -234,18 +251,19 @@ function ItemEntity({ it }) {
     let ringScale = 1;
     let billboardY = 0.85;
     let rotationY = 0;
+
     // CCTV: face the direction it was placed
-        if (it.type === "cctv") {
-                rotationY = Number(it.yaw || 0);
-                // Optional: adjust prompt (you can keep the default if you prefer)
-                    prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
-            }
+    if (it.type === "cctv") {
+        rotationY = Number(it.yaw || 0);
+        prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
+    }
+
     // Special UX for tanks (non-pickable; press P to add matching item)
     if (isTankType(it.type)) {
         const me = myPlayer?.();
         const bp = (me?.getState?.("backpack") || []);
         const want = TANK_ACCEPTS[it.type]; // "food" | "fuel" | "protection"
-        const hasWanted = bp.some(b => String(b.type).toLowerCase() === want);
+        const hasWanted = bp.some((b) => String(b.type).toLowerCase() === want);
 
         const stored = Number(it.stored ?? 0);
         const cap = Number(it.cap ?? 6);
@@ -254,15 +272,17 @@ function ItemEntity({ it }) {
         const labelWanted = (TYPE_META[want]?.label || want).toLowerCase();
         const canLoad = actionable && hasWanted && !full;
 
-        prompt =
-            !actionable ? label :
-                full ? "Tank full" :
-                    !hasWanted ? `No ${labelWanted} in backpack` :
-                        `Press P to add ${TYPE_META[want]?.label || want}`;
+        prompt = !actionable
+            ? label
+            : full
+                ? "Tank full"
+                : !hasWanted
+                    ? `No ${labelWanted} in backpack`
+                    : `Press P to add ${TYPE_META[want]?.label || want}`;
 
         ringColor = canLoad ? "#86efac" : "#64748b";
-        ringScale = 4;     // match the 4x tank scale
-        billboardY = 1.7;  // lift the label above the tall tank
+        ringScale = 4; // match the 4x tank scale
+        billboardY = 1.7; // lift the label above the tall tank
     }
 
     return (
@@ -285,14 +305,31 @@ function ItemEntity({ it }) {
     );
 }
 
-/* ---------- Main scene block (render-only) ---------- */
+// -------------------------------
+// Main scene block (render-only)
+// -------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
+
+    // Fallback: render INITIAL_ITEMS until the host sync arrives
+    const renderItems = items && items.length ? items : INITIAL_ITEMS;
+
     // Pets are rendered in <Pets3D />, so exclude them here.
     const floorItems = useMemo(
-        () => (items || []).filter((i) => !i.holder && String(i.type).toLowerCase() !== "pet"),
-           [items]
-             );
+        () => (renderItems || []).filter((i) => !i.holder && String(i.type).toLowerCase() !== "pet"),
+        [renderItems]
+    );
+
+    // Debug once when the source switches
+    useEffect(() => {
+        // eslint-disable-next-line no-console
+        console.debug(
+            "[ItemsAndDevices] using",
+            items && items.length ? "synced items" : "INITIAL_ITEMS fallback",
+            "count=",
+            (items && items.length) || (INITIAL_ITEMS && INITIAL_ITEMS.length) || 0
+        );
+    }, [items]);
 
     return (
         <group>
@@ -325,5 +362,4 @@ export default function ItemsAndDevices() {
             ))}
         </group>
     );
-
 }
