@@ -1,16 +1,16 @@
 // src/ui/HUD.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
-import { MetersPanel, RolePanel, BackpackPanel, TeamChatPanel } from ".";
+import { MetersPanel, RolePanel, TeamChatPanel } from ".";
+import BackpackPanelCartoon from "./BackpackPanelCartoon.jsx"; // NEW
 import { useGameState } from "../game/GameStateProvider";
 import { requestAction as prRequestAction } from "../network/playroom";
 import { getAbilitiesForRole } from "../game/roleAbilities";
 import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
 
-/* ---------- Ability bar (bottom-right above backpack) --------- */
-function AbilityBar({ role, onUse, disabled = false }) {
-    // Track infection so abilities recompute immediately after infection flips
+/* ---------- Ability bar (auto-positions above backpack) --------- */
+function AbilityBar({ role, onUse, disabled = false, abovePx = 372 }) {
     const me = myPlayer();
     const [infected, setInfected] = useState(!!me?.getState?.("infected"));
     useEffect(() => {
@@ -33,7 +33,6 @@ function AbilityBar({ role, onUse, disabled = false }) {
         setCooldowns((c) => ({ ...c, [a.id]: performance.now() + (a.cooldownMs || 0) }));
     };
 
-    // Key binding: match by configured key for ANY ability (F for role, G for Bite, etc.)
     useEffect(() => {
         if (disabled) return;
         const onKey = (e) => {
@@ -54,35 +53,42 @@ function AbilityBar({ role, onUse, disabled = false }) {
             style={{
                 position: "absolute",
                 right: 16,
-                bottom: 16 + 360 + 12, // stack just above backpack (backpack ~360px tall)
-                background: "rgba(14,17,22,0.9)",
-                border: "1px solid #2a3242",
-                padding: 8,
-                borderRadius: 10,
-                color: "white",
-                width: 220,
+                bottom: 16 + abovePx, // dynamic height of backpack + spacing
+                width: 260,
+                background: "var(--ctn-screen)",
+                border: "var(--ctn-border-w) solid var(--ctn-ink)",
+                borderRadius: "var(--ctn-radius-md)",
+                padding: 10,
+                color: "var(--ctn-cream)",
                 pointerEvents: "auto",
-                opacity: disabled ? 0.5 : 1,
+                boxShadow: "inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e",
+                opacity: disabled ? 0.55 : 1,
             }}
         >
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 6 }}>Role Ability</div>
-            {abilities.map((a) => {
-                const readyIn = Math.max(0, (cooldowns[a.id] || 0) - performance.now());
-                const isDisabled = disabled || readyIn > 0;
-                const sec = Math.ceil(readyIn / 1000);
-                return (
-                    <button
-                        key={a.id}
-                        onClick={() => trigger(a)}
-                        disabled={isDisabled}
-                        className="item-btn"
-                        style={{ width: "100%" }}
-                        title={a.label}
-                    >
-                        {a.icon || "★"} {a.label} {readyIn > 0 ? `(${sec}s)` : ""}
-                    </button>
-                );
-            })}
+            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".4px", opacity: 0.9, marginBottom: 8 }}>
+                ROLE ABILITY
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+                {abilities.map((a) => {
+                    const readyIn = Math.max(0, (cooldowns[a.id] || 0) - performance.now());
+                    const isDisabled = disabled || readyIn > 0;
+                    const sec = Math.ceil(readyIn / 1000);
+                    return (
+                        <button
+                            key={a.id}
+                            onClick={() => trigger(a)}
+                            disabled={isDisabled}
+                            className="item-btn"
+                            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                            title={a.label}
+                        >
+                            <span style={{ fontSize: 14 }}>{a.icon || "★"}</span>
+                            <span style={{ fontWeight: 900, letterSpacing: ".4px" }}>{a.label}</span>
+                            {readyIn > 0 ? <span style={{ opacity: 0.8 }}>(~{sec}s)</span> : null}
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -91,7 +97,7 @@ function AbilityBar({ role, onUse, disabled = false }) {
  * HUD – overlay
  * - Left: Status (Life/O2/Energy), Role
  * - Chat: bottom-left
- * - Backpack: bottom-right
+ * - Backpack: bottom-right (cartoon)
  * - Ability bar: above backpack (disabled when dead)
  */
 export default function HUD({ game = {} }) {
@@ -151,26 +157,20 @@ export default function HUD({ game = {} }) {
                 return;
             }
             for (let i = 0; i < next.length; i++) {
-                const a = next[i],
-                    b = prev[i];
+                const a = next[i], b = prev[i];
                 if (a?.id !== b?.id || a?.type !== b?.type || (a?.qty || 0) !== (b?.qty || 0)) {
                     if (mounted) setBpSnapshot(next);
                     return;
                 }
             }
         }, 120);
-        return () => {
-            mounted = false;
-            clearInterval(iv);
-        };
+        return () => { mounted = false; clearInterval(iv); };
     }, [bpSnapshot]);
 
     // Prefer data passed in via `game`; fall back to myPlayer() state
     const meProp = game?.me || {};
-    const bpFromPlayer = bpSnapshot; // live, host-driven snapshot
+    const items = bpSnapshot;
     const capFromPlayer = Number(me?.getState?.("capacity")) || 8;
-
-    const items = bpFromPlayer;
     const capacity = Number(meProp.capacity ?? capFromPlayer);
 
     const requestAction =
@@ -179,47 +179,57 @@ export default function HUD({ game = {} }) {
             : (type, target, value) => prRequestAction(type, target, value);
 
     const handleUseItem = (id) => {
-        if (amDead) return; // dead: no using
+        if (amDead) return;
         const item = (items || []).find((b) => b.id === id);
 
         if (item?.type === "food_tank") {
             requestAction("container", "food_tank", { containerId: id, op: "toggle" });
             return;
         }
-
         if (item?.type === "food") {
             requestAction("use", `eat|${id}`, 0);
             return;
         }
-
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
 
     const handleDrop = (id) => {
-        if (amDead) return; // dead: no dropping
+        if (amDead) return;
         if (typeof game.onDropItem === "function") return game.onDropItem(id);
         requestAction("dropItem", String(id));
     };
 
     // Ability trigger → compute origin/dir and send to host
     const useAbility = (ability) => {
-        if (amDead) return; // dead: no abilities
+        if (amDead) return;
         const px = Number(me?.getState?.("x") || 0);
         const pz = Number(me?.getState?.("z") || 0);
         const ry = Number(me?.getState?.("ry") || me?.getState?.("yaw") || 0); // radians
-        const dx = Math.sin(ry),
-            dz = Math.cos(ry),
-            dy = 0;
+        const dx = Math.sin(ry), dz = Math.cos(ry), dy = 0;
 
-        const payload = {
-            origin: [px, 1.2, pz],
-            dir: [dx, dy, dz],
-            abilityId: ability.id,
-        };
-
+        const payload = { origin: [px, 1.2, pz], dir: [dx, dy, dz], abilityId: ability.id };
         requestAction("ability", ability.id, payload);
     };
+
+    // --- measure backpack height to place ability bar above it ---
+    const bpWrapRef = useRef(null);
+    const [bpHeight, setBpHeight] = useState(360);
+    useEffect(() => {
+        const el = bpWrapRef.current;
+        if (!el) return;
+        const measure = () => setBpHeight(el.offsetHeight || 360);
+        measure();
+        let ro;
+        if (typeof ResizeObserver !== "undefined") {
+            ro = new ResizeObserver(measure);
+            ro.observe(el);
+        } else {
+            const iv = setInterval(measure, 250);
+            return () => clearInterval(iv);
+        }
+        return () => ro && ro.disconnect();
+    }, []);
 
     return (
         <div
@@ -263,10 +273,11 @@ export default function HUD({ game = {} }) {
             </div>
 
             {/* Ability bar (pinned above backpack; disabled when dead) */}
-            <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} />
+            <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} abovePx={bpHeight + 12} />
 
             {/* BOTTOM-RIGHT: Backpack (pinned) */}
             <div
+                ref={bpWrapRef}
                 style={{
                     position: "absolute",
                     right: 16,
@@ -277,7 +288,12 @@ export default function HUD({ game = {} }) {
                     pointerEvents: "auto",
                 }}
             >
-                <BackpackPanel items={items} capacity={capacity} onUse={handleUseItem} onDrop={handleDrop} />
+                <BackpackPanelCartoon
+                    items={items}
+                    capacity={capacity}
+                    onUse={handleUseItem}
+                    onDrop={handleDrop}
+                />
             </div>
 
             {/* BOTTOM-LEFT: Team chat (pinned) */}

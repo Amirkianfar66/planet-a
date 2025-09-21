@@ -1,70 +1,107 @@
-/* ----- Role panel ----- */
+/* ================================
+   CARTOON THEME – drop-in overrides
+   ================================ */
+
+/* Palette & radii */
+:root {
+    --ctn-ink: #07334a; /* dark outline */
+    --ctn-base: #0f4f68; /* backpack blue */
+    --ctn-screen: #1d6a8a; /* inner screen blue */
+    --ctn-screen-2: #16607c;
+    --ctn-cream: #e8f1ff; /* light text/fill */
+    --ctn-accent: #ffc14a; /* orange highlight */
+    --ctn-chip: #bfe1ff; /* soft blue chip */
+    --ctn-border-w: 4px;
+    --ctn-radius-lg: 18px;
+    --ctn-radius-md: 14px;
+    --ctn-radius-sm: 10px;
+}
+
+/* ---------- Role panel ---------- */
 .role-objective__label {
-    color: var(--ui-sub);
+    color: var(--ctn-cream);
     text-transform: uppercase;
-    letter-spacing: .6px;
+    letter-spacing: .7px;
+    font-weight: 900;
     font-size: 11px;
-    margin-bottom: 4px;
+    opacity: .85;
+    text-shadow: 0 1px 0 rgba(0,0,0,.35);
 }
 
 .role-objective__text {
-    background: var(--ui-card);
-    border: 1px solid var(--ui-border);
-    border-radius: 10px;
-    padding: 10px;
+    background: var(--ctn-screen);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-md);
+    padding: 12px;
     line-height: 1.35;
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
 }
 
+/* ---------- Generic helpers ---------- */
 .ui-list {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--ui-sub);
+    color: #cfe3ff;
 }
 
 .ui-empty {
-    color: var(--ui-sub);
-    opacity: .85;
+    color: #cfe3ff;
+    opacity: .9;
 }
 
-/* ----- Inventory grid ----- */
+.ui-chip {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .4px;
+    color: #0a2130;
+    background: var(--ctn-chip);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: 999px;
+    padding: 4px 10px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
+}
+
+/* ---------- Inventory grid ---------- */
 .inv-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0,1fr));
-    gap: 10px;
-}
-
-@media (min-width: 460px) {
-    .inv-grid {
-        grid-template-columns: repeat(3, minmax(0,1fr));
-    }
+    gap: 12px;
 }
 
 .inv-slot {
     position: relative;
     display: grid;
     grid-template-rows: auto auto auto;
-    align-items: start;
-    gap: 6px;
-    background: var(--ui-card);
-    border: 1px solid var(--ui-border);
-    border-radius: 12px;
-    padding: 10px;
+    gap: 8px;
+    background: var(--ctn-screen);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-md);
+    padding: 12px;
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
+    transition: transform .08s ease, filter .08s ease;
 }
 
+    .inv-slot:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+    }
+
 .inv-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--ctn-radius-sm);
     display: grid;
     place-items: center;
-    background: #1a2230;
-    border: 1px solid var(--ui-border);
-    font-weight: 700;
+    background: var(--ctn-screen-2);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    font-weight: 900;
+    font-size: 22px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.1);
 }
 
 .inv-name {
-    font-weight: 600;
-    letter-spacing: .2px;
+    font-weight: 900;
+    letter-spacing: .3px;
+    text-shadow: 0 1px 0 rgba(0,0,0,.3);
 }
 
 .inv-qty {
@@ -72,43 +109,43 @@
     top: 8px;
     right: 8px;
     font-variant-numeric: tabular-nums;
-    background: #162030;
-    border: 1px solid var(--ui-border);
+    background: var(--ctn-cream);
+    color: #0a2130;
+    border: var(--ctn-border-w) solid var(--ctn-ink);
     border-radius: 999px;
-    padding: 2px 6px;
-    font-size: 11px;
-    color: var(--ui-sub);
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 900;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.2);
 }
 
+/* Action buttons row in slots */
 .inv-actions {
     display: flex;
-    gap: 6px;
+    gap: 8px;
 }
 
-/* ----- Team chat ----- */
+/* ---------- Team chat ---------- */
 .team-chat .member-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    gap: 8px;
 }
 
 .member-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 6px;
-    background: var(--ui-chip-bg);
-    border: 1px solid var(--ui-border);
+    background: var(--ctn-chip);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
     border-radius: 999px;
+    color: #102234;
+    font-weight: 800;
+    padding: 4px 8px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.15);
 }
 
     .member-pill .dot {
-        width: 8px;
-        height: 8px;
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        background: #666;
+        border: var(--ctn-border-w) solid var(--ctn-ink);
+        background: #7a8696;
     }
 
         .member-pill .dot.on {
@@ -120,27 +157,23 @@
         }
 
 .chat-body {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    gap: 10px;
+    gap: 12px;
 }
 
 .chat-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 36vh;
-    overflow: auto;
+    gap: 10px;
 }
 
 .bubble {
     max-width: 85%;
     display: grid;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    border: 1px solid var(--ui-border);
-    background: var(--ui-card);
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: var(--ctn-radius-md);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    background: var(--ctn-screen);
+    color: var(--ctn-cream);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e;
 }
 
     .bubble.me {
@@ -149,51 +182,49 @@
     }
 
 .bubble-author {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--ui-sub);
+    color: #cfe3ff;
     font-size: 12px;
 }
 
 .bubble-text {
-    line-height: 1.35;
+    line-height: 1.38;
 }
 
 .bubble-time {
-    align-self: end;
-    justify-self: end;
-    color: var(--ui-sub);
+    color: #cfe3ff;
     font-size: 10px;
+    opacity: .9;
 }
 
 .chat-input {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    border-top: 1px solid var(--ui-border);
-    padding-top: 8px;
+    gap: 10px;
+    border-top: var(--ctn-border-w) solid var(--ctn-ink);
+    padding-top: 10px;
 }
 
     .chat-input input {
         flex: 1;
         background: #0e141f;
-        border: 1px solid var(--ui-border);
-        color: var(--ui-txt);
-        padding: 8px 10px;
-        border-radius: 10px;
+        border: var(--ctn-border-w) solid var(--ctn-ink);
+        color: var(--ctn-cream);
+        padding: 10px 12px;
+        border-radius: var(--ctn-radius-md);
+        box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
     }
-/* e.g., src/ui/ui.css */
+
+/* ---------- Item buttons ---------- */
 .item-btn {
-    font: 600 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-    color: #0b1220;
-    background: #bfe1ff;
-    border: 1px solid #93c5fd;
-    border-radius: 10px;
-    padding: 6px 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    font: 900 12px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    letter-spacing: .5px;
+    color: #0a2130;
+    background: var(--ctn-accent);
+    border: var(--ctn-border-w) solid var(--ctn-ink);
+    border-radius: var(--ctn-radius-sm);
+    padding: 8px 12px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.25);
     cursor: pointer;
     white-space: nowrap;
+    transition: transform .06s ease, filter .06s ease;
 }
 
     .item-btn:hover {
@@ -206,9 +237,9 @@
 
     .item-btn:disabled {
         cursor: not-allowed;
-        opacity: .6;
+        opacity: .7;
         background: #e5e7eb;
-        border-color: #d1d5db;
+        border-color: var(--ctn-ink);
     }
 
 .item-btn--pulse {
@@ -221,10 +252,17 @@
     }
 
     50% {
-        transform: scale(0.97);
+        transform: scale(.97);
     }
 
     100% {
         transform: scale(1);
     }
+}
+
+/* Optional ghost variant (e.g., Drop) */
+.item-btn--ghost {
+    background: var(--ctn-cream);
+    color: #0a2130;
+    text-shadow: none;
 }

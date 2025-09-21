@@ -1,17 +1,12 @@
-﻿import React, { useMemo } from "react";
+﻿import React, { useMemo, useState } from "react";
 import "./ui.css";
 
 /**
- * BackpackPanel
- * Props:
- *  - items: Array<{ id:string, type?:string, name?:string, qty?:number, icon?:string, kind?:string, stored?:number, cap?:number }>
- *  - capacity?: number
- *  - onUse?: (id) => void
- *  - onDrop?: (id) => void
- *  - onThrow?: (id) => void
- *  - title?: string
+ * Cartoon-styled Backpack panel (matches your reference image)
+ * Props are identical to BackpackPanel:
+ *  - items, capacity, onUse, onDrop, onThrow, title
  */
-export default function BackpackPanel({
+export default function BackpackPanelCartoon({
     items = [],
     capacity,
     onUse,
@@ -19,22 +14,17 @@ export default function BackpackPanel({
     onThrow,
     title = "Backpack",
 }) {
-    // Slots used: each entry in the underlying backpack occupies a slot
-    const usedSlots = items.length;
+    const [selectedKey, setSelectedKey] = useState(null);
 
-    // Do not stack these (each is rendered as its own tile)
+    // Same stacking logic as before (Food Tank stays single)
     const NO_STACK = new Set(["food_tank"]);
-
-    // Group identical items into stacks (by type/name/icon), but keep NO_STACK singles
     const stacks = useMemo(() => {
         const groups = new Map();
         const singles = [];
-
         for (const it of items) {
             const type = String(it.type || it.kind || "").trim().toLowerCase();
             const qty = Math.max(1, Number(it.qty) || 1);
 
-            // Food Tank (container) stays individual so we can show stored/cap
             if (NO_STACK.has(type)) {
                 singles.push({
                     key: it.id,
@@ -49,8 +39,6 @@ export default function BackpackPanel({
                 });
                 continue;
             }
-
-            // Group others
             const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
             if (!groups.has(key)) {
                 groups.set(key, {
@@ -66,121 +54,135 @@ export default function BackpackPanel({
             g.qty += qty;
             g.ids.push(it.id);
         }
-
-        const grouped = Array.from(groups.values()).map((g) => ({
-            ...g,
-            primaryId: g.ids[0],
-        }));
-
+        const grouped = Array.from(groups.values()).map((g) => ({ ...g, primaryId: g.ids[0] }));
         return [...grouped, ...singles];
     }, [items]);
 
-    return (
-        <section className="ui-panel">
-            <header className="ui-panel__header">
-                <span>{title}</span>
-                <span className="ui-chip">
-                    {capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}
-                </span>
-            </header>
+    const usedSlots = items.length;
 
-            <div className="ui-panel__body">
-                {stacks.length === 0 ? (
-                    <div className="ui-empty">No items.</div>
-                ) : (
-                    <div className="inv-grid">
-                        {stacks.map((g) => {
-                            const isTank = g.type === "food_tank";
-                            const useLabel = isTank ? "Load / Unload" : "Use";
+    // Bucket by the 3 categories shown in the mock
+    const buckets = useMemo(() => {
+        const bucket = { food: [], cure: [], protection: [] };
+        for (const g of stacks) {
+            if (g.type?.startsWith("food")) bucket.food.push(g);
+            else if (g.type?.startsWith("cure")) bucket.cure.push(g);
+            else if (g.type?.startsWith("protection")) bucket.protection.push(g);
+        }
+        return bucket;
+    }, [stacks]);
+
+    const allInOrder = [
+        { label: "FOOD", key: "food", icon: "🥫" },
+        { label: "CURE", key: "cure", icon: "🧪" },
+        { label: "PROTECTION", key: "protection", icon: "🛡️" },
+    ];
+
+    const selected = stacks.find((s) => s.key === selectedKey) || null;
+
+    const handleThrow = () => {
+        if (onThrow && selected) onThrow(selected.primaryId);
+    };
+    const handleDrop = () => {
+        if (onDrop && selected) onDrop(selected.primaryId);
+    };
+    const handleUse = () => {
+        if (onUse && selected) onUse(selected.primaryId);
+    };
+
+    return (
+        <section className="bp-pack">
+            {/* Backpack casing */}
+            <div className="bp-shell">
+                <header className="bp-top">
+                    <div className="bp-handle" />
+                    <div className="bp-title">{title.toUpperCase()}</div>
+                    <div className="bp-cap">{capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}</div>
+                </header>
+
+                {/* Inside panel */}
+                <div className="bp-inner">
+                    <div className="bp-rows">
+                        {allInOrder.map(({ label, key, icon }) => {
+                            const content = buckets[key];
+                            // Show first stack (primary) for the big icon; quantity shown below
+                            const g = content?.[0];
+                            const qty =
+                                (g?.type === "food_tank")
+                                    ? `${g.stored}/${g.cap}`
+                                    : (content?.reduce((n, s) => n + (s.qty || 1), 0) || 0);
 
                             return (
-                                <div
-                                    className="inv-slot"
-                                    key={g.key}
-                                    title={
-                                        isTank
-                                            ? `Food Tank — ${g.stored}/${g.cap}\nLeft-click: Load if you have food, else Unload`
-                                            : `${g.name} × ${g.qty}${onThrow ? " — right-click to throw one" : ""}`
-                                    }
+                                <button
+                                    key={key}
+                                    className={`bp-card ${selected?.key && buckets[key]?.some(s => s.key === selected.key) ? "is-active" : ""}`}
+                                    onClick={() => setSelectedKey(g ? g.key : null)}
                                     onContextMenu={(e) => {
-                                        if (!onThrow) return;
+                                        if (!onThrow || !g) return;
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        setSelectedKey(g.key);
                                         onThrow(g.primaryId);
                                     }}
+                                    title={
+                                        g
+                                            ? `${g.name}${g.type === "food_tank" ? ` — ${g.stored}/${g.cap}` : ` × ${qty}`}`
+                                            : "Empty"
+                                    }
                                 >
-                                    <div className="inv-icon">
-                                        {renderIcon({ name: g.name, icon: g.icon, type: g.type })}
-                                        {/* Count badge for stacks */}
-                                        {!isTank && g.qty > 1 && (
-                                            <div className="inv-qty" aria-label={`Quantity ${g.qty}`}>
-                                                ×{g.qty}
-                                            </div>
-                                        )}
-                                        {/* Fill badge for Food Tank */}
-                                        {isTank && (
-                                            <div className="inv-qty" aria-label={`Stored ${g.stored} of ${g.cap}`}>
-                                                {g.stored}/{g.cap}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="inv-name" aria-label={g.name}>
-                                        {g.name}
-                                    </div>
-
-                                    <div className="inv-actions">
-                                        {onUse && (
-                                            <button
-                                                className="ui-btn ui-btn--small"
-                                                onClick={() => onUse(g.primaryId)}
-                                            >
-                                                {useLabel}
-                                            </button>
-                                        )}
-                                        {onDrop && (
-                                            <button
-                                                className="ui-btn ui-btn--danger ui-btn--small"
-                                                onClick={() => onDrop(g.primaryId)}
-                                            >
-                                                Drop
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
+                                    <div className="bp-card__title">{label}</div>
+                                    <div className="bp-card__icon">{g ? renderIcon(g) : icon}</div>
+                                    <div className="bp-card__qty">{g ? (g.type === "food_tank" ? qty : `×${qty}`) : "—"}</div>
+                                </button>
                             );
                         })}
                     </div>
-                )}
-            </div>
 
-            {onThrow && stacks.length > 0 && (
-                <div style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>
-                    Tip: <b>Right-click</b> a stack to throw <b>one</b>.
+                    {/* Big actions row */}
+                    <div className="bp-actions">
+                        <button
+                            className="bp-btn bp-btn--ghost"
+                            disabled={!selected || !onDrop}
+                            onClick={handleDrop}
+                            title={selected ? `Drop ${selected.name}` : "Select an item first"}
+                        >
+                            DROP
+                        </button>
+                        <button
+                            className="bp-btn"
+                            disabled={!selected || !onUse}
+                            onClick={handleUse}
+                            title={selected ? `Use ${selected.name}` : "Select an item first"}
+                        >
+                            USE
+                        </button>
+                    </div>
+
+                    {/* Hint */}
+                    {onThrow && (
+                        <div className="bp-hint">
+                            Tip: <b>Right-click</b> a card to throw <b>one</b>.
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {/* Bottom bumper */}
+                <div className="bp-bumper" />
+            </div>
         </section>
     );
 }
 
 function renderIcon(it) {
-    // Prefer explicit icon prop
-    if (it.icon) return <span style={{ fontSize: 18 }}>{it.icon}</span>;
-
-    // Fallback by type
+    if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
     const TYPE_ICON = {
-        food: "🍎",
+        food: "🥫",
         fuel: "🔋",
         protection: "🛡️",
         cure_red: "🧪",
         cure_blue: "🧪",
-        food_tank: "🧃", // container
+        food_tank: "🧃",
     };
-    if (it.type && TYPE_ICON[it.type]) {
-        return <span style={{ fontSize: 18 }}>{TYPE_ICON[it.type]}</span>;
-    }
-
-    // Final fallback: first letter
+    if (it.type && TYPE_ICON[it.type]) return <span style={{ fontSize: 26 }}>{TYPE_ICON[it.type]}</span>;
     const ch = (it.name || "?").trim()[0] || "?";
-    return <span style={{ fontWeight: 800 }}>{ch.toUpperCase()}</span>;
+    return <span style={{ fontWeight: 900, fontSize: 22 }}>{ch.toUpperCase()}</span>;
 }
