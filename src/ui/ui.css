@@ -249,6 +249,7 @@
     --bp-border-w: 6px;
     --bp-radius-lg: 32px;
     --bp-radius-md: 18px;
+    --bp-item-gap: 14px;
     position: relative;
     width: 340px; /* base width before scaling */
     color: var(--bp-text);
@@ -351,28 +352,31 @@
         box-shadow: inset 0 -4px 0 var(--bp-ink), inset 0 0 0 6px #0f5f7e;
     }
 
-    /* grid (you control how many tiles appear) */
+    /* grid (you control how many tiles appear) *
     .bp--illustrated .bp__grid {
         display: grid;
         grid-template-columns: repeat(var(--bp-columns, 3), minmax(0,1fr));
-        gap: 10px;
+        gap: calc(var(--bp-item-gap, 10px) * var(--bp-scale)); /* was 10px */
         margin-bottom: 12px;
     }
 
+
     /* tile styling to match the card look */
-    .bp--illustrated .bp-item {
-        position: relative;
-        display: grid;
-        grid-template-rows: auto auto;
-        gap: 6px;
-        border-radius: 14px;
-        background: var(--bp-teal-2);
-        border: var(--bp-border-w) solid var(--bp-ink);
-        color: var(--bp-text);
-        padding: 10px 8px;
-        box-shadow: inset 0 2px 0 rgba(255,255,255,.12);
-        transition: transform .08s ease, filter .08s ease;
-    }
+/* tile styling to match the card look */
+.bp--illustrated .bp-item {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 6px;
+    border-radius: 14px;
+    /* border: var(--bp-border-w) solid var(--bp-ink);  <-- remove this */
+    background: var(--bp-teal-2);
+    color: var(--bp-text);
+    padding: 10px 8px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.12);
+    transition: transform .08s ease, filter .08s ease;
+}
+
 
         .bp--illustrated .bp-item:hover {
             transform: translateY(-1px);
@@ -551,8 +555,9 @@
     .bp--illustrated .bp-item {
         padding: calc(10px * var(--bp-scale)) calc(8px * var(--bp-scale));
         border-radius: calc(14px * var(--bp-scale));
-        border-width: calc(6px * var(--bp-scale));
+        /* border-width: calc(6px * var(--bp-scale)); <-- remove this (no border now) */
     }
+
 
     .bp--illustrated .bp-item__icon {
         font-size: calc(30px * var(--bp-scale));
