@@ -21,7 +21,7 @@ import BeamLasers from "../world/BeamLasers.jsx";
 import DeathMarkers from "../world/DeathMarkers.jsx";
 import DeathSystem from "../systems/DeathSystem.jsx";
 import { getMaterial } from "../map/materials";
-
+import PetHostLogic from "../systems/PetHostLogic.jsx";
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 import CCTVViewer from "../systems/CCTVViewer.jsx";
 import CCTVControlPanel from "../ui/CCTVControlPanel.jsx";
@@ -233,7 +233,7 @@ export default function GameCanvas({ dead = [] }) {
 
             {/* Host-only logic */}
             <ItemsHostLogic />
-
+            <PetHostLogic />
             {/* Death logic */}
             <DeathSystem />
         </div>
