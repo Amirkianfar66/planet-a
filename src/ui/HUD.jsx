@@ -1,8 +1,8 @@
 // src/ui/HUD.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
-import { MetersPanel, RolePanel, TeamChatPanel, BackpackPanel } from ".";
-
+import { MetersPanel, RolePanel, TeamChatPanel } from ".";
+import BackpackPanel from "./BackpackPanel.jsx";
 import { useGameState } from "../game/GameStateProvider";
 import { requestAction as prRequestAction } from "../network/playroom";
 import { getAbilitiesForRole } from "../game/roleAbilities";
@@ -10,7 +10,7 @@ import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
 
 /* ---------- Ability bar (auto-positions above backpack) --------- */
-function AbilityBar({ role, onUse, disabled = false, abovePx = 372 }) {
+function AbilityBar({ role, onUse, disabled = false, abovePx = 360 }) {
     const me = myPlayer();
     const [infected, setInfected] = useState(!!me?.getState?.("infected"));
     useEffect(() => {
@@ -51,18 +51,19 @@ function AbilityBar({ role, onUse, disabled = false, abovePx = 372 }) {
     return (
         <div
             style={{
-                position: "absolute",
+                position: "fixed",
                 right: 16,
-                bottom: 16 + abovePx, // dynamic height of backpack + spacing
+                bottom: 16 + abovePx + 12, // sits above the docked backpack
                 width: 260,
-                background: "var(--ctn-screen)",
-                border: "var(--ctn-border-w) solid var(--ctn-ink)",
-                borderRadius: "var(--ctn-radius-md)",
+                background: "var(--bp-teal)",
+                border: "var(--bp-border-w) solid var(--bp-ink)",
+                borderRadius: "18px",
                 padding: 10,
-                color: "var(--ctn-cream)",
+                color: "var(--bp-text)",
                 pointerEvents: "auto",
-                boxShadow: "inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 3px #0f5f7e",
+                boxShadow: "inset 0 -3px 0 rgba(0,0,0,.25), inset 0 0 0 6px #0f5f7e",
                 opacity: disabled ? 0.55 : 1,
+                zIndex: 51,
             }}
         >
             <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".4px", opacity: 0.9, marginBottom: 8 }}>
@@ -97,7 +98,7 @@ function AbilityBar({ role, onUse, disabled = false, abovePx = 372 }) {
  * HUD – overlay
  * - Left: Status (Life/O2/Energy), Role
  * - Chat: bottom-left
- * - Backpack: bottom-right (cartoon)
+ * - Backpack: bottom-right (docked)
  * - Ability bar: above backpack (disabled when dead)
  */
 export default function HUD({ game = {} }) {
@@ -212,7 +213,7 @@ export default function HUD({ game = {} }) {
         requestAction("ability", ability.id, payload);
     };
 
-    // --- measure backpack height to place ability bar above it ---
+    // --- measure docked backpack height to place ability bar above it ---
     const bpWrapRef = useRef(null);
     const [bpHeight, setBpHeight] = useState(360);
     useEffect(() => {
@@ -272,32 +273,25 @@ export default function HUD({ game = {} }) {
                 <div />
             </div>
 
-            {/* Ability bar (pinned above backpack; disabled when dead) */}
-            <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} abovePx={bpHeight + 12} />
+            {/* Ability bar (fixed; disabled when dead) */}
+            <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} abovePx={bpHeight} />
 
-            {/* BOTTOM-RIGHT: Backpack (pinned) */}
+            {/* BOTTOM-RIGHT: Backpack (docked & measured) */}
             <div
                 ref={bpWrapRef}
-                style={{
-                    position: "absolute",
-                    right: 16,
-                    bottom: 16,
-                    width: 360,
-                    maxHeight: "60vh",
-                    overflow: "hidden auto",
-                    pointerEvents: "auto",
-                }}
+                className="bp-docked"
+                style={{ maxHeight: "60vh", overflow: "hidden auto" }}
             >
-                <div ref={bpWrapRef} className="bp-docked" style={{ maxHeight: "60vh", overflow: "hidden auto" }}>
                 <BackpackPanel
                     items={items}
                     capacity={capacity}
                     onUse={handleUseItem}
                     onDrop={handleDrop}
+                // onThrow={...} // provide if you support throw
                 />
             </div>
 
-            {/* BOTTOM-LEFT: Team chat (pinned) */}
+            {/* BOTTOM-LEFT: Team chat (pinned absolute like before) */}
             <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
                 <TeamChatPanel style={{ position: "static" }} />
             </div>
