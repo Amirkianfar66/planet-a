@@ -27,7 +27,8 @@ function PetFollower({ pet }) {
         walkPhase: 0,
         animSpeed: 0,
 
-        // idle micro-anim
+        // idle engine
+        idleClock: 0,          // always advances; tiny breathing even when still
         stillTime: 0,
         idleAction: null,
         idleT: 0,
@@ -60,13 +61,17 @@ function PetFollower({ pet }) {
         const speed = (dt > 0) ? frameDist / dt : 0;
         state.visSpeed = lerp(state.visSpeed, speed, 0.25);
 
+        // advance an idle-only timer regardless of movement
+        state.idleClock += dt;
+
         // ----- animation floor during seek -----
         const isSeek = String(pet.mode || "").toLowerCase() === "seekcure";
-        const isWalkingHost = Boolean(pet.walking);          // server intent flag
-        const isMovingLocal = state.visSpeed > 0.03;         // fallback
-        const shouldWalkAnim = isSeek && (isWalkingHost || isMovingLocal);
+        const hostWalking = Boolean(pet.walking);           // server intent flag
+        // deadband + hysteresis to ignore tiny jitter
+        const movingLocal = state.visSpeed > 0.02;          // was 0.03 (slightly more permissive)
+        const shouldWalkAnim = isSeek && (hostWalking || movingLocal);
 
-        const ANIM_WALK_FLOOR = 1.1;                         // purely visual tempo
+        const ANIM_WALK_FLOOR = 1.1;                        // purely visual tempo
         const animSpeed = shouldWalkAnim ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
         state.animSpeed = animSpeed;
 
@@ -79,7 +84,7 @@ function PetFollower({ pet }) {
             group.current.rotation.set(0, state.yaw, 0);
         }
 
-        // Ground-flat during seek: kill Y bob, but keep *reduced* tilts so it feels alive
+        // Ground-flat during seek: kill Y bob, keep reduced tilts so it feels alive
         const bobAmp = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08); // 0 in seek
         const bob = Math.sin(state.walkPhase * 2) * bobAmp;
 
@@ -94,7 +99,10 @@ function PetFollower({ pet }) {
         }
 
         // ---------- IDLE ACTION LOGIC ----------
-        if (isMovingLocal) {
+        // consider "moving" only if host says walking OR local speed above 0.02
+        const isMoving = hostWalking || movingLocal;
+
+        if (isMoving) {
             state.stillTime = 0;
             state.idleCooldown = Math.max(0, state.idleCooldown - dt);
             state.idleAction = null;
@@ -104,6 +112,7 @@ function PetFollower({ pet }) {
             state.stillTime += dt;
             state.idleCooldown = Math.max(0, state.idleCooldown - dt);
 
+            // choose a random idle after 1s of stillness
             if (state.stillTime > 1 && !state.idleAction && state.idleCooldown === 0) {
                 state.idleAction = pick(["tail", "head", "paw", "shake"]);
                 state.idleDur = ({ tail: 0.9, head: 0.7, paw: 0.8, shake: 0.6 })[state.idleAction] || 0.8;
@@ -111,6 +120,7 @@ function PetFollower({ pet }) {
                 state.idleT = 0;
             }
 
+            // advance current idle action
             if (state.idleAction) {
                 state.idleT += dt / state.idleDur;
                 if (state.idleT >= 1) {
@@ -131,6 +141,7 @@ function PetFollower({ pet }) {
                     walkSpeed={state.animSpeed}
                     idleAction={state.idleAction}
                     idleT={state.idleT}
+                    idleClock={state.idleClock}
                     flatWalk={String(pet.mode || "").toLowerCase() === "seekcure"}
                 />
             </group>

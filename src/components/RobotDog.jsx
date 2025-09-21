@@ -1,11 +1,12 @@
 ﻿import React from "react";
 
 export default function RobotDog({
-    walkPhase = 0,    // radians, keeps increasing
-    walkSpeed = 0,    // m/s (visual)
+    walkPhase = 0,     // radians, keeps increasing
+    walkSpeed = 0,     // m/s (visual)
     idleAction = null, // "tail" | "head" | "paw" | "shake" | null
-    idleT = 0,        // 0..1 progress in current idle action
-    flatWalk = false  // true during seek: keep ground-flat but still show subtle motion
+    idleT = 0,         // 0..1 progress in current idle action
+    idleClock = 0,     // seconds; always advances (for breathing at rest)
+    flatWalk = false   // true during seek: keep ground-flat but still show subtle motion
 }) {
     // Visual walk floor so parts still move even at very low speeds (seek)
     const animSpeed = Math.max(walkSpeed, 1.0); // purely for animation amplitude (not movement)
@@ -37,6 +38,10 @@ export default function RobotDog({
     let pawLiftFR = 0;   // front-right paw Y offset
     let bodyShakeYaw = 0;
 
+    // Gentle breathing/eye scan at rest (runs even when no idleAction)
+    const breatheY = 0.01 * Math.sin(idleClock * 2.0);         // slow vertical head drift
+    const scanYaw = 0.06 * Math.sin(idleClock * 0.8);         // small side-to-side look
+
     if (idleAction === "tail") {
         // wag: figure-eight yaw/pitch
         tailYaw = Math.sin(idleT * Math.PI * 6) * 0.6 * idleE;
@@ -51,6 +56,9 @@ export default function RobotDog({
     } else if (idleAction === "shake") {
         // quick body shake (yaw oscillation)
         bodyShakeYaw = 0.15 * Math.sin(idleT * Math.PI * 10) * idleE;
+    } else {
+        // no explicit idle action → apply baseline “alive” motion
+        headYaw += scanYaw;
     }
 
     return (
@@ -72,7 +80,7 @@ export default function RobotDog({
             </group>
 
             {/* head */}
-            <group position={[0, 0.35 + headBobY, 0.65]} rotation={[headTilt, headYaw, 0]}>
+            <group position={[0, 0.35 + headBobY + breatheY, 0.65]} rotation={[headTilt, headYaw, 0]}>
                 <mesh>
                     <boxGeometry args={[0.35, 0.28, 0.35]} />
                     <meshStandardMaterial color="#c7d2fe" />
