@@ -25,6 +25,7 @@ import {
     clampToRect,
     isOutsideByRoof,
     randomPointInRoom,
+    roomCenter,
 } from "../map/deckA";
 
 // id helper (prevents seeding from crashing if id is missing)
@@ -46,6 +47,19 @@ function ensureOutdoorPos(x, z) {
     if (pointInRect(OUTSIDE_AREA, x, z, OUT_MARGIN)) return { x, z };
     const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
     return { x: c.x, z: c.z };
+}
+function resolveItemSpawn(it) {
+    // If a roomKey is provided, convert to world x/z using the room center and optional offset
+    if (it.roomKey) {
+        const c = roomCenter(it.roomKey);
+        if (c) {
+            const ox = it.offset?.x ?? 0;
+            const oz = it.offset?.z ?? 0;
+            return { ...it, x: c.x + ox, y: it.y ?? 0, z: c.z + oz };
+        }
+    }
+    // Fall back to existing x/z
+    return it;
 }
 
 // Prefer a random point in the Meeting Room (if it exists).
@@ -224,19 +238,23 @@ export default function ItemsHostLogic() {
         if (hasNonPet) { seededOnce.current = true; return; }
           
 
-        const seeded = (INITIAL_ITEMS || []).map((it) => {
-            const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
-            return {
-                holder: "",
-                vx: 0,
-                vy: 0,
-                vz: 0,
-                y: 0,
-                ...it,
-                x: p.x,
-                z: p.z,
-                id: it.id || cryptoRandomId(),
-            };
+        const seeded = (INITIAL_ITEMS || []).map((raw) => {
+                        // 1) resolve by room if provided (Food→Kitchen, Protection→Lab, Fuel→Mechanical)
+                       const it = resolveItemSpawn(raw);
+                        // 2) if no roomKey/coords, drop it in the meeting room as before
+                       const needsFallback = !(Number.isFinite(it.x) && Number.isFinite(it.z));
+                       const p = needsFallback ? spawnInMeetingRoom(it.x ?? 0, it.z ?? 0) : it;
+                        return {
+                               holder: "",
+                                vx: 0,
+                                vy: 0,
+                                vz: 0,
+                                y: 0,
+                               ...it,
+                               x: needsFallback ? p.x : it.x,
+                               z: needsFallback ? p.z : it.z,
+                               id: it.id || cryptoRandomId(),
+                        };
         });
 
         setItems((prev) => {

@@ -41,11 +41,13 @@ export const INITIAL_ITEMS = [
     { id: "cureB2", type: "cure_blue", name: "Cure — Blue", x: 6, z: 2, color: ITEM_TYPES.cure_blue.color },
     { id: "cureB3", type: "cure_blue", name: "Cure — Blue", x: 7, z: 2.5, color: ITEM_TYPES.cure_blue.color },
 
-    // --- CONTAINERS (capacity 6, start empty) ---
-    // Move positions to your “rooms” as needed
-    { id: "tank_food_1", type: "food_tank", name: "Food Tank", x: 8, z: -3, cap: 6, stored: 0, color: ITEM_TYPES.food_tank.color },
-    { id: "tank_fuel_1", type: "fuel_tank", name: "Fuel Tank", x: -8, z: 2, cap: 6, stored: 0, color: ITEM_TYPES.fuel_tank.color },
-    { id: "tank_prot_1", type: "protection_tank", name: "Protection Tank", x: -6, z: -4, cap: 6, stored: 0, color: ITEM_TYPES.protection_tank.color },
+     // Place containers by ROOM (center) with a small local offset (optional)
+    { id: "tank_food_1", type: "food_tank", name: "Food Tank",
+ roomKey: "Kitchen", offset: { x: 0, z: -3 }, cap: 6, stored: 0, color: ITEM_TYPES.food_tank.color },
+ { id: "tank_prot_1", type: "protection_tank", name: "Protection Tank",
+ roomKey: "Lab", offset: { x: 0, z: 3 }, cap: 6, stored: 0, color: ITEM_TYPES.protection_tank.color },
+ { id: "tank_fuel_1", type: "fuel_tank", name: "Fuel Tank",
+ roomKey: "Mechanical", offset: { x: -2, z: 0 }, cap: 6, stored: 0, color: ITEM_TYPES.fuel_tank.color },
 ];
 
 // World devices you can interact with when pressing "I"
