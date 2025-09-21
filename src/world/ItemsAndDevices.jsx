@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useRef, useEffect } from "react";
+﻿import React, { useMemo, useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
@@ -310,8 +310,11 @@ function ItemEntity({ it }) {
 // ---------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
+    const [useFallback, setUseFallback] = useState(true);
     const hasNonPet = Array.isArray(items) && items.some(i => i && String(i.type).toLowerCase() !== "pet");
-    const renderItems = hasNonPet ? items : INITIAL_ITEMS;
+    useEffect(() => { if (hasNonPet) setUseFallback(false); }, [hasNonPet]);
+    const renderItems = useFallback ? INITIAL_ITEMS : (items || []);
+
     // Fallback: render INITIAL_ITEMS until the host sync arrives
    
 
