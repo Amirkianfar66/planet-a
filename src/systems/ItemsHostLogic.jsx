@@ -135,7 +135,7 @@ const tryLoadIntoTank = ({
         setItems(
             (prev) =>
                 prev.map((j) =>
-                    j.id === entity.id ? { ...j, holder: "_gone_", y: -999 } : j
+                    j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j
                 ),
             true
         );
@@ -258,7 +258,7 @@ export default function ItemsHostLogic() {
             setItems(
                 (prev) =>
                     prev.map((it) => {
-                        if (it.holder) return it;
+                        if (it.holder && it.holder !== null && it.holder !== "") return it; // held/consumed/hidden: no physics
                         let { x, y = FLOOR_Y, z, vx = 0, vy = 0, vz = 0 } = it;
                         if (!(vx || vy || vz)) return it;
                         vy -= GRAV * DT;
@@ -594,11 +594,12 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
+                        // MAKE PICKED ITEM DISAPPEAR IMMEDIATELY (authoritative)
                         setItems(
                             (prev) =>
                                 prev.map((j) =>
                                     j.id === it.id
-                                        ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0 }
+                                        ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0, y: -999, hidden: true }
                                         : j
                                 ),
                             true
@@ -669,6 +670,7 @@ export default function ItemsHostLogic() {
                                         ? {
                                             ...j,
                                             holder: null,
+                                            hidden: false,
                                             x: px,
                                             y: Math.max(py + 0.5, FLOOR_Y + 0.01),
                                             z: pz,
@@ -708,6 +710,7 @@ export default function ItemsHostLogic() {
                                         ? {
                                             ...j,
                                             holder: null,
+                                            hidden: false,
                                             x: px,
                                             y: Math.max(py + 1.1, FLOOR_Y + 0.2),
                                             z: pz,
@@ -757,6 +760,7 @@ export default function ItemsHostLogic() {
                                             type: "cctv",
                                             name: "CCTV Camera",
                                             holder: null,
+                                            hidden: false,
                                             x: px + fdx * 0.6,
                                             y: Math.max(py + 1.4, FLOOR_Y + 1.4),
                                             z: pz + fdz * 0.6,
@@ -776,6 +780,7 @@ export default function ItemsHostLogic() {
                                                 ? {
                                                     ...j,
                                                     holder: null,
+                                                    hidden: false,
                                                     x: px + fdx * 0.6,
                                                     y: Math.max(py + 1.4, FLOOR_Y + 1.4),
                                                     z: pz + fdz * 0.6,
@@ -811,7 +816,7 @@ export default function ItemsHostLogic() {
                             setItems(
                                 (prev) =>
                                     prev.map((j) =>
-                                        j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j
+                                        j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j
                                     ),
                                 true
                             );
@@ -831,13 +836,12 @@ export default function ItemsHostLogic() {
                             if (dx * dx + dz * dz <= r * r) {
                                 const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                                 if (eff) {
-                                    // Apply effects in your meters system if desired
                                     // Consume item
                                     setItems(
                                         (prev) =>
                                             prev.map((j) =>
                                                 j.id === it.id
-                                                    ? { ...j, holder: "_used_", y: -999 }
+                                                    ? { ...j, holder: "_used_", y: -999, hidden: true }
                                                     : j
                                             ),
                                         true
