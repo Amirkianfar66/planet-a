@@ -154,6 +154,8 @@ const isOfficerRole = (r) => {
 /* --- END HELPERS --- */
 
 export default function ItemsHostLogic() {
+    const seededOnce = useRef(false); 
+    const spawnedPetsForOwner = useRef(new Set());
     const host = isHost();
     const players = usePlayersList(true);
     const [phase] = usePhase();
@@ -188,13 +190,17 @@ export default function ItemsHostLogic() {
     
     // Seed initial items once (host only) — the ONLY place that creates world items.
     useEffect(() => {
-        if (!host) return; // only the host seeds
-          const list = itemsRef.current || [];
-          const hasNonPet = Array.isArray(list) && list.some(i => i && String(i.type).toLowerCase() !== "pet");
-          if (hasNonPet) return; // already have real items
-        
-              const seeded = (INITIAL_ITEMS || []).map(it => {
-                    const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
+        if (!host) return;                  // host only
+        if (seededOnce.current) return;     // already did it this mount
+        const list = itemsRef.current || [];
+        const hasNonPet =
+            Array.isArray(list) && list.some(i => i && String(i.type).toLowerCase() !== "pet");
+        if (hasNonPet) {                    // nothing to do; remember we checked
+            seededOnce.current = true;
+            return;
+        }
+        const seeded = (INITIAL_ITEMS || []).map(it => {
+            const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
                     return {
  holder: "",
                           vx: 0, vy: 0, vz: 0,
@@ -211,11 +217,12 @@ export default function ItemsHostLogic() {
             const pets = base.filter(i => i && String(i.type).toLowerCase() === "pet");
             const existingIds = new Set(base.map(i => i?.id));
             const add = seeded.filter(i => !existingIds.has(i.id));
-            return [...pets, ...add];
+            const alreadyHasNonPet = base.some(i => i && String(i.type).toLowerCase() !== "pet");
+            return alreadyHasNonPet ? base : [...pets, ...add];
           }, true);
-
+         seededOnce.current = true;   
       console.log("[ITEMS] Seeded non-pet items (merged). Count:", seeded.length);
- }, [host, setItems]);
+    }, [host]);
 
     // Simple throw physics
     useEffect(() => {
@@ -244,7 +251,7 @@ export default function ItemsHostLogic() {
             );
         }, DT * 1000);
         return () => clearInterval(h);
-    }, [host, setItems]);
+    }, [host]);
 
     // ENERGY DECAY: subtract 25 once per new dayNumber
     useEffect(() => {
@@ -404,24 +411,35 @@ export default function ItemsHostLogic() {
             }
 
             const list = itemsRef.current || [];
-            const findItem = (id) => list.find((i) => i.id === id);
-            // --- SPAWN PETS for each Research who lacks one ---
+            const findItem = (id) => list.find((i) => i && i.id === id);
             const haveIds = new Set(list.map(i => i.id));
+
             const spawnPetIfMissing = (owner) => {
                 const ownerId = owner.id;
-                const already = list.find((i) => i.type === "pet" && i.owner === ownerId);
-                if (already) return;
+
+                // Fast guard: if we already spawned/tracked a pet for this owner, skip.
+                if (spawnedPetsForOwner.current.has(ownerId)) return;
+
+                // If a pet for this owner is already in the list, remember and skip.
+                const existing = list.find(i => i.type === "pet" && i.owner === ownerId);
+                if (existing) {
+                    spawnedPetsForOwner.current.add(ownerId);
+                    return;
+                }
+
+                // Mark before writing to avoid double-spawns across ticks.
+                spawnedPetsForOwner.current.add(ownerId);
 
                 const ox = Number(owner.getState("x") || 0);
                 const oy = Number(owner.getState("y") || 0);
                 const oz = Number(owner.getState("z") || 0);
 
-                // unique id
+                // Unique id
                 let idx = 1, newId = `pet_${ownerId}_${idx}`;
                 while (haveIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
                 haveIds.add(newId);
 
-                // create world item as the pet
+                // Create the pet item
                 setItems(prev => ([
                     ...(prev || []),
                     {
@@ -434,15 +452,22 @@ export default function ItemsHostLogic() {
                         z: oz - 0.8,
                         yaw: Number(owner.getState("yaw") || 0),
                         mode: owner.getState("petMode") || "follow",
-                        speed: 2.2,       // m/s
-                        hover: 0.35,      // visual lift
+                        speed: 2.2,
+                        hover: 0.35,
                     }
                 ]), true);
             };
 
+            // For each player…
             for (const pl of everyone) {
-                if (String(pl.getState?.("role") || "") === "Research") spawnPetIfMissing(pl);
+                if (String(pl.getState?.("role") || "") === "Research") {
+                    spawnPetIfMissing(pl);
+                } else {
+                    // optional: if they’re not Research now, allow respawn later
+                    spawnedPetsForOwner.current.delete(pl.id);
+                }
             }
+
             // --- END SPAWN ---
 
             // unique id helper (kept)

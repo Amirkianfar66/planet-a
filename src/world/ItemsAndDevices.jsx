@@ -1,4 +1,5 @@
-﻿import React, { useMemo, useRef, useEffect, useState } from "react";
+﻿// src/world/ItemsAndDevices.jsx
+import React, { useMemo, useRef, useEffect, useState } from "react";
 import * as THREE from "three";
 import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
@@ -21,14 +22,15 @@ function ensureOutdoorPos(x = 0, z = 0) {
 // ---------------------------------
 // Type metadata (labels + colors)
 // ---------------------------------
-const TYPE_META = ITEM_TYPES; // single source of truth from data/gameObjects.js
+const TYPE_META = ITEM_TYPES;
 
 const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
     protection_tank: "protection",
 };
-const isTankType = (t) => t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+const isTankType = (t) =>
+    t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
 
 // ---------------------------------
 // Billboard / Text sprite
@@ -39,30 +41,46 @@ function Billboard({ children, position = [0, 0, 0] }) {
     useFrame(() => {
         if (ref.current) ref.current.quaternion.copy(camera.quaternion);
     });
-    return <group ref={ref} position={position}>{children}</group>;
+    return (
+        <group ref={ref} position={position}>
+            {children}
+        </group>
+    );
 }
 
 function TextSprite({ text = "", width = 0.95 }) {
     const texture = useMemo(() => {
         const c = document.createElement("canvas");
-        c.width = 512; c.height = 192;
+        c.width = 512;
+        c.height = 192;
         const ctx = c.getContext("2d");
         ctx.clearRect(0, 0, c.width, c.height);
 
-        const x = 6, y = 50, w = c.width - 12, h = 92, r = 20;
+        const x = 6,
+            y = 50,
+            w = c.width - 12,
+            h = 92,
+            r = 20;
 
         // backdrop
         ctx.fillStyle = "rgba(20,26,34,0.92)";
         ctx.beginPath();
-        ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-        ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-        ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.fill();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.fill();
 
         // text
         ctx.fillStyle = "#fff";
         ctx.font = "600 48px system-ui, Segoe UI, Roboto, Arial";
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         ctx.fillText(text, c.width / 2, y + h / 2);
 
         const tex = new THREE.CanvasTexture(c);
@@ -91,7 +109,7 @@ function ItemMesh({ type = "crate" }) {
             return (
                 <group>
                     <mesh>
-                        <boxGeometry args={[0.36, 0.22, 0.30]} />
+                        <boxGeometry args={[0.36, 0.22, 0.3]} />
                         <meshStandardMaterial color={color} />
                     </mesh>
                     <mesh position={[0, 0.13, 0]}>
@@ -100,7 +118,6 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
-
         case "fuel":
             return (
                 <mesh>
@@ -108,7 +125,6 @@ function ItemMesh({ type = "crate" }) {
                     <meshStandardMaterial color={color} />
                 </mesh>
             );
-
         case "protection":
             return (
                 <mesh>
@@ -116,7 +132,6 @@ function ItemMesh({ type = "crate" }) {
                     <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />
                 </mesh>
             );
-
         case "cure_red":
         case "cure_blue":
             return (
@@ -125,35 +140,29 @@ function ItemMesh({ type = "crate" }) {
                         <cylinderGeometry args={[0.12, 0.12, 0.34, 18]} />
                         <meshStandardMaterial color={color} />
                     </mesh>
-                    <mesh position={[0, 0.20, 0]}>
+                    <mesh position={[0, 0.2, 0]}>
                         <cylinderGeometry args={[0.06, 0.06, 0.12, 18]} />
                         <meshStandardMaterial color="#0f172a" />
                     </mesh>
                 </group>
             );
-
         case "cctv":
-            // small wall/ceiling pod with lens
             return (
                 <group>
-                    {/* base mount */}
                     <mesh>
                         <cylinderGeometry args={[0.07, 0.07, 0.05, 12]} />
                         <meshStandardMaterial color="#4b5563" metalness={0.4} roughness={0.4} />
                     </mesh>
-                    {/* camera head */}
                     <mesh position={[0, 0, 0.14]}>
                         <boxGeometry args={[0.16, 0.12, 0.22]} />
                         <meshStandardMaterial color={color} metalness={0.2} roughness={0.6} />
                     </mesh>
-                    {/* lens */}
                     <mesh position={[0, 0, 0.27]}>
                         <cylinderGeometry args={[0.04, 0.04, 0.03, 16]} />
                         <meshStandardMaterial emissive="#22d3ee" emissiveIntensity={0.8} />
                     </mesh>
                 </group>
             );
-
         case "food_tank":
         case "fuel_tank":
         case "protection_tank":
@@ -173,8 +182,6 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
-
-        /* legacy */
         case "battery":
             return (
                 <group>
@@ -188,7 +195,6 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
-
         case "o2can":
             return (
                 <group>
@@ -202,7 +208,6 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
-
         default:
             return (
                 <mesh>
@@ -217,10 +222,12 @@ function ItemMesh({ type = "crate" }) {
 // Helpers
 // ---------------------------------
 function canPickUp(it) {
-    const me = myPlayer?.(); if (!me) return false;
+    const me = myPlayer?.();
+    if (!me) return false;
     const px = Number(me.getState("x") || 0);
     const pz = Number(me.getState("z") || 0);
-    const dx = px - it.x, dz = pz - it.z;
+    const dx = px - it.x,
+        dz = pz - it.z;
     return dx * dx + dz * dz <= PICKUP_RADIUS * PICKUP_RADIUS;
 }
 
@@ -245,7 +252,7 @@ function ItemEntity({ it }) {
     const actionable = canPickUp(it);
     const label = prettyLabel(it);
 
-    // Defaults for ordinary items
+    // Defaults
     let prompt = actionable ? `Press P to pick up ${label}` : label;
     let ringColor = actionable ? "#86efac" : "#64748b";
     let ringScale = 1;
@@ -258,11 +265,11 @@ function ItemEntity({ it }) {
         prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
     }
 
-    // Special UX for tanks (non-pickable; press P to add matching item)
+    // Tanks (non-pickable)
     if (isTankType(it.type)) {
         const me = myPlayer?.();
-        const bp = (me?.getState?.("backpack") || []);
-        const want = TANK_ACCEPTS[it.type]; // "food" | "fuel" | "protection"
+        const bp = me?.getState?.("backpack") || [];
+        const want = TANK_ACCEPTS[it.type];
         const hasWanted = bp.some((b) => String(b.type).toLowerCase() === want);
 
         const stored = Number(it.stored ?? 0);
@@ -281,15 +288,15 @@ function ItemEntity({ it }) {
                     : `Press P to add ${TYPE_META[want]?.label || want}`;
 
         ringColor = canLoad ? "#86efac" : "#64748b";
-        ringScale = 4; // match the 4x tank scale
-        billboardY = 1.7; // lift the label above the tall tank
+        ringScale = 4;
+        billboardY = 1.7;
     }
 
     return (
         <group position={[it.x, (it.y || 0) + 0.25, it.z]} rotation={[0, rotationY, 0]}>
             <ItemMesh type={it.type} />
 
-            {/* Ground ring (scaled for tanks) */}
+            {/* Ground ring */}
             <group scale={[ringScale, 1, ringScale]}>
                 <mesh position={[0, -0.12, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                     <ringGeometry args={[0.35, 0.42, 24]} />
@@ -310,30 +317,37 @@ function ItemEntity({ it }) {
 // ---------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
+
+    // Latch fallback until we see any non-pet from sync
     const [useFallback, setUseFallback] = useState(true);
-    const hasNonPet = Array.isArray(items) && items.some(i => i && String(i.type).toLowerCase() !== "pet");
-    useEffect(() => { if (hasNonPet) setUseFallback(false); }, [hasNonPet]);
-    const renderItems = useFallback ? INITIAL_ITEMS : (items || []);
+    const hasNonPet =
+        Array.isArray(items) && items.some((i) => i && String(i.type).toLowerCase() !== "pet");
 
-    // Fallback: render INITIAL_ITEMS until the host sync arrives
-   
+    useEffect(() => {
+        if (hasNonPet) setUseFallback(false);
+    }, [hasNonPet]);
 
-    // Pets are rendered in <Pets3D />, so exclude them here.
+    const renderItems = useFallback ? INITIAL_ITEMS : items || [];
+
+    // Pets are rendered separately; exclude them here.
     const floorItems = useMemo(
-        () => (renderItems || []).filter((i) => !i.holder && String(i.type).toLowerCase() !== "pet"),
+        () =>
+            (renderItems || []).filter(
+                (i) => i && !i.holder && String(i.type).toLowerCase() !== "pet"
+            ),
         [renderItems]
     );
 
-    // Debug once when the source switches
+    // Debug once when source switches
     useEffect(() => {
         // eslint-disable-next-line no-console
         console.debug(
-            "[ItemsAndDevices] using",
-            items && items.length ? "synced items" : "INITIAL_ITEMS fallback",
+            "[ItemsAndDevices] source=",
+            useFallback ? "INITIAL_ITEMS" : "SYNC",
             "count=",
-            (items && items.length) || (INITIAL_ITEMS && INITIAL_ITEMS.length) || 0
+            floorItems.length
         );
-    }, [items]);
+    }, [useFallback, floorItems.length]);
 
     return (
         <group>
@@ -362,7 +376,7 @@ export default function ItemsAndDevices() {
 
             {/* Floor items */}
             {floorItems.map((it) => (
-                <ItemEntity key={`${it.id}:${it.holder || "free"}`} it={it} />
+                <ItemEntity key={it.id} it={it} /> {/* stable key */ }
             ))}
         </group>
     );
