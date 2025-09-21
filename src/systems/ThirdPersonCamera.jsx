@@ -1,28 +1,75 @@
-import React, { useRef } from "react";
-import { useFrame, useThree } from "@react-three/fiber";
+﻿import React, { useEffect, useRef } from "react";
+import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 
-export default function ThirdPersonCamera() {
-  const { camera } = useThree();
-  const curPos = useRef(new THREE.Vector3(0, 5, 8));
-  const lookAt = useRef(new THREE.Vector3());
-  useFrame(() => {
-    const p = myPlayer();
-    const x = Number(p.getState("x") ?? 0);
-    const y = Number(p.getState("y") ?? 0);
-    const z = Number(p.getState("z") ?? 0);
-    const yaw = Number(p.getState("yaw") ?? 0);
+export default function ThirdPersonCamera({
+    height = 3.0,
+    distance = 3,   // was 6.0 → closer behind the player
+    shoulder = 0.3,   // slightly tighter shoulder offset
+    lerp = 0.12,
+    camRadius = 0.35,
+    ignoreNear = 0.6,
+}) {
+    const { camera, scene } = useThree();
+    const curPos = useRef(new THREE.Vector3(0, 5, 8));
+    const lookAt = useRef(new THREE.Vector3());
+    const ray = useRef(new THREE.Raycaster());
+    const blockers = useRef([]);
 
-    const height = 3.0, distance = 6.0;
-    const behind = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).multiplyScalar(distance);
-    const desired = new THREE.Vector3(x, y + 1.2 + height, z).add(behind);
+    useEffect(() => {
+        const collect = () => {
+            const arr = [];
+            scene.traverse((o) => {
+                if (!o?.isMesh) return;
+                if (o.userData?.camBlocker === true) arr.push(o);
+            });
+            blockers.current = arr;
+        };
+        collect();
+        const iv = setInterval(collect, 1500);
+        return () => clearInterval(iv);
+    }, [scene]);
 
-    curPos.current.lerp(desired, 0.12);
-    camera.position.copy(curPos.current);
+    useFrame(() => {
+        const p = myPlayer();
+        const x = Number(p.getState("x") ?? 0);
+        const y = Number(p.getState("y") ?? 0);
+        const z = Number(p.getState("z") ?? 0);
+        const yaw = Number(p.getState("yaw") ?? 0);
 
-    lookAt.current.set(x, y + 1.2, z);
-    camera.lookAt(lookAt.current);
-  });
-  return null;
+        const head = new THREE.Vector3(x, y + 1.2, z);
+        const fwd = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+
+        const desired = head
+            .clone()
+            .add(new THREE.Vector3(0, height, 0))
+            .add(fwd.clone().multiplyScalar(-distance))
+            .add(right.clone().multiplyScalar(shoulder));
+
+        const dir = desired.clone().sub(head);
+        const len = Math.max(0.001, dir.length());
+        dir.normalize();
+
+        const rc = ray.current;
+        rc.ray.origin.copy(head.clone().add(dir.clone().multiplyScalar(ignoreNear)));
+        rc.ray.direction.copy(dir);
+        rc.far = len;
+
+        let camPos = desired;
+        const hits = rc.intersectObjects(blockers.current, true);
+        const hit = hits.find((h) => h.distance > ignoreNear + 0.01);
+        if (hit) {
+            const safeDist = Math.max(ignoreNear, hit.distance - camRadius);
+            camPos = head.clone().add(dir.clone().multiplyScalar(safeDist));
+        }
+
+        curPos.current.lerp(camPos, lerp);
+        camera.position.copy(curPos.current);
+        lookAt.current.copy(head);
+        camera.lookAt(lookAt.current);
+    });
+
+    return null;
 }
