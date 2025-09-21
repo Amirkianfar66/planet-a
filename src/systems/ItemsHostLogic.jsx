@@ -871,6 +871,7 @@ export default function ItemsHostLogic() {
                         let best = null, bestD2 = Infinity;
                         for (const it of (itemsRef.current || [])) {
                             if (!it || it.holder) continue;
+                            if (typeof it.x !== "number" || typeof it.z !== "number") continue;
                             const t = String(it.type || "").toLowerCase();
                             if (t !== "cure_red" && t !== "cure_blue") continue;
                             const dx = it.x - x, dz = it.z - z;
@@ -892,7 +893,8 @@ export default function ItemsHostLogic() {
 
                     for (const pet of pets) {
                         const owner = (playersRef.current || []).find(pl => pl.id === pet.owner) || myPlayer();
-                        const mode = String(owner?.getState?.("petMode") || pet.mode || "follow");
+                        if (!owner || typeof owner.getState !== "function") continue; // skip this pet this tick
+                        const mode = String(owner.getState("petMode") || pet.mode || "follow");
 
                         let { x, y, z } = pet;
                         let yaw = pet.yaw || 0;
@@ -906,10 +908,10 @@ export default function ItemsHostLogic() {
 
                         // FOLLOW
                         if (mode === "follow" && owner) {
-                            const ox = Number(owner.getState("x") || 0);
-                            const oy = Number(owner.getState("y") || 0);
-                            const oz = Number(owner.getState("z") || 0);
-                            const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
+                            const ox = Number(owner.getState("x") ?? 0);
+                            const oy = Number(owner.getState("y") ?? 0);
+                            const oz = Number(owner.getState("z") ?? 0);
+                            const ry = Number((owner.getState("ry") ?? owner.getState("yaw") ?? 0) || 0);
 
                             const backX = -Math.sin(ry), backZ = -Math.cos(ry);
                             const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
@@ -940,7 +942,9 @@ export default function ItemsHostLogic() {
                             // resolve/validate target
                             let target = null;
                             if (tgtId) {
-                                target = (itemsRef.current || []).find(it => it && !it.holder && it.id === tgtId);
+                                target = (itemsRef.current || []).find(
+                                       it => it && !it.holder && it.id === tgtId && typeof it.x === "number" && typeof it.z === "number"
+                                       );
                                 if (target) {
                                     if (dist2(x, z, target.x, target.z) > LOST_RADIUS * LOST_RADIUS) target = null;
                                 }
@@ -1066,8 +1070,13 @@ export default function ItemsHostLogic() {
 
 
 
-            // schedule next tick
-            timerId = setTimeout(loop, 50);
+        } catch (err) {
+                console.error("[HOST] Items loop crashed:", err);
+                // swallow to avoid killing the loop for everyone (P pickup stops otherwise)
+                  } finally {
+                // ALWAYS reschedule, even if something above threw
+                    timerId = setTimeout(loop, 50);
+              }
         };
 
         loop();
