@@ -1,37 +1,44 @@
-﻿// src/components/RobotDog.jsx
-import React from "react";
+﻿import React from "react";
 
 export default function RobotDog({
-    walkPhase = 0,   // radians, keeps increasing
-    walkSpeed = 0,   // m/s
+    walkPhase = 0,    // radians, keeps increasing
+    walkSpeed = 0,    // m/s (visual)
     idleAction = null, // "tail" | "head" | "paw" | "shake" | null
-    idleT = 0,       // 0..1 progress in current idle action
+    idleT = 0,        // 0..1 progress in current idle action
+    flatWalk = false  // true during seek: keep ground-flat but still show subtle motion
 }) {
-    // gait: swing more when moving faster (clamped)
-    const swing = Math.min(0.7, 0.35 + walkSpeed * 0.25);
+    // Visual walk floor so parts still move even at very low speeds (seek)
+    const animSpeed = Math.max(walkSpeed, 1.0); // purely for animation amplitude (not movement)
+
+    // Gait: swing more when moving faster (clamped)
+    const swing = Math.min(0.7, 0.35 + animSpeed * 0.25);
+
     const s0 = Math.sin(walkPhase);
-    const s1 = Math.sin(walkPhase + Math.PI); // opposite legs
+    const s1 = Math.sin(walkPhase + Math.PI);     // opposite legs
     const sHead = Math.sin(walkPhase * 2);
 
-    // body slight lean forward with speed
-    const bodyLean = Math.min(0.15, walkSpeed * 0.06);
+    // Body lean forward with speed
+    const bodyLean = Math.min(0.15, animSpeed * 0.06);
 
-    // Head bob
-    const headBobY = 0.02 * sHead * Math.min(1, walkSpeed * 0.8);
+    // Head bob (damp to 0 in flatWalk/seek so root Y stays flat visually)
+    const headBobY = (flatWalk ? 0.0 : 1.0) * 0.02 * sHead * Math.min(1, animSpeed * 0.8);
+
+    // Subtle body sway that survives flatWalk (reduced amplitude)
+    const swayPitch = (flatWalk ? 0.4 : 1.0) * 0.02 * Math.sin(walkPhase + Math.PI * 0.5);
+    const swayRoll = (flatWalk ? 0.4 : 1.0) * 0.02 * Math.sin(walkPhase);
 
     // -------- Idle action envelopes --------
-    // Use a smooth in/out curve so actions look intentional.
     const easeInOut = (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
     const idleE = easeInOut(Math.max(0, Math.min(1, idleT)));
 
     // Defaults (no idle)
     let headTilt = 0, headYaw = 0;
     let tailYaw = 0, tailPitch = 0;
-    let pawLiftFR = 0; // front-right paw
+    let pawLiftFR = 0;   // front-right paw Y offset
     let bodyShakeYaw = 0;
 
     if (idleAction === "tail") {
-        // wag: figure-eight yaw
+        // wag: figure-eight yaw/pitch
         tailYaw = Math.sin(idleT * Math.PI * 6) * 0.6 * idleE;
         tailPitch = Math.sin(idleT * Math.PI * 3) * 0.15 * idleE;
     } else if (idleAction === "head") {
@@ -39,7 +46,7 @@ export default function RobotDog({
         headTilt = 0.35 * Math.sin(idleT * Math.PI) * idleE;
         headYaw = 0.25 * Math.sin(idleT * Math.PI * 2) * idleE;
     } else if (idleAction === "paw") {
-        // lift front-right paw and tap
+        // lift/tap front-right paw
         pawLiftFR = 0.12 * Math.sin(idleT * Math.PI) * idleE; // up-down
     } else if (idleAction === "shake") {
         // quick body shake (yaw oscillation)
@@ -49,7 +56,7 @@ export default function RobotDog({
     return (
         <group scale={[0.8, 0.8, 0.8]}>
             {/* body */}
-            <group rotation={[bodyLean * 0.5, bodyShakeYaw, 0]}>
+            <group rotation={[bodyLean * 0.5 + swayPitch, bodyShakeYaw, swayRoll]}>
                 <mesh position={[0, 0.2, 0]}>
                     <boxGeometry args={[0.8, 0.3, 1.0]} />
                     <meshStandardMaterial color="#9aa9ff" metalness={0.2} roughness={0.5} />

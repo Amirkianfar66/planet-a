@@ -1,5 +1,4 @@
-﻿// src/components/Pets3D.jsx
-import React, { useRef, useMemo } from "react";
+﻿import React, { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import usePetsSync from "../systems/usePetsSync.js";
 import RobotDog from "./RobotDog.jsx";
@@ -14,6 +13,7 @@ function PetFollower({ pet }) {
     const inner = useRef();
 
     const state = useMemo(() => ({
+        // smoothed transform
         x: Number(pet.x || 0),
         y: Number(pet.y ?? 0),
         z: Number(pet.z || 0),
@@ -22,10 +22,12 @@ function PetFollower({ pet }) {
         prevX: Number(pet.x || 0),
         prevZ: Number(pet.z || 0),
 
+        // visual motion
         visSpeed: 0,
         walkPhase: 0,
         animSpeed: 0,
 
+        // idle micro-anim
         stillTime: 0,
         idleAction: null,
         idleT: 0,
@@ -58,36 +60,41 @@ function PetFollower({ pet }) {
         const speed = (dt > 0) ? frameDist / dt : 0;
         state.visSpeed = lerp(state.visSpeed, speed, 0.25);
 
-        // ----- animation floor when seeking -----
+        // ----- animation floor during seek -----
         const isSeek = String(pet.mode || "").toLowerCase() === "seekcure";
-        const isMoving = state.visSpeed > 0.03;             // ✅ define once
-        const isWalkingHost = Boolean(pet.walking);         // host intent flag
-        const shouldWalkAnim = isSeek && (isWalkingHost || isMoving);
+        const isWalkingHost = Boolean(pet.walking);          // server intent flag
+        const isMovingLocal = state.visSpeed > 0.03;         // fallback
+        const shouldWalkAnim = isSeek && (isWalkingHost || isMovingLocal);
 
-        const ANIM_WALK_FLOOR = 1.1; // pretend-walk speed for animation only
+        const ANIM_WALK_FLOOR = 1.1;                         // purely visual tempo
         const animSpeed = shouldWalkAnim ? Math.max(state.visSpeed, ANIM_WALK_FLOOR) : state.visSpeed;
         state.animSpeed = animSpeed;
 
+        // advance gait
         state.walkPhase += animSpeed * 4.5 * dt;
 
+        // place root
         if (group.current) {
             group.current.position.set(state.x, state.y, state.z);
             group.current.rotation.set(0, state.yaw, 0);
         }
 
-        // --- flat walk during seek: no Y bob/tilt ---
-        const bobAmp = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08);
+        // Ground-flat during seek: kill Y bob, but keep *reduced* tilts so it feels alive
+        const bobAmp = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08); // 0 in seek
         const bob = Math.sin(state.walkPhase * 2) * bobAmp;
-        const tiltPitch = isSeek ? 0 : clamp(animSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
-        const tiltRoll = isSeek ? 0 : clamp(animSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
+
+        const tiltPitchBase = clamp(animSpeed * 0.03, 0, 0.12) * Math.sin(state.walkPhase + Math.PI * 0.5);
+        const tiltRollBase = clamp(animSpeed * 0.02, 0, 0.08) * Math.sin(state.walkPhase);
+        const tiltPitch = isSeek ? tiltPitchBase * 0.4 : tiltPitchBase;
+        const tiltRoll = isSeek ? tiltRollBase * 0.4 : tiltRollBase;
 
         if (inner.current) {
-            inner.current.position.y = bob; // 0 in seek
+            inner.current.position.y = bob;                  // 0 in seek (flat)
             inner.current.rotation.set(tiltPitch, 0, tiltRoll);
         }
 
         // ---------- IDLE ACTION LOGIC ----------
-        if (isMoving) {
+        if (isMovingLocal) {
             state.stillTime = 0;
             state.idleCooldown = Math.max(0, state.idleCooldown - dt);
             state.idleAction = null;
@@ -124,18 +131,17 @@ function PetFollower({ pet }) {
                     walkSpeed={state.animSpeed}
                     idleAction={state.idleAction}
                     idleT={state.idleT}
-                    flatWalk={String(pet.mode || "").toLowerCase() === "seekcure"} // optional: keep head bob off
+                    flatWalk={String(pet.mode || "").toLowerCase() === "seekcure"}
                 />
             </group>
         </group>
     );
 }
 
-
 export default function Pets3D() {
-    const { pets } = usePetsSync();
+    const { pets } = usePetsSync(); // expects { pets } from your sync hook
+    if (!pets || !pets.length) return null;
 
-    if (!pets.length) return null;
     return (
         <group>
             {pets.map(pet => <PetFollower key={pet.id} pet={pet} />)}
