@@ -1,76 +1,66 @@
-import React from "react";
+import React, { useMemo } from "react";
+import "./ui.css";
 
-function MetersPanel({
+function clamp100(v) {
+    return Math.max(0, Math.min(100, Number(v) || 0));
+}
+
+export default function MetersPanel({
     oxygen,
     energy,
     power,
     meters,
-    life,                 // ⬅️ new optional prop
-    title = "Life Support",
-    onRepair,
+    life,                 // optional
+    // title is intentionally ignored to keep it simple
 }) {
-    const clamp100 = (v) => Math.max(0, Math.min(100, Number(v) || 0));
-
-    // prefer meters[] records if provided
+    // Prefer meters[] entries if provided
     const lifeRec = Array.isArray(meters) ? meters.find((m) => m.id === "life") : null;
     const oxyRec = Array.isArray(meters) ? meters.find((m) => m.id === "oxygen") : null;
     const engRec = Array.isArray(meters)
         ? (meters.find((m) => m.id === "energy") || meters.find((m) => m.id === "power"))
         : null;
 
-    const lifeVal = clamp100(life ?? lifeRec?.value ?? 100);
-    const oxygenVal = clamp100(oxygen ?? oxyRec?.value ?? 0);
-    const energyVal = clamp100(energy ?? engRec?.value ?? power ?? 0);
+    const rows = useMemo(() => {
+        const lifeVal = clamp100(life ?? lifeRec?.value ?? 100);
+        const oxygenVal = clamp100(oxygen ?? oxyRec?.value ?? 0);
+        const energyVal = clamp100(energy ?? engRec?.value ?? power ?? 0);
 
-    const lifeLabel = lifeRec?.label ?? "Life";
-    const oxygenLabel = oxyRec?.label ?? "Oxygen";
-    const energyLabel = engRec?.label ?? "Energy";
+        const energyId = engRec?.id ?? (energy !== undefined ? "energy" : power !== undefined ? "power" : "energy");
+        const energyLabel = (engRec?.label ?? (power !== undefined ? "POWER" : "ENERGY")).toUpperCase();
 
-    const energyKey =
-           energy !== undefined
-                 ? "energy"                     // prefer explicit local energy
-             : (engRec?.id ?? (power !== undefined ? "power" : "energy"));
-
-    const Bar = ({ label, value, color }) => (
-        <div style={{ display: "grid", gap: 4 }}>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>{label} — {Math.round(value)}%</div>
-            <div style={{ width: 200, height: 10, background: "#2a3242", borderRadius: 6, overflow: "hidden" }}>
-                <div style={{ width: `${value}%`, height: "100%", background: color, transition: "width .25s ease" }} />
-            </div>
-        </div>
-    );
+        return [
+            { id: "life", label: (lifeRec?.label ?? "LIFE").toUpperCase(), value: lifeVal },
+            { id: "oxygen", label: (oxyRec?.label ?? "OXYGEN").toUpperCase(), value: oxygenVal },
+            { id: energyId, label: energyLabel, value: energyVal },
+        ];
+    }, [life, lifeRec, oxygen, oxyRec, energy, power, engRec]);
 
     return (
-        <div
-            style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: "rgba(14,17,22,0.9)",
-                border: "1px solid #2a3242",
-                padding: 10,
-                borderRadius: 10,
-                display: "grid",
-                gap: 10,
-                color: "white",
-            }}
-        >
-            {title && <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 2 }}>{title}</div>}
-
-            {/* NEW: Life first, in red */}
-            <Bar label={lifeLabel} value={lifeVal} color={lifeRec?.color ?? "#f87171"} />
-
-            <Bar label={oxygenLabel} value={oxygenVal} color={oxyRec?.color ?? "#fca5a5"} />
-            <Bar label={energyLabel} value={energyVal} color={engRec?.color ?? "#a7f3d0"} />
-
-            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                <button onClick={() => onRepair?.("life")}>Heal +10</button>
-                <button onClick={() => onRepair?.("oxygen")}>Repair O₂ +10</button>
-                <button onClick={() => onRepair?.(energyKey)}>Repair Energy +10</button>
+        <section className="mp mp--illustrated mp--half" data-component="meters">
+            <div className="mp-card">
+                {/* Only the three bars; no header/title/actions */}
+                <div className="mp__rows">
+                    {rows.map((r) => (
+                        <div key={r.id} className="mp-row">
+                            <div className="mp-label">{r.label}</div>
+                            <div
+                                className="mp-bar"
+                                data-type={r.id}
+                                role="progressbar"
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={Math.round(r.value)}
+                                aria-label={r.label}
+                                title={`${r.label}: ${Math.round(r.value)}%`}
+                            >
+                                <div className="mp-bar__fill" style={{ width: `${r.value}%` }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
-        </div>
+        </section>
     );
 }
 
-export default MetersPanel;
 export { MetersPanel };

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
+import "./ui.css";
 
 export default function TeamChatPanel({
     teamName,
@@ -15,7 +16,6 @@ export default function TeamChatPanel({
     useEffect(() => { const id = setInterval(force, 400); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
-    // ✅ presence-only; avoids per-player state listeners
     const allPlayers = usePlayersList();
 
     // TEAM name: prop wins; else my state; else "Team"
@@ -23,7 +23,7 @@ export default function TeamChatPanel({
         firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName")) || "Team";
     const teamKey = `chat:${liveTeam}`;
 
-    // Local fallback buffer (so you see your message immediately even if network is slow)
+    // Local fallback buffer (instant echo)
     const [localMsgs, setLocalMsgs] = useState([]);
 
     // Roster: props win; else build from all players (filter by team)
@@ -42,7 +42,7 @@ export default function TeamChatPanel({
 
     const liveMyId = myId || me?.id || "me";
 
-    // 🔽 Aggregate messages from ALL players in this team
+    // Aggregate messages from all players on this team
     const aggregatedFromPlayers = useMemo(() => {
         const collected = [];
         for (const p of allPlayers) {
@@ -66,7 +66,7 @@ export default function TeamChatPanel({
         return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
     }, [allPlayers, liveTeam, teamKey]);
 
-    // Final messages: props → aggregatedFromPlayers → my own state → local buffer
+    // Final messages: props → aggregated → my own state → local buffer
     const liveMessages = useMemo(() => {
         if (Array.isArray(messages)) return messages;
         const fromMe = me?.getState?.(teamKey);
@@ -112,142 +112,69 @@ export default function TeamChatPanel({
             ts: now,
         };
 
-        // 1) local echo for instantaneous UI
+        // 1) local echo
         setLocalMsgs((curr) => [...curr, msg]);
 
-        // 2) write to *my* Playroom player state, broadcast=true
+        // 2) broadcast via Playroom
         try {
             const prev = me?.getState?.(teamKey);
             const next = Array.isArray(prev) ? [...prev, msg] : [msg];
             me?.setState?.(teamKey, next, true);
         } catch { }
 
-        // 3) optional network action (host can rebroadcast / persist)
+        // 3) optional host action
         try { onSend?.(t); } catch { }
 
         setText("");
     };
 
-    const namesLine = roster.length
-        ? roster.map((m) => `${m.name}${m.role ? ` (${m.role})` : ""}`).join(", ")
-        : "—";
-
     return (
-        <div
-            style={{
-                position: "absolute",
-                left: 16,
-                bottom: 16,
-                background: "rgba(14,17,22,0.9)",
-                border: "1px solid #2a3242",
-                padding: 10,
-                borderRadius: 10,
-                display: "grid",
-                gap: 10,
-                color: "white",
-                width: 360,
-                maxHeight: "46vh",
-                gridTemplateRows: "auto auto 1fr auto",
-                pointerEvents: "auto",
-                ...style,
-            }}
-        >
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Team — {liveTeam}</div>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Members — {namesLine}</div>
+        <section className="tc tc--illustrated" data-component="teamchat" style={style}>
+            <div className="tc-card">
+                {/* Messages only (no team/members headers) */}
+                <div className="tc__list" ref={listRef}>
+                    {liveMessages.length === 0 && (
+                        <div className="tc__empty">No messages yet.</div>
+                    )}
 
-            <div
-                ref={listRef}
-                style={{
-                    minHeight: 0,
-                    overflow: "auto",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 6,
-                    paddingRight: 2,
-                }}
-            >
-                {liveMessages.length === 0 && (
-                    <div
-                        style={{
-                            fontSize: 12,
-                            opacity: 0.7,
-                            padding: "8px 10px",
-                            background: "#1b2433",
-                            border: "1px solid #2a3242",
-                            borderRadius: 6,
-                        }}
+                    {liveMessages.map((m) => {
+                        const mine = m.senderId === liveMyId;
+                        const sender = roster.find((x) => x.id === m.senderId);
+                        const senderLabel = sender
+                            ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}`
+                            : "Unknown";
+                        const time = new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                        return (
+                            <div
+                                key={m.id}
+                                className={`tc-bubble ${mine ? "me" : ""}`}
+                                title={`${senderLabel} — ${time}`}
+                            >
+                                {m.text}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <form className="tc__inputRow" onSubmit={send}>
+                    <input
+                        className="tc-input"
+                        type="text"
+                        placeholder="Message your team…"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        disabled={inputDisabled}
+                    />
+                    <button
+                        className="tc-send"
+                        disabled={inputDisabled || text.trim() === ""}
                     >
-                        No messages yet.
-                    </div>
-                )}
-
-                {liveMessages.map((m) => {
-                    const mine = m.senderId === liveMyId;
-                    const sender = roster.find((x) => x.id === m.senderId);
-                    const senderLabel = sender
-                        ? `${sender.name}${sender.role ? ` (${sender.role})` : ""}`
-                        : "Unknown";
-
-                    return (
-                        <div
-                            key={m.id}
-                            style={{
-                                alignSelf: mine ? "flex-end" : "flex-start",
-                                maxWidth: "85%",
-                                background: mine ? "#19324a" : "#1b2433",
-                                border: "1px solid #2a3242",
-                                borderRadius: 6,
-                                padding: "8px 10px",
-                                fontSize: 12,
-                                lineHeight: 1.35,
-                            }}
-                            title={new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        >
-                            {!mine && (
-                                <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4 }}>
-                                    {senderLabel}
-                                </div>
-                            )}
-                            {m.text}
-                        </div>
-                    );
-                })}
+                        Send
+                    </button>
+                </form>
             </div>
-
-            <form onSubmit={send} style={{ display: "flex", gap: 6 }}>
-                <input
-                    type="text"
-                    placeholder="Send a message to your team…"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    disabled={inputDisabled}
-                    style={{
-                        flex: 1,
-                        background: "#0e141f",
-                        border: "1px solid #2a3242",
-                        color: "white",
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                    }}
-                />
-                <button
-                    disabled={inputDisabled || text.trim() === ""}
-                    style={{
-                        background: "linear-gradient(180deg,#3098ff,#2677ff)",
-                        color: "white",
-                        border: "none",
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        fontWeight: 700,
-                        cursor: inputDisabled || text.trim() === "" ? "not-allowed" : "pointer",
-                        opacity: inputDisabled || text.trim() === "" ? 0.6 : 1,
-                    }}
-                >
-                    Send
-                </button>
-            </form>
-        </div>
+        </section>
     );
 }
 

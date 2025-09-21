@@ -256,7 +256,6 @@ export default function HUD({ game = {} }) {
                 {/* LEFT: Status + Role */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
                     <MetersPanel
-                        title={outside ? "Life Support (Outside)" : "Life Support"}
                         life={lifeVal}
                         energy={energyVal}
                         oxygen={oxygenVal}

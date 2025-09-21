@@ -104,7 +104,7 @@ export default function BackpackPanel({
                                         }
                                     >
                                         <span className="bp-item__icon">{renderIcon(g)}</span>
-                                        <span className="bp-item__name">{g.name}</span>
+                                        
                                         {qtyBadge && <span className="bp-item__qty">{qtyBadge}</span>}
                                     </button>
                                 );
