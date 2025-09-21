@@ -332,28 +332,24 @@ export default function ItemsAndDevices() {
 
     // Latch fallback until we see any non-pet from sync
     const [useFallback, setUseFallback] = useState(true);
-    const hasNonPet =
-        Array.isArray(items) && items.some((i) => i && String(i.type).toLowerCase() !== "pet");
-
     useEffect(() => {
-        if (hasNonPet) setUseFallback(false);
-    }, [hasNonPet]);
+            if (Array.isArray(items)) setUseFallback(false);
+          }, [items]);
 
     const renderItems = useFallback ? INITIAL_ITEMS : items || [];
 
     // Pets are rendered separately; exclude them here.
     const floorItems = useMemo(
-        () =>
-            (renderItems || []).filter(
+            () =>
+          (renderItems || []).filter(
                 (i) =>
-                    i &&
-                    !i.holder &&                // not held
-                    !i.hidden &&                // not explicitly hidden by host
-                    !ghostIds.has(i.id) &&      // not ghost-hidden (optimistic)
-                    String(i.type).toLowerCase() !== "pet"
-            ),
-        [renderItems, ghostVer]
-    );
+                  i &&
+                  !i.holder &&           // not held
+                  !i.hidden &&           // not explicitly hidden by host
+                  String(i.type).toLowerCase() !== "pet"
+              ),
+        [renderItems]
+          );
 
     // Debug once when source switches
     useEffect(() => {

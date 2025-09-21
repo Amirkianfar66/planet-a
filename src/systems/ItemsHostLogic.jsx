@@ -219,11 +219,10 @@ export default function ItemsHostLogic() {
         if (seededOnce.current) return;
 
         const list = itemsRef.current || [];
-        if (Array.isArray(list) && list.length > 0) {
+        const hasNonPet = Array.isArray(list) && list.some(i => i && String(i.type).toLowerCase() !== "pet");
             // already have items; nothing to do
-            seededOnce.current = true;
-            return;
-        }
+        if (hasNonPet) { seededOnce.current = true; return; }
+          
 
         const seeded = (INITIAL_ITEMS || []).map((it) => {
             const p = spawnInMeetingRoom(it.x ?? 0, it.z ?? 0);
@@ -242,9 +241,11 @@ export default function ItemsHostLogic() {
 
         setItems((prev) => {
             const base = Array.isArray(prev) ? prev : [];
-            const existingIds = new Set(base.map((i) => i?.id));
-            const add = seeded.filter((i) => !existingIds.has(i.id));
-            return base.length ? base : [...add];
+            const pets = base.filter(i => i && String(i.type).toLowerCase() === "pet");
+            const existing = new Set(base.map(i => i?.id));
+
+            const add = seeded.filter(i => !existing.has(i.id));
+            return [...pets, ...add];
         }, true);
 
         seededOnce.current = true;
