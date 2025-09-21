@@ -1,7 +1,7 @@
 ﻿// src/systems/ItemsHostLogic.jsx
 import React, { useEffect, useRef } from "react";
 import { isHost, usePlayersList, myPlayer } from "playroomkit";
-import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan, hostHandlePetOrder } from "../network/playroom";
+import { hostHandleShoot, readActionPayload, hostHandleBite, usePhase, hostHandleArrest, hostHandleDisguise, hostHandleScan } from "../network/playroom";
 import useItemsSync from "./useItemsSync.js";
 import { DEVICES, USE_EFFECTS, INITIAL_ITEMS } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS, BAG_CAPACITY, PICKUP_COOLDOWN } from "../data/constants.js";
@@ -135,8 +135,6 @@ export default function ItemsHostLogic() {
     const itemsRef = useRef(items);
     useEffect(() => {
         itemsRef.current = items;
-        // lightweight global read hook for host handlers
-        window.__itemsCache__ = () => itemsRef.current || [];
     }, [items]);
 
     const playersRef = useRef(players);
@@ -365,45 +363,6 @@ export default function ItemsHostLogic() {
 
             const list = itemsRef.current || [];
             const findItem = (id) => list.find((i) => i.id === id);
-            // --- SPAWN PETS for each Research who lacks one ---
-            const haveIds = new Set(list.map(i => i.id));
-            const spawnPetIfMissing = (owner) => {
-                const ownerId = owner.id;
-                const already = list.find((i) => i.type === "pet" && i.owner === ownerId);
-                if (already) return;
-
-                const ox = Number(owner.getState("x") || 0);
-                const oy = Number(owner.getState("y") || 0);
-                const oz = Number(owner.getState("z") || 0);
-
-                // unique id
-                let idx = 1, newId = `pet_${ownerId}_${idx}`;
-                while (haveIds.has(newId)) { idx++; newId = `pet_${ownerId}_${idx}`; }
-                haveIds.add(newId);
-
-                // create world item as the pet
-                setItems(prev => ([
-                    ...(prev || []),
-                    {
-                        id: newId,
-                        type: "pet",
-                        name: "Research Bot",
-                        owner: ownerId,
-                        x: ox - 0.8,
-                        y: Math.max(oy + 0.2, 0.2),
-                        z: oz - 0.8,
-                        yaw: Number(owner.getState("yaw") || 0),
-                        mode: owner.getState("petMode") || "follow",
-                        speed: 2.2,       // m/s
-                        hover: 0.35,      // visual lift
-                    }
-                ]), true);
-            };
-
-            for (const pl of everyone) {
-                if (String(pl.getState?.("role") || "") === "Research") spawnPetIfMissing(pl);
-            }
-            // --- END SPAWN ---
 
             // unique id helper (kept)
             const mkId = (prefix) => {
@@ -461,15 +420,6 @@ export default function ItemsHostLogic() {
                     processed.current.set(p.id, reqId);
                     continue;
                 }
-
-                // ABILITY: pet order (Research)
-                if (type === "ability" && target === "pet_order") {
-                    const payload = readActionPayload(p);
-                    hostHandlePetOrder({ researcher: p, setEvents: undefined, payload });
-                    processed.current.set(p.id, reqId);
-                    continue;
-                }
-
                 // --------- END ABILITIES ----------
 
                 // CONTAINER (any Tank) — stationary, load-only, must be near
@@ -521,11 +471,7 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-                    // Pets cannot be picked up
-                    if (it.type === "pet") {
-                        processed.current.set(p.id, reqId);
-                        continue;
-                    }
+
                     // Tanks are NOT pickable — treat P near any tank as "load one matching item"
                     if (isTankType(it.type)) {
                         const dx = px - it.x,
@@ -790,138 +736,6 @@ export default function ItemsHostLogic() {
                 // Fallback
                 processed.current.set(p.id, reqId);
             }
-            // --- PET AI: follow owner / stay / seekCure ---
-            {
-                const PET_DT = 0.05; // ~50ms loop cadence
-                const pets = (itemsRef.current || []).filter(i => i.type === "pet");
-                if (pets.length) {
-                    const updated = new Map();
-
-                    // helper: shortest-arc yaw interpolation
-                    const lerpAngle = (a, b, t) => {
-                        let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-                        return a + d * t;
-                    };
-
-                    // helper: nearest cure item (free on floor)
-                    const nearestCure = (x, z) => {
-                        let best = null, bestD2 = Infinity;
-                        for (const it of (itemsRef.current || [])) {
-                            if (!it || it.holder) continue;
-                            const t = String(it.type || "").toLowerCase();
-                            if (t !== "cure_red" && t !== "cure_blue") continue;
-                            const dx = it.x - x, dz = it.z - z;
-                            const d2 = dx * dx + dz * dz;
-                            if (d2 < bestD2) { best = it; bestD2 = d2; }
-                        }
-                        return best;
-                    };
-
-                    for (const pet of pets) {
-                        const owner = (playersRef.current || []).find(pl => pl.id === pet.owner) || myPlayer();
-                        const mode = String(owner?.getState?.("petMode") || pet.mode || "follow");
-
-                        let { x, y, z } = pet;
-                        let yaw = pet.yaw || 0;
-
-                        const speed = pet.speed ?? 2.2;
-                        const hoverY = pet.hover ?? 0.35;
-
-                        // default target is current position
-                        let tgtX = x, tgtZ = z, tgtY = y, lookAtYaw = yaw;
-
-                        if (mode === "follow" && owner) {
-                            const ox = Number(owner.getState("x") || 0);
-                            const oy = Number(owner.getState("y") || 0);
-                            const oz = Number(owner.getState("z") || 0);
-                            const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
-
-                            // behind-right of owner (keeping your formation offsets)
-                            const backX = -Math.sin(ry), backZ = -Math.cos(ry);
-                            const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
-
-                            tgtX = ox + backX * 2.4 + rightX * 1.2; // doubled spacing
-                            tgtZ = oz + backZ * 2.4 + rightZ * 1.2; // doubled spacing
-                            tgtY = Math.max(oy + hoverY, 0.2);
-                            lookAtYaw = Math.atan2(ox - x, oz - z); // glance toward owner
-                        }
-
-                        if (mode === "seekCure") {
-                            const it = nearestCure(x, z);
-                            if (it) {
-                                const dx = it.x - x, dz = it.z - z;
-                                const dist = Math.hypot(dx, dz) || 1;
-                                const desiredYaw = Math.atan2(dx, dz);
-                                lookAtYaw = desiredYaw;
-
-                                const stopDist = 0.7;              // stand-off from the item
-                                const wantDist = Math.max(0, dist - stopDist);
-
-                                // ⬇️ PUT THESE 3 LINES HERE (replace your previous step calc)
-                                const SLOW_FACTOR = 1 / 3;                            // 3× slower
-                                const base = Number(pet.seekSpeed ?? 1.4) * SLOW_FACTOR;
-                                const slow = Math.max(0.6, Math.min(1, wantDist / 1.5)); // keep the near-target easing
-                                const step = Math.min(wantDist, (base * slow) * PET_DT);
-
-
-                                if (wantDist > 0.001) {
-                                    x += (dx / dist) * step;
-                                    z += (dz / dist) * step;
-                                }
-                                // slight hover settle
-                                tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
-                            } else if (owner) {
-                                // no cure on map → gracefully fall back to follow position
-                                const ox = Number(owner.getState("x") || 0);
-                                const oy = Number(owner.getState("y") || 0);
-                                const oz = Number(owner.getState("z") || 0);
-                                const ry = Number(owner.getState("ry") ?? owner.getState("yaw") ?? 0);
-                                const backX = -Math.sin(ry), backZ = -Math.cos(ry);
-                                const rightX = Math.cos(ry), rightZ = -Math.sin(ry);
-                                tgtX = ox + backX * 2.4 + rightX * 1.2;
-                                tgtZ = oz + backZ * 2.4 + rightZ * 1.2;
-                                tgtY = Math.max(oy + hoverY, 0.2);
-                                lookAtYaw = Math.atan2(ox - x, oz - z);
-                            }
-                        }
-
-                        if (mode === "stay") {
-                            // just hover and face the owner a bit if available
-                            if (owner) {
-                                const ox = Number(owner.getState("x") || 0);
-                                const oz = Number(owner.getState("z") || 0);
-                                lookAtYaw = Math.atan2(ox - x, oz - z);
-                            }
-                            tgtX = x; tgtZ = z; tgtY = Math.max((pet.y || 0) + hoverY, 0.2);
-                        }
-
-                        // move toward target (follow mode uses tgtX/Z above; seekCure may have already moved x/z)
-                        if (mode !== "seekCure") {
-                            const dx = tgtX - x, dz = tgtZ - z;
-                            const dist = Math.hypot(dx, dz);
-                            const step = Math.min(dist, speed * PET_DT);
-                            if (dist > 0.001) { x += (dx / dist) * step; z += (dz / dist) * step; }
-                        }
-
-                        // ease yaw
-                        yaw = lerpAngle(yaw, lookAtYaw, 0.25);
-
-                        // smooth vertical
-                        y += ((tgtY ?? (pet.y || 0)) - y) * 0.2;
-
-                        updated.set(pet.id, { x, y, z, yaw, mode });
-                    }
-
-                    if (updated.size) {
-                        setItems(prev => prev.map(j => {
-                            const u = updated.get(j.id);
-                            return u ? { ...j, ...u } : j;
-                        }), true);
-                    }
-                }
-            }
-            // --- END PET AI ---
-
 
             // schedule next tick
             timerId = setTimeout(loop, 50);
