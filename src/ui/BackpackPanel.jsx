@@ -2,9 +2,8 @@
 import "./ui.css";
 
 /**
- * Cartoon-styled Backpack panel (matches your reference image)
- * Props are identical to BackpackPanel:
- *  - items, capacity, onUse, onDrop, onThrow, title
+ * Cartoon-styled Backpack panel
+ * Props: items, capacity, onUse, onDrop, onThrow, title
  */
 export default function BackpackPanelCartoon({
     items = [],
@@ -16,7 +15,6 @@ export default function BackpackPanelCartoon({
 }) {
     const [selectedKey, setSelectedKey] = useState(null);
 
-    // Same stacking logic as before (Food Tank stays single)
     const NO_STACK = new Set(["food_tank"]);
     const stacks = useMemo(() => {
         const groups = new Map();
@@ -24,7 +22,6 @@ export default function BackpackPanelCartoon({
         for (const it of items) {
             const type = String(it.type || it.kind || "").trim().toLowerCase();
             const qty = Math.max(1, Number(it.qty) || 1);
-
             if (NO_STACK.has(type)) {
                 singles.push({
                     key: it.id,
@@ -41,14 +38,7 @@ export default function BackpackPanelCartoon({
             }
             const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
             if (!groups.has(key)) {
-                groups.set(key, {
-                    key,
-                    type,
-                    name: it.name || type || "Item",
-                    icon: it.icon,
-                    qty: 0,
-                    ids: [],
-                });
+                groups.set(key, { key, type, name: it.name || type || "Item", icon: it.icon, qty: 0, ids: [] });
             }
             const g = groups.get(key);
             g.qty += qty;
@@ -60,7 +50,6 @@ export default function BackpackPanelCartoon({
 
     const usedSlots = items.length;
 
-    // Bucket by the 3 categories shown in the mock
     const buckets = useMemo(() => {
         const bucket = { food: [], cure: [], protection: [] };
         for (const g of stacks) {
@@ -79,19 +68,11 @@ export default function BackpackPanelCartoon({
 
     const selected = stacks.find((s) => s.key === selectedKey) || null;
 
-    const handleThrow = () => {
-        if (onThrow && selected) onThrow(selected.primaryId);
-    };
-    const handleDrop = () => {
-        if (onDrop && selected) onDrop(selected.primaryId);
-    };
-    const handleUse = () => {
-        if (onUse && selected) onUse(selected.primaryId);
-    };
+    const handleDrop = () => selected && onDrop?.(selected.primaryId);
+    const handleUse = () => selected && onUse?.(selected.primaryId);
 
     return (
         <section className="bp-pack">
-            {/* Backpack casing */}
             <div className="bp-shell">
                 <header className="bp-top">
                     <div className="bp-handle" />
@@ -99,22 +80,20 @@ export default function BackpackPanelCartoon({
                     <div className="bp-cap">{capacity ? `${usedSlots}/${capacity}` : `${usedSlots} items`}</div>
                 </header>
 
-                {/* Inside panel */}
                 <div className="bp-inner">
                     <div className="bp-rows">
                         {allInOrder.map(({ label, key, icon }) => {
                             const content = buckets[key];
-                            // Show first stack (primary) for the big icon; quantity shown below
                             const g = content?.[0];
                             const qty =
-                                (g?.type === "food_tank")
+                                g?.type === "food_tank"
                                     ? `${g.stored}/${g.cap}`
-                                    : (content?.reduce((n, s) => n + (s.qty || 1), 0) || 0);
+                                    : content?.reduce((n, s) => n + (s.qty || 1), 0) || 0;
 
                             return (
                                 <button
                                     key={key}
-                                    className={`bp-card ${selected?.key && buckets[key]?.some(s => s.key === selected.key) ? "is-active" : ""}`}
+                                    className={`bp-card ${selected && buckets[key]?.some((s) => s.key === selected.key) ? "is-active" : ""}`}
                                     onClick={() => setSelectedKey(g ? g.key : null)}
                                     onContextMenu={(e) => {
                                         if (!onThrow || !g) return;
@@ -123,11 +102,7 @@ export default function BackpackPanelCartoon({
                                         setSelectedKey(g.key);
                                         onThrow(g.primaryId);
                                     }}
-                                    title={
-                                        g
-                                            ? `${g.name}${g.type === "food_tank" ? ` — ${g.stored}/${g.cap}` : ` × ${qty}`}`
-                                            : "Empty"
-                                    }
+                                    title={g ? `${g.name}${g.type === "food_tank" ? ` — ${g.stored}/${g.cap}` : ` × ${qty}`}` : "Empty"}
                                 >
                                     <div className="bp-card__title">{label}</div>
                                     <div className="bp-card__icon">{g ? renderIcon(g) : icon}</div>
@@ -137,27 +112,15 @@ export default function BackpackPanelCartoon({
                         })}
                     </div>
 
-                    {/* Big actions row */}
                     <div className="bp-actions">
-                        <button
-                            className="bp-btn bp-btn--ghost"
-                            disabled={!selected || !onDrop}
-                            onClick={handleDrop}
-                            title={selected ? `Drop ${selected.name}` : "Select an item first"}
-                        >
+                        <button className="bp-btn bp-btn--ghost" disabled={!selected || !onDrop} onClick={handleDrop}>
                             DROP
                         </button>
-                        <button
-                            className="bp-btn"
-                            disabled={!selected || !onUse}
-                            onClick={handleUse}
-                            title={selected ? `Use ${selected.name}` : "Select an item first"}
-                        >
+                        <button className="bp-btn" disabled={!selected || !onUse} onClick={handleUse}>
                             USE
                         </button>
                     </div>
 
-                    {/* Hint */}
                     {onThrow && (
                         <div className="bp-hint">
                             Tip: <b>Right-click</b> a card to throw <b>one</b>.
@@ -165,7 +128,6 @@ export default function BackpackPanelCartoon({
                     )}
                 </div>
 
-                {/* Bottom bumper */}
                 <div className="bp-bumper" />
             </div>
         </section>
