@@ -529,79 +529,55 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
 /** Officer ability: Blood Test — immediate result, 1.0 m radius, 6 min cooldown */
 /** Officer ability: Blood Test — 1.0 m radius, instant result, 6 min cooldown */
 /** Officer ability: Blood Test — 1.0 m radius, result revealed after 3s, 6 min ability cooldown */
+/** Officer ability: Blood Test (Scan) — waits 3s then reveals name + infected/clear */
 export function hostHandleScan({ officer, players = [], setEvents }) {
     if (!officer?.id) return;
 
     // Only Officers can scan
     const role = String(officer.getState?.("role") || "");
-    if (role && role !== "Officer") return;
+    if (role !== "Officer") return;
 
     const now = Date.now();
 
-    // Ability cooldown (still 6 minutes)
+    // Cooldown (3s)
     const cdKey = "cd:scanUntil";
     const until = Number(officer.getState(cdKey) || 0);
     if (now < until) return;
-    officer.setState(cdKey, now + 1000, true);
 
-    // Nearest living player within 1.0 m
-    const ox = Number(officer.getState("x") || 0);
-    const oz = Number(officer.getState("z") || 0);
-    const R2 = 1.0 * 1.0;
+    // Find nearest living player in a short cone within 1.0 m
+    // (uses your existing helper)
+    const target = _frontConeTarget(officer, players, /*range*/ 1.0, /*deg*/ 85);
+    if (!target) return;
 
-    let best = null, bestD2 = Infinity;
-    for (const p of players) {
-        if (!p?.id || p.id === officer.id) continue;
-        if (p.getState?.("dead")) continue;
-        const px = Number(p.getState("x") || 0);
-        const pz = Number(p.getState("z") || 0);
-        const dx = px - ox, dz = pz - oz;
-        const d2 = dx * dx + dz * dz;
-        if (d2 <= R2 && d2 < bestD2) { best = p; bestD2 = d2; }
-    }
-    if (!best) return;
-
-    // Snapshot result at sample time (hidden for 3s)
-    const infected = !!best.getState?.("infected");
-    const tName = best.getState?.("name") || best.getProfile?.().name || "Player";
-
+    // Start cooldown + set "pending" fields the UI reads
     const REVEAL_MS = 3000;
-    const revealAt = now + REVEAL_MS;
+    officer.setState(cdKey, now + REVEAL_MS, true);
 
-    // Store "pending" fields on the Officer so UI can show the name & countdown
-    officer.setState("scanPendingId", best.id, true);
+    const tName =
+        target.getState?.("name") ||
+        target.getProfile?.().name ||
+        "Player";
+
     officer.setState("scanPendingName", tName, true);
-    officer.setState("scanPendingUntil", revealAt, true);
-    officer.setState("scanStoredInfected", infected ? 1 : 0, true);
+    officer.setState("scanPendingUntil", now + REVEAL_MS, true);
 
-    // Token to avoid race if another scan starts before reveal
-    const token = ((Number(officer.getState("scanPendingToken")) || 0) + 1) | 0;
-    officer.setState("scanPendingToken", token, true);
-
-    // Optional log: sample collected
-    try {
-        const oName = officer.getState?.("name") || "Officer";
-        hostAppendEvent(setEvents, `${oName} collected a blood sample from ${tName}. Result in 3s.`);
-    } catch { }
-
-    // Schedule reveal after 3 seconds (authoritative)
+    // After 3 seconds, reveal the result (and clear pending)
     setTimeout(() => {
+        const infected = !!target.getState?.("infected");
+
+        officer.setState("lastScanName", tName, true);
+        officer.setState("lastScanInfected", infected ? 1 : 0, true);
+        officer.setState("lastScanAt", Date.now(), true);
+
+        officer.setState("scanPendingName", "", true);
+        officer.setState("scanPendingUntil", 0, true);
+
         try {
-            // Only reveal if token still matches (no newer scan since)
-            if (Number(officer.getState("scanPendingToken")) !== token) return;
-
-            officer.setState("lastScanName", tName, true);
-            officer.setState("lastScanInfected", infected ? 1 : 0, true);
-            officer.setState("lastScanAt", Date.now(), true);
-
-            // Clear pending flags
-            officer.setState("scanPendingUntil", 0, true);
-            officer.setState("scanPendingName", "", true);
-            officer.setState("scanPendingId", "", true);
-
-            // Optional log: final result
             const oName = officer.getState?.("name") || "Officer";
-            hostAppendEvent(setEvents, `${oName} blood test result for ${tName}: ${infected ? "INFECTED" : "clear"}.`);
+            hostAppendEvent(
+                setEvents,
+                `${oName} blood-tested ${tName}: ${infected ? "INFECTED" : "clear"}.`
+            );
         } catch { }
     }, REVEAL_MS);
 }
