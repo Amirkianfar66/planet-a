@@ -542,7 +542,7 @@ export function hostHandleScan({ officer, players = [], setEvents }) {
     const cdKey = "cd:scanUntil";
     const until = Number(officer.getState(cdKey) || 0);
     if (now < until) return;
-    officer.setState(cdKey, now + 6 * 60 * 1000, true);
+    officer.setState(cdKey, now + 1000, true);
 
     // Nearest living player within 1.0 m
     const ox = Number(officer.getState("x") || 0);
