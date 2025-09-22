@@ -274,7 +274,7 @@ export default function HUD({ game = {} }) {
                 filter: amDead ? "grayscale(0.8)" : "none",
             }}
         >
-            {/* Columns for status/role */}
+            {/* 3-column layout (Meters moved out to fixed top-right) */}
             <div
                 style={{
                     position: "absolute",
@@ -286,13 +286,8 @@ export default function HUD({ game = {} }) {
                     pointerEvents: "auto",
                 }}
             >
-                {/* LEFT: Status + Role */}
+                {/* LEFT: Role only */}
                 <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
-                    <MetersPanel
-                        life={lifeVal}
-                        energy={energyVal}
-                        oxygen={oxygenVal}
-                    />
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>
@@ -301,37 +296,55 @@ export default function HUD({ game = {} }) {
                 {/* CENTER column */}
                 <div />
 
-                {/* RIGHT column (empty to keep center width stable) */}
+                {/* RIGHT column left empty to keep center width stable */}
                 <div />
             </div>
 
-            {/* Ability bar (fixed; disabled when dead) */}
+            {/* TOP-RIGHT (fixed): MetersPanel */}
+            <div style={{ position: "fixed", top: 40, right: 16, pointerEvents: "auto", zIndex: 52 }}>
+                <MetersPanel life={lifeVal} energy={energyVal} oxygen={oxygenVal} />
+            </div>
+
+            {/* Ability bar (fixed; sits just above the backpack). */}
             <AbilityBar role={myRole} onUse={useAbility} disabled={amDead} abovePx={bpHeight} />
 
             {/* BOTTOM-RIGHT: Backpack (docked & measured) */}
             <div
                 ref={bpWrapRef}
                 className="bp-docked"
-                style={{ maxHeight: "60vh", overflow: "hidden auto" }}
+                style={{
+                    maxHeight: "60vh",
+                    overflow: "hidden auto",
+                    position: "fixed",
+                    right: 16,
+                    bottom: 16,
+                    pointerEvents: "auto",
+                    zIndex: 50,
+                }}
             >
                 <BackpackPanel
                     items={items}
                     capacity={capacity}
                     onUse={handleUseItem}
                     onDrop={handleDrop}
-                // onThrow={...} // provide if you support throw
                 />
             </div>
 
-            {/* BOTTOM-LEFT: Team chat (pinned absolute like before) */}
-            <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
-                <TeamChatPanel
-                    scope="global"
-                    debug
-                    height={380}
-                    style={{ position: "static" }}
-                />
+            {/* BOTTOM-LEFT: Team chat (fixed) */}
+            <div
+                style={{
+                    position: "fixed",
+                    left: 16,
+                    bottom: "calc(env(safe-area-inset-bottom, 0px) - 150px)", // push further down; increase -36px if needed
+                    width: 360,
+                    pointerEvents: "auto",
+                    zIndex: 49,
+                }}
+            >
+                <TeamChatPanel scope="global" height={380} style={{ position: "static" }} />
             </div>
+
+
 
             {/* Death overlay */}
             {amDead && (
@@ -341,7 +354,8 @@ export default function HUD({ game = {} }) {
                         inset: 0,
                         display: "grid",
                         placeItems: "center",
-                        background: "radial-gradient(ellipse at center, rgba(120,0,0,0.15), rgba(0,0,0,0.65))",
+                        background:
+                            "radial-gradient(ellipse at center, rgba(120,0,0,0.15), rgba(0,0,0,0.65))",
                         pointerEvents: "none",
                     }}
                 >
@@ -360,4 +374,6 @@ export default function HUD({ game = {} }) {
             )}
         </div>
     );
+
+
 }
