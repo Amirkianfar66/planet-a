@@ -8,18 +8,43 @@ const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; 
 const firstNonEmpty = (...vals) => vals.find((v) => safe(v)) || "";
 
 // Robust team slug: trims, NFKD normalize, removes diacritics, keeps [a-z0-9], squashes dashes.
+// Robust team slug with aliases (A ↔ Alpha, B ↔ Beta/Bravo, etc.)
 const normTeamId = (s) => {
     const base = safe(s || "team");
     const nfkd = base.normalize?.("NFKD") || base;
-    return (
-        nfkd
-            .replace(/\p{M}/gu, "")        // strip combining marks (diacritics)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "")    // strip non-alnum (so "Team A" == "TeamA")  // non-alnum -> dash
-            .replace(/^-+|-+$/g, "")       // trim dashes
-            .slice(0, 32) || "team"
-    );
+    const lower = nfkd.replace(/\p{M}/gu, "").toLowerCase();
+
+    // Collapse non-alnum (so "Team Alpha" → "teamalpha", "team-a" → "teama")
+    const collapsed = lower.replace(/[^a-z0-9]+/g, "");
+
+    // Map a bunch of synonyms to the same canonical ids
+    const ALIAS = {
+        // Team A / Alpha
+        teama: "teama", a: "teama", alpha: "teama", "1": "teama", one: "teama", i: "teama",
+        // Team B / Beta / Bravo
+        teamb: "teamb", b: "teamb", beta: "teamb", bravo: "teamb", "2": "teamb", two: "teamb", ii: "teamb",
+        // (Optional) add more:
+        // teamc: "teamc", c: "teamc", gamma: "teamc", charlie: "teamc", "3": "teamc", three: "teamc", iii: "teamc",
+    };
+
+    // 1) Exact collapsed alias (handles "teama", "team-alpha", "alpha", "a", "1")
+    if (ALIAS[collapsed]) return ALIAS[collapsed];
+
+    // 2) Token-wise alias (handles extra words like "blue team alpha")
+    const tokens = lower
+        .replace(/[^a-z0-9]+/g, " ")
+        .split(" ")
+        .filter(Boolean)
+        .filter((t) => t !== "team");
+
+    for (const t of tokens) {
+        if (ALIAS[t]) return ALIAS[t];
+    }
+
+    // 3) Fallback: use collapsed string
+    return collapsed.slice(0, 32) || "team";
 };
+
 
 // Merge + dedupe by id
 const dedupeById = (arr) => {
