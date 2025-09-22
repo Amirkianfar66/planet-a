@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 import { getMyPos, setMyPos } from "../network/playroom";
-import { FLOOR, WALL_THICKNESS, wallAABBs, roomCenter } from "../map/deckA";
+import { FLOOR, WALL_THICKNESS, wallAABBs, ROOMS, roomCenter } from "../map/deckA";
 import { getStaticAABBs } from "../systems/collision";
 
 const SPEED = 4;
@@ -12,18 +12,7 @@ const GRAVITY = 16;
 const JUMP_V = 5.2;
 const GROUND_Y = 0;
 
-// Prefer exact "lockdown", then aliases
-const LOCK_KEYS = ["lockdown", "Lockdown", "lockdown_room", "brig", "jail", "detention"];
 
-const LOCKDOWN_POS = (() => {
-    for (const k of LOCK_KEYS) {
-        const c = typeof roomCenter === "function" ? roomCenter(k) : null;
-        if (c && Number.isFinite(c.x) && Number.isFinite(c.z)) {
-            return Object.freeze({ x: +c.x, y: Number.isFinite(c.y) ? +c.y : 0, z: +c.z });
-        }
-    }
-    return Object.freeze({ x: 12, y: 0, z: -6 }); // fallback
-})();
 
 function resolveCollisions(next, boxes) {
     for (let pass = 0; pass < 2; pass++) {
@@ -139,17 +128,7 @@ function LocalControllerInner() {
         const dynamicDoorAABBs = doorStore ? Array.from(doorStore.values()) : [];
         const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
 
-        // Lockdown: pin inside lockdown anchor (no movement while locked)
-        if (p?.getState?.("inLockdown")) {
-            const next = { x: LOCKDOWN_POS.x, y: LOCKDOWN_POS.y, z: LOCKDOWN_POS.z };
-            setPos(next);
-            setMyPos(next.x, next.y, next.z);
-            publishPlayerPos(next);
-            p.setState("yaw", yawRef.current, false);
-            p.setState("spd", 0, false);
-            p.setState("air", false, false);
-            return;
-        }
+        
 
         // yaw rotation keys
         if (keys.current["q"]) yawRef.current += 1.5 * dt;
