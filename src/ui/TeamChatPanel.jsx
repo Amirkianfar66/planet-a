@@ -7,79 +7,30 @@ import "./ui.css";
 const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; } };
 const firstNonEmpty = (...vals) => vals.find((v) => safe(v)) || "";
 
-// Robust team slug: trims, NFKD normalize, removes diacritics, keeps [a-z0-9], squashes dashes.
-// Robust team slug with aliases and "Team" prefix handling.
-// Examples that will all map to teama:
-// "Team A", "TeamA", "team-alpha", "ALPHA", "Alpha", "a", "1", "one", "I"
+/** Robust team slug + aliases (TeamA / Alpha / A / 1 → teama; TeamB / Beta / B / 2 → teamb) */
 const normTeamId = (s) => {
     const base = safe(s || "team");
-    const lower = (base.normalize?.("NFKD") || base)
-        .toLowerCase()
-        .replace(/\p{M}/gu, "");          // strip diacritics
+    const lower = (base.normalize?.("NFKD") || base).toLowerCase().replace(/\p{M}/gu, "");
+    const collapsed = lower.replace(/[^a-z0-9]+/g, "");
+    const afterTeam = collapsed.startsWith("team") ? collapsed.slice(4) : collapsed;
 
-    const collapsed = lower.replace(/[^a-z0-9]+/g, ""); // remove separators
-    const afterTeam = collapsed.startsWith("team")
-        ? collapsed.slice(4)               // handle "TeamA", "TeamAlpha"
-        : collapsed;
-
-    // Alias resolver → canonical ids
     const mapAlias = (w) => {
         switch (w) {
-            // Team A / Alpha
-            case "teama":
-            case "a":
-            case "alpha":
-            case "1":
-            case "one":
-            case "i":
-                return "teama";
-
-            // Team B / Beta / Bravo
-            case "teamb":
-            case "b":
-            case "beta":
-            case "bravo":
-            case "2":
-            case "two":
-            case "ii":
-                return "teamb";
-
-            // (Add more if you need C/Gamma/Charlie etc.)
-            // case "teamc":
-            // case "c":
-            // case "gamma":
-            // case "charlie":
-            // case "3":
-            // case "three":
-            // case "iii":
-            //   return "teamc";
-
-            default:
-                return "";
+            case "teama": case "a": case "alpha": case "1": case "one": case "i": return "teama";
+            case "teamb": case "b": case "beta": case "bravo": case "2": case "two": case "ii": return "teamb";
+            default: return "";
         }
     };
 
-    // 1) Prefer alias based on the string after removing a leading "team"
-    const viaAfterTeam = mapAlias(afterTeam);
-    if (viaAfterTeam) return viaAfterTeam;
+    const viaAfterTeam = mapAlias(afterTeam); if (viaAfterTeam) return viaAfterTeam;
+    const viaCollapsed = mapAlias(collapsed); if (viaCollapsed) return viaCollapsed;
 
-    // 2) Try alias based on fully collapsed string
-    const viaCollapsed = mapAlias(collapsed);
-    if (viaCollapsed) return viaCollapsed;
-
-    // 3) Token-wise alias (handles "my cool team alpha")
     const tokens = lower.replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
-    for (const t of tokens) {
-        const a = mapAlias(t);
-        if (a) return a;
-    }
+    for (const t of tokens) { const a = mapAlias(t); if (a) return a; }
 
-    // 4) Fallback: use cleaned string (prefer afterTeam so "TeamX" → "x")
     const out = afterTeam || collapsed;
     return out.slice(0, 32) || "team";
 };
-
-
 
 // Merge + dedupe by id
 const dedupeById = (arr) => {
@@ -94,12 +45,18 @@ const dedupeById = (arr) => {
     return out;
 };
 
+/**
+ * TeamChatPanel — now supports global chat.
+ * - Default: global channel (everyone in the room): channel = "chat:global"
+ * - Team mode: pass scope="team" to use per-team channel "chat:<teamId>"
+ */
 export default function TeamChatPanel({
-    teamName,               // optional: force a specific team label
+    scope = "global",       // "global" | "team"  (default global)
+    teamName,               // used only when scope === "team"
     inputDisabled = false,
     height = 360,
     style,
-    debug = false,          // set true to show room/channel + counts
+    debug = false,          // show room/channel + counts
 }) {
     // small ticker to keep presence fresh
     const [, force] = useReducer((x) => x + 1, 0);
@@ -116,7 +73,7 @@ export default function TeamChatPanel({
     })();
     const ready = Boolean(room && myId);
 
-    // Canonical team label/id (derive from prop or player state)
+    // Canonical team label/id (only used for team scope)
     const liveTeam = firstNonEmpty(
         teamName,
         me?.getState?.("team"),
@@ -124,23 +81,26 @@ export default function TeamChatPanel({
         "Team"
     );
     const teamId = normTeamId(liveTeam);
-    const channel = `chat:${teamId}`;
 
-    // Compute same-team presence (works even before ready)
+    // Channel selection
+    const channel = scope === "team" ? `chat:${teamId}` : "chat:global";
+
+    // Presence (all players for global; same-team when team scope)
     const members = useMemo(() => {
+        if (scope !== "team") return allPlayers || [];
         return (allPlayers || []).filter((p) => {
             const t = normTeamId(firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")));
             return t === teamId;
         });
-    }, [allPlayers, teamId]);
+    }, [allPlayers, scope, teamId]);
 
-    // Local mirror so sender always sees their message instantly
+    // Local echo (so sender sees messages instantly)
     const [localMsgs, setLocalMsgs] = useState([]);
     const lastChannelRef = useRef(channel);
     useEffect(() => {
         if (lastChannelRef.current !== channel) {
             lastChannelRef.current = channel;
-            setLocalMsgs([]); // switching team -> clear local buffer
+            setLocalMsgs([]); // switching channel → clear local buffer
         }
     }, [channel]);
 
@@ -164,7 +124,7 @@ export default function TeamChatPanel({
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
+                    <div style={{ fontWeight: 700 }}>{scope === "team" ? `Team Chat — ${liveTeam}` : "Global Chat"}</div>
                     {debug && <span style={{ fontSize: 10, opacity: 0.75 }}>joining room…</span>}
                 </div>
                 <div style={{ flex: "1 1 auto", minHeight: 0, display: "grid", placeItems: "center", opacity: 0.7 }}>
@@ -175,7 +135,7 @@ export default function TeamChatPanel({
     }
 
     // ---- Ready: mount the shared state now ----
-    const [netMsgsRaw, setMsgs] = useMultiplayerState(channel, []); // shared per team
+    const [netMsgsRaw, setMsgs] = useMultiplayerState(channel, []); // shared buffer
     const netMsgs = Array.isArray(netMsgsRaw) ? netMsgsRaw : [];
 
     // Self-heal corrupted channel (not an array)
@@ -209,7 +169,7 @@ export default function TeamChatPanel({
         setMsgs((prev) => {
             const base = Array.isArray(prev) ? prev : [];
             const next = [...base, msg];
-            if (next.length > 120) next.splice(0, next.length - 120);
+            if (next.length > 200) next.splice(0, next.length - 200);
             return next;
         }, true);
 
@@ -261,14 +221,16 @@ export default function TeamChatPanel({
         >
             {/* header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
+                <div style={{ fontWeight: 700 }}>
+                    {scope === "team" ? `Team Chat — ${liveTeam}` : "Global Chat"}
+                </div>
                 {debug && (
                     <span title={`Room ${room}, Channel ${channel}`} style={{ fontSize: 10, opacity: 0.75, whiteSpace: "nowrap" }}>
                         {room} · {channel} · n:{netMsgs.length} l:{localMsgs.length}
                     </span>
                 )}
                 <div className="member-row" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {members.map((p) => {
+                    {(members || []).map((p) => {
                         const name =
                             p?.getState?.("name") ||
                             p?.getProfile?.().name ||
@@ -307,7 +269,7 @@ export default function TeamChatPanel({
 
                     {(!msgs || msgs.length === 0) && (
                         <div style={{ opacity: 0.6, fontSize: 13, padding: "4px 2px" }}>
-                            No messages yet. Say hi to your team!
+                            No messages yet. Say hi to everyone!
                         </div>
                     )}
                 </div>
@@ -319,7 +281,7 @@ export default function TeamChatPanel({
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={onKey}
-                        placeholder={inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"}
+                        placeholder={inputDisabled ? "Chat disabled" : `Type a message… (Enter to send)`}
                         style={{
                             flex: 1,
                             minWidth: 0,

@@ -7,7 +7,7 @@ import {
     FLOOR, WALL_HEIGHT, walls, FLOORS, ROOFS,
     DOORS,
 } from "../map/deckA";
-
+import ProximityVoice from "../voice/ProximityVoice.jsx";
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
 import Pets3D from "./Pets3D.jsx";
@@ -222,7 +222,9 @@ export default function GameCanvas({ dead = [] }) {
                 
             </Canvas>
             {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
-                <CCTVControlPanel />
+            <CCTVControlPanel />
+            {/* Proximity voice UI + logic */}
+                 <ProximityVoice radius={7} falloff="smooth" globalDuringMeeting={true} />
             {/* Input overlay (non-blocking) */}
             <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
                 <InteractionSystem />
