@@ -7,7 +7,7 @@ import {
     getRoomCode,
 } from "playroomkit";
 import { GUN_OFFSETS } from "../game/gunOffsets";
-
+import { randomPointInRoom, roomCenter } from "../map/deckA";
 /* -------------------- Room code helpers -------------------- */
 export async function ensureRoomCodeInUrl(retries = 120) {
     if (typeof window === "undefined") return undefined;
@@ -452,8 +452,20 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
     } catch { }
 }
 
-// --- Officer Arrest host handler ---
-const LOCKDOWN_ROOM = { x: 24, y: 0, z: 0 }; // <-- set to your real Lockdown coords
+// put near other helpers
+const FALLBACK_LOCKDOWN = { x: 0, y: 0, z: 0 }; // only used if "lockdown" room isn't found
+
+function getLockdownPos() {
+    // Try a random point in the "lockdown" room; fall back to its center
+    try {
+        const p = randomPointInRoom?.("lockdown", 0.85) || roomCenter?.("lockdown");
+        if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) {
+            return { x: +p.x, y: Number.isFinite(p.y) ? +p.y : 0, z: +p.z };
+        }
+    } catch { }
+    return FALLBACK_LOCKDOWN;
+}
+
 
 function _frontConeTarget(source, players, range = 2.0, maxAngleDeg = 70) {
     const sx = Number(source.getState("x") || 0);
@@ -485,24 +497,22 @@ function _frontConeTarget(source, players, range = 2.0, maxAngleDeg = 70) {
 export function hostHandleArrest({ officer, players = [], setEvents }) {
     if (!officer?.id) return;
 
-    // Station Director is now the only one who can Arrest
     const role = String(officer.getState?.("role") || "");
     if (role && role !== "StationDirector") return;
 
-
-    // one arrest per officer (default 1 if unset)
     const arrestsLeft = Number(officer.getState("arrestsLeft"));
     const left = Number.isFinite(arrestsLeft) ? arrestsLeft : 1;
     if (left <= 0) return;
 
     const target = _frontConeTarget(officer, players, 2.0, 70);
-    if (!target) return;
-    if (target.getState?.("inLockdown")) return;
+    if (!target || target.getState?.("inLockdown")) return;
 
-    // Teleport & flag
-    target.setState("x", Number(LOCKDOWN_ROOM.x || 0), true);
-    target.setState("y", Number(LOCKDOWN_ROOM.y || 0), true);
-    target.setState("z", Number(LOCKDOWN_ROOM.z || 0), true);
+    // Always use the "lockdown" room
+    const L = getLockdownPos();
+
+    target.setState("x", Number(L.x || 0), true);
+    target.setState("y", Number(L.y || 0), true);
+    target.setState("z", Number(L.z || 0), true);
     target.setState("inLockdown", true, true);
     target.setState("lockedBy", officer.id, true);
     target.setState("lockedAt", Date.now(), true);
@@ -510,13 +520,13 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
     officer.setState("arrestsLeft", left - 1, true);
 
     try {
-        if (typeof hostAppendEvent === "function") {
-            const name = officer.getState?.("name") || "Station Director";
-            hostAppendEvent(setEvents, `${name} arrested a crew member (moved to Lockdown).`);
-        }
+        const name = officer.getState?.("name") || "Station Director";
+        hostAppendEvent(setEvents, `${name} arrested a crew member (sent to Lockdown).`);
     } catch { }
 }
+
 /** Officer ability: Blood Test (Scan) — reveals if the target is infected */
+/** Officer ability: Blood Test — immediate result, 1.0 m radius, 6 min cooldown */
 export function hostHandleScan({ officer, players = [], setEvents }) {
     if (!officer?.id) return;
 
@@ -526,29 +536,45 @@ export function hostHandleScan({ officer, players = [], setEvents }) {
 
     const now = Date.now();
 
-    // Simple host-side cooldown mirror (8s)
+    // Cooldown (6 minutes)
     const cdKey = "cd:scanUntil";
     const until = Number(officer.getState(cdKey) || 0);
     if (now < until) return;
-    officer.setState(cdKey, now + 8000, true);
+    officer.setState(cdKey, now + 6 * 60 * 1000, true); // 360000 ms
 
-    // Short range, front-cone scan
-    const target = _frontConeTarget(officer, players, 2.0, 70);
-    if (!target) return;
+    // Find nearest living player within 1.0 m (no cone)
+    const ox = Number(officer.getState("x") || 0);
+    const oz = Number(officer.getState("z") || 0);
+    const R = 1.0, R2 = R * R;
 
-    const infected = !!target.getState?.("infected");
-    const tName = target.getState?.("name") || target.getProfile?.().name || "Player";
+    let nearest = null, bestD2 = Infinity;
+    for (const p of players) {
+        if (!p?.id || p.id === officer.id) continue;
+        if (p.getState?.("dead")) continue;
+        const px = Number(p.getState("x") || 0);
+        const pz = Number(p.getState("z") || 0);
+        const dx = px - ox, dz = pz - oz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 <= R2 && d2 < bestD2) { nearest = p; bestD2 = d2; }
+    }
+    if (!nearest) return;
+
+    // Immediate result (snapshot at scan time)
+    const infected = !!nearest.getState?.("infected");
+    const tName = nearest.getState?.("name") || nearest.getProfile?.().name || "Player";
     const oName = officer.getState?.("name") || "Officer";
 
-    // Store last scan outcome on officer (handy for UI if you want)
+    // Store result on Officer so client UI can render it
     officer.setState("lastScanName", tName, true);
     officer.setState("lastScanInfected", infected ? 1 : 0, true);
     officer.setState("lastScanAt", now, true);
 
-    // Broadcast a clear event line
+    // Optional event line
     try {
         hostAppendEvent(setEvents, `${oName} blood-tested ${tName}: ${infected ? "INFECTED" : "clear"}.`);
     } catch { }
+}
+
 }
 /** Research ability: command pet follow/stay. Payload: { mode: "follow" | "stay" }.
  * If no payload, it toggles the current mode.

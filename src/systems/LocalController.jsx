@@ -12,16 +12,18 @@ const GRAVITY = 16;
 const JUMP_V = 5.2;
 const GROUND_Y = 0;
 
-// Try to use a real room as lockdown anchor; fall back to hardcoded
-const LOCK_KEYS = ["Lockdown", "lockdown_room", "brig", "jail", "detention"];
-const LOCKDOWN_POS =
-    (() => {
-        for (const k of LOCK_KEYS) {
-            const c = typeof roomCenter === "function" ? roomCenter(k) : null;
-            if (c) return c;
+// Prefer exact "lockdown", then aliases
+const LOCK_KEYS = ["lockdown", "Lockdown", "lockdown_room", "brig", "jail", "detention"];
+
+const LOCKDOWN_POS = (() => {
+    for (const k of LOCK_KEYS) {
+        const c = typeof roomCenter === "function" ? roomCenter(k) : null;
+        if (c && Number.isFinite(c.x) && Number.isFinite(c.z)) {
+            return Object.freeze({ x: +c.x, y: Number.isFinite(c.y) ? +c.y : 0, z: +c.z });
         }
-        return { x: 12, y: 0, z: -6 }; // fallback
-    })();
+    }
+    return Object.freeze({ x: 12, y: 0, z: -6 }); // fallback
+})();
 
 function resolveCollisions(next, boxes) {
     for (let pass = 0; pass < 2; pass++) {
@@ -138,7 +140,7 @@ function LocalControllerInner() {
         const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
 
         // Lockdown: pin inside lockdown anchor (no movement while locked)
-        if (p?.getState?.("locked")) {
+        if (p?.getState?.("inLockdown")) {
             const next = { x: LOCKDOWN_POS.x, y: LOCKDOWN_POS.y, z: LOCKDOWN_POS.z };
             setPos(next);
             setMyPos(next.x, next.y, next.z);
