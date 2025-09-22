@@ -286,8 +286,16 @@ export default function HUD({ game = {} }) {
                     pointerEvents: "auto",
                 }}
             >
-                {/* LEFT: Role only */}
-                <div style={{ display: "grid", gap: 16, gridTemplateRows: "auto 1fr", minHeight: 0 }}>
+                {/* LEFT: Role only — nudged down a bit */}
+                <div
+                    style={{
+                        display: "grid",
+                        gap: 16,
+                        gridTemplateRows: "auto 1fr",
+                        minHeight: 0,
+                        marginTop: 40, // ← move slightly lower; bump to 16/20 if you want more
+                    }}
+                >
                     <div style={{ minHeight: 0 }}>
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>

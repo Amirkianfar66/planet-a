@@ -1,0 +1,37 @@
+Global interaction keys (from InteractionSystem.jsx)
+
+P — Pick up / Load tank (contextual; skips pets; respects cooldown & capacity)
+
+O — Drop carried item
+
+T — Throw carried item (uses your yaw)
+
+I — Use / Context
+
+Use carried item on nearest device (in range), or
+
+Place CCTV (if carrying/backpack cam), or
+
+Eat Food (if carrying Food)
+
+Base (not infected):
+Role abilities (default hotkeys from roleAbilities.js
+Guard — F: Shoot
+
+Engineer — F: Quick Repair
+
+Research — F: Pet Command
+
+StationDirector — F: Arrest (Lockdown); H: Call Meeting
+
+Officer — F: Blood Test (Scan)
+
+FoodSupplier — F: Drop Food
+
+Infected overlay added to any role:
+
+G: Bite (Infect)
+
+H: Toggle Disguise
+
+C : Camera Console
