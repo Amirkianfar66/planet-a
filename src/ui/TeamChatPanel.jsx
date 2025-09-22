@@ -8,42 +8,77 @@ const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; 
 const firstNonEmpty = (...vals) => vals.find((v) => safe(v)) || "";
 
 // Robust team slug: trims, NFKD normalize, removes diacritics, keeps [a-z0-9], squashes dashes.
-// Robust team slug with aliases (A ↔ Alpha, B ↔ Beta/Bravo, etc.)
+// Robust team slug with aliases and "Team" prefix handling.
+// Examples that will all map to teama:
+// "Team A", "TeamA", "team-alpha", "ALPHA", "Alpha", "a", "1", "one", "I"
 const normTeamId = (s) => {
     const base = safe(s || "team");
-    const nfkd = base.normalize?.("NFKD") || base;
-    const lower = nfkd.replace(/\p{M}/gu, "").toLowerCase();
+    const lower = (base.normalize?.("NFKD") || base)
+        .toLowerCase()
+        .replace(/\p{M}/gu, "");          // strip diacritics
 
-    // Collapse non-alnum (so "Team Alpha" → "teamalpha", "team-a" → "teama")
-    const collapsed = lower.replace(/[^a-z0-9]+/g, "");
+    const collapsed = lower.replace(/[^a-z0-9]+/g, ""); // remove separators
+    const afterTeam = collapsed.startsWith("team")
+        ? collapsed.slice(4)               // handle "TeamA", "TeamAlpha"
+        : collapsed;
 
-    // Map a bunch of synonyms to the same canonical ids
-    const ALIAS = {
-        // Team A / Alpha
-        teama: "teama", a: "teama", alpha: "teama", "1": "teama", one: "teama", i: "teama",
-        // Team B / Beta / Bravo
-        teamb: "teamb", b: "teamb", beta: "teamb", bravo: "teamb", "2": "teamb", two: "teamb", ii: "teamb",
-        // (Optional) add more:
-        // teamc: "teamc", c: "teamc", gamma: "teamc", charlie: "teamc", "3": "teamc", three: "teamc", iii: "teamc",
+    // Alias resolver → canonical ids
+    const mapAlias = (w) => {
+        switch (w) {
+            // Team A / Alpha
+            case "teama":
+            case "a":
+            case "alpha":
+            case "1":
+            case "one":
+            case "i":
+                return "teama";
+
+            // Team B / Beta / Bravo
+            case "teamb":
+            case "b":
+            case "beta":
+            case "bravo":
+            case "2":
+            case "two":
+            case "ii":
+                return "teamb";
+
+            // (Add more if you need C/Gamma/Charlie etc.)
+            // case "teamc":
+            // case "c":
+            // case "gamma":
+            // case "charlie":
+            // case "3":
+            // case "three":
+            // case "iii":
+            //   return "teamc";
+
+            default:
+                return "";
+        }
     };
 
-    // 1) Exact collapsed alias (handles "teama", "team-alpha", "alpha", "a", "1")
-    if (ALIAS[collapsed]) return ALIAS[collapsed];
+    // 1) Prefer alias based on the string after removing a leading "team"
+    const viaAfterTeam = mapAlias(afterTeam);
+    if (viaAfterTeam) return viaAfterTeam;
 
-    // 2) Token-wise alias (handles extra words like "blue team alpha")
-    const tokens = lower
-        .replace(/[^a-z0-9]+/g, " ")
-        .split(" ")
-        .filter(Boolean)
-        .filter((t) => t !== "team");
+    // 2) Try alias based on fully collapsed string
+    const viaCollapsed = mapAlias(collapsed);
+    if (viaCollapsed) return viaCollapsed;
 
+    // 3) Token-wise alias (handles "my cool team alpha")
+    const tokens = lower.replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
     for (const t of tokens) {
-        if (ALIAS[t]) return ALIAS[t];
+        const a = mapAlias(t);
+        if (a) return a;
     }
 
-    // 3) Fallback: use collapsed string
-    return collapsed.slice(0, 32) || "team";
+    // 4) Fallback: use cleaned string (prefer afterTeam so "TeamX" → "x")
+    const out = afterTeam || collapsed;
+    return out.slice(0, 32) || "team";
 };
+
 
 
 // Merge + dedupe by id
