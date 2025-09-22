@@ -15,7 +15,7 @@ const normTeamId = (s) => {
         nfkd
             .replace(/\p{M}/gu, "")        // strip combining marks (diacritics)
             .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")   // non-alnum -> dash
+            .replace(/[^a-z0-9]+/g, "")    // strip non-alnum (so "Team A" == "TeamA")  // non-alnum -> dash
             .replace(/^-+|-+$/g, "")       // trim dashes
             .slice(0, 32) || "team"
     );
