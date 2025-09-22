@@ -9,6 +9,7 @@ import { getAbilitiesForRole } from "../game/roleAbilities";
 import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
 
+
 /* ---------- Ability bar (auto-positions above backpack) --------- */
 function AbilityBar({ role, onUse, disabled = false, abovePx = 360 }) {
     const me = myPlayer();
@@ -32,6 +33,28 @@ function AbilityBar({ role, onUse, disabled = false, abovePx = 360 }) {
         onUse?.(a);
         setCooldowns((c) => ({ ...c, [a.id]: performance.now() + (a.cooldownMs || 0) }));
     };
+    // Auto-apply ?team=... to my player once (without touching playroom.js)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const url = new URL(window.location.href);
+        const t = (url.searchParams.get("team") || "").trim();
+        if (!t) return;
+
+        let tries = 0;
+        const iv = setInterval(() => {
+            const p = myPlayer?.();
+            if (!p && tries++ < 120) return; // wait up to ~6s for player
+            clearInterval(iv);
+            if (!p) return;
+
+            const cur = (p.getState?.("team") || p.getState?.("teamName") || "").trim();
+            if (cur !== t) {
+                p.setState("team", t, true);
+                p.setState("teamName", t, true);
+            }
+        }, 50);
+        return () => clearInterval(iv);
+    }, []);
 
     useEffect(() => {
         if (disabled) return;
@@ -107,7 +130,16 @@ export default function HUD({ game = {} }) {
     const me = myPlayer();
     const lifeVal = Number(me?.getState?.("life") ?? 100);
     const amDead = Boolean(me?.getState?.("dead"));
-
+    // Read ?team= from the URL once and use it as the canonical chat channel label.
+      // This guarantees both clients bind to the SAME channel immediately.
+    const [teamFromUrl, setTeamFromUrl] = useState("");
+     useEffect(() => {
+            if (typeof window === "undefined") return;
+            try {
+                 const u = new URL(window.location.href);
+                 setTeamFromUrl((u.searchParams.get("team") || "").trim());
+                } catch { /* noop */ }
+          }, []);
     // live energy
     const [energyVal, setEnergyVal] = useState(Number(me?.getState?.("energy") ?? 100));
     useEffect(() => {
@@ -292,7 +324,12 @@ export default function HUD({ game = {} }) {
 
             {/* BOTTOM-LEFT: Team chat (pinned absolute like before) */}
             <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
-                <TeamChatPanel style={{ position: "static" }} />
+                <TeamChatPanel
+                    teamName={teamFromUrl || undefined}
+                    debug
+                    height={380}
+                    style={{ position: "static" }}
+                />
             </div>
 
             {/* Death overlay */}

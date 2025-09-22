@@ -1,39 +1,62 @@
 // src/ui/TeamChatPanel.jsx
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { myPlayer, usePlayersList, useMultiplayerState } from "playroomkit";
+import { myPlayer, usePlayersList, useMultiplayerState, getRoomCode } from "playroomkit";
 import "./ui.css";
 
 /* ---------- helpers ---------- */
-const safe = (v) => {
-    try { return String(v ?? "").trim(); } catch { return ""; }
-};
+const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; } };
 const firstNonEmpty = (...vals) => vals.find((v) => safe(v)) || "";
-const normTeamId = (s) =>
-    safe(s || "team").toLowerCase().replace(/\s+/g, "-").slice(0, 32);
 
-/**
- * Team-only chat using a shared multiplayer state:
- *  - canonical channel per team: `chat:<normalized team>`
- *  - writes replicate with setState(..., true)
- *  - presence shows only same-team players
- */
+// Robust team slug: trims, NFKD normalize, removes diacritics, keeps [a-z0-9], squashes dashes.
+const normTeamId = (s) => {
+    const base = safe(s || "team");
+    const nfkd = base.normalize?.("NFKD") || base;
+    return (
+        nfkd
+            .replace(/\p{M}/gu, "")        // strip combining marks (diacritics)
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")   // non-alnum -> dash
+            .replace(/^-+|-+$/g, "")       // trim dashes
+            .slice(0, 32) || "team"
+    );
+};
+
+// Merge + dedupe by id
+const dedupeById = (arr) => {
+    const seen = new Set();
+    const out = [];
+    for (const m of arr || []) {
+        if (!m || !m.id) continue;
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+        out.push(m);
+    }
+    return out;
+};
+
 export default function TeamChatPanel({
-    teamName,               // optional override; otherwise reads myPlayer state
+    teamName,               // optional: force a specific team label
     inputDisabled = false,
+    height = 360,
     style,
+    debug = false,          // set true to show room/channel + counts
 }) {
-    // Presence in playroom can be eventual; this small ticker keeps UI fresh.
+    // small ticker to keep presence fresh
     const [, force] = useReducer((x) => x + 1, 0);
-    useEffect(() => {
-        const id = setInterval(force, 500);
-        return () => clearInterval(id);
-    }, []);
+    useEffect(() => { const id = setInterval(force, 500); return () => clearInterval(id); }, []);
 
     const me = myPlayer();
-    const myId = me?.id || "me";
+    const myId = me?.id || "";
     const allPlayers = usePlayersList(true);
 
-    // Canonical team label/id
+    // Room readiness — do not mount shared state until we actually have a room code
+    const room = (() => {
+        try { return getRoomCode?.() || new URL(location.href).searchParams.get("r") || ""; }
+        catch { return ""; }
+    })();
+    const ready = Boolean(room && myId);
+
+    // Canonical team label/id (derive from prop or player state)
     const liveTeam = firstNonEmpty(
         teamName,
         me?.getState?.("team"),
@@ -43,19 +66,66 @@ export default function TeamChatPanel({
     const teamId = normTeamId(liveTeam);
     const channel = `chat:${teamId}`;
 
-    // Shared, networked buffer for this team
-    const [netMsgs, setMsgs] = useMultiplayerState(channel, []); // [{id, fromId, name, text, ts}]
-    const msgs = Array.isArray(netMsgs) ? netMsgs : [];
-
-    // Same-team presence
+    // Compute same-team presence (works even before ready)
     const members = useMemo(() => {
         return (allPlayers || []).filter((p) => {
-            const t = normTeamId(
-                firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName"))
-            );
+            const t = normTeamId(firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")));
             return t === teamId;
         });
     }, [allPlayers, teamId]);
+
+    // Local mirror so sender always sees their message instantly
+    const [localMsgs, setLocalMsgs] = useState([]);
+    const lastChannelRef = useRef(channel);
+    useEffect(() => {
+        if (lastChannelRef.current !== channel) {
+            lastChannelRef.current = channel;
+            setLocalMsgs([]); // switching team -> clear local buffer
+        }
+    }, [channel]);
+
+    // If not ready yet, render a lightweight shell (prevents off-room binding)
+    if (!ready) {
+        return (
+            <div
+                className="team-chat"
+                style={{
+                    background: "rgba(14,17,22,0.9)",
+                    border: "1px solid #2a3242",
+                    borderRadius: 12,
+                    color: "white",
+                    padding: 10,
+                    fontFamily: "ui-sans-serif",
+                    width: "100%",
+                    height,
+                    display: "flex",
+                    flexDirection: "column",
+                    ...style,
+                }}
+            >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
+                    {debug && <span style={{ fontSize: 10, opacity: 0.75 }}>joining room…</span>}
+                </div>
+                <div style={{ flex: "1 1 auto", minHeight: 0, display: "grid", placeItems: "center", opacity: 0.7 }}>
+                    Connecting…
+                </div>
+            </div>
+        );
+    }
+
+    // ---- Ready: mount the shared state now ----
+    const [netMsgsRaw, setMsgs] = useMultiplayerState(channel, []); // shared per team
+    const netMsgs = Array.isArray(netMsgsRaw) ? netMsgsRaw : [];
+
+    // Self-heal corrupted channel (not an array)
+    const healedRef = useRef(false);
+    useEffect(() => {
+        if (!healedRef.current && !Array.isArray(netMsgsRaw)) {
+            healedRef.current = true;
+            setMsgs(() => [], true);
+        }
+    }, [netMsgsRaw, setMsgs]);
 
     // Compose + send
     const [draft, setDraft] = useState("");
@@ -70,15 +140,12 @@ export default function TeamChatPanel({
             `Player-${String(myId).slice(-4)}`;
 
         const ts = Date.now();
-        const msg = {
-            id: `${myId}:${ts}:${Math.random().toString(36).slice(2, 7)}`,
-            fromId: myId,
-            name,
-            text: text.slice(0, 500),
-            ts,
-        };
+        const msg = { id: `${myId}:${ts}:${Math.random().toString(36).slice(2, 7)}`, fromId: myId, name, text: text.slice(0, 500), ts };
 
-        // Important: pass 'true' to sync to everyone on this team
+        // 1) Local echo immediately
+        setLocalMsgs((prev) => [...prev, msg]);
+
+        // 2) Append to shared state (IMPORTANT: sync flag = true)
         setMsgs((prev) => {
             const base = Array.isArray(prev) ? prev : [];
             const next = [...base, msg];
@@ -97,6 +164,9 @@ export default function TeamChatPanel({
         }
     };
 
+    // Merge network + local (dedupe) so sender always sees their msg even if net lags
+    const msgs = useMemo(() => dedupeById([...(netMsgs || []), ...(localMsgs || [])]), [netMsgs, localMsgs]);
+
     // Autoscroll
     const listRef = useRef(null);
     useEffect(() => {
@@ -108,12 +178,8 @@ export default function TeamChatPanel({
     const fmt = (ts) => {
         try {
             const d = new Date(ts);
-            const hh = String(d.getHours()).padStart(2, "0");
-            const mm = String(d.getMinutes()).padStart(2, "0");
-            return `${hh}:${mm}`;
-        } catch {
-            return "";
-        }
+            return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        } catch { return ""; }
     };
 
     return (
@@ -127,20 +193,21 @@ export default function TeamChatPanel({
                 padding: 10,
                 fontFamily: "ui-sans-serif",
                 width: "100%",
+                height,
+                display: "flex",
+                flexDirection: "column",
                 ...style,
             }}
         >
-            {/* Header */}
-            <div
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 8,
-                }}
-            >
+            {/* header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
-                <div className="member-row">
+                {debug && (
+                    <span title={`Room ${room}, Channel ${channel}`} style={{ fontSize: 10, opacity: 0.75, whiteSpace: "nowrap" }}>
+                        {room} · {channel} · n:{netMsgs.length} l:{localMsgs.length}
+                    </span>
+                )}
+                <div className="member-row" style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     {members.map((p) => {
                         const name =
                             p?.getState?.("name") ||
@@ -157,9 +224,14 @@ export default function TeamChatPanel({
                 </div>
             </div>
 
-            {/* Body */}
-            <div className="chat-body">
-                <div ref={listRef} className="chat-list">
+            {/* body fills remaining space */}
+            <div style={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}>
+                {/* scrollable history */}
+                <div
+                    ref={listRef}
+                    className="chat-list"
+                    style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", paddingRight: 4 }}
+                >
                     {(msgs || []).map((m) => {
                         const isMe = m.fromId === myId;
                         return (
@@ -172,23 +244,38 @@ export default function TeamChatPanel({
                             </div>
                         );
                     })}
+
+                    {(!msgs || msgs.length === 0) && (
+                        <div style={{ opacity: 0.6, fontSize: 13, padding: "4px 2px" }}>
+                            No messages yet. Say hi to your team!
+                        </div>
+                    )}
                 </div>
 
-                {/* Input */}
-                <div className="chat-input">
+                {/* input row */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8 }}>
                     <input
                         disabled={inputDisabled}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={onKey}
-                        placeholder={
-                            inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"
-                        }
+                        placeholder={inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"}
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            borderRadius: 8,
+                            border: "1px solid #3a4252",
+                            background: "rgba(255,255,255,0.06)",
+                            color: "white",
+                            padding: "8px 10px",
+                            outline: "none",
+                        }}
                     />
                     <button
                         className="item-btn"
                         disabled={inputDisabled || !draft.trim()}
                         onClick={() => send(draft)}
+                        style={{ whiteSpace: "nowrap" }}
                     >
                         Send
                     </button>
