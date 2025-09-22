@@ -1,7 +1,8 @@
 // src/ui/HUD.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
-import { MetersPanel, RolePanel, TeamChatPanel } from ".";
+import { MetersPanel, RolePanel } from ".";
+import TeamChatPanel from "./TeamChatPanel.jsx";
 import BackpackPanel from "./BackpackPanel.jsx";
 import { useGameState } from "../game/GameStateProvider";
 import { requestAction as prRequestAction } from "../network/playroom";
