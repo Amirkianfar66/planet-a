@@ -326,7 +326,7 @@ export default function HUD({ game = {} }) {
             {/* BOTTOM-LEFT: Team chat (pinned absolute like before) */}
             <div style={{ position: "absolute", left: 16, bottom: 16, width: 360, pointerEvents: "auto" }}>
                 <TeamChatPanel
-                    teamName={teamFromUrl || undefined}
+                    scope="global"
                     debug
                     height={380}
                     style={{ position: "static" }}

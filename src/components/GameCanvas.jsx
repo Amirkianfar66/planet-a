@@ -8,6 +8,7 @@ import {
     DOORS,
 } from "../map/deckA";
 import ProximityVoice from "../voice/ProximityVoice.jsx";
+import VoiceIndicators3D from "../voice/VoiceIndicators3D.jsx";
 import WorldGLB, { WORLD_GLB } from "../world/WorldGLB.jsx";
 import Players3D from "./Players3D.jsx";
 import Pets3D from "./Pets3D.jsx";
@@ -208,7 +209,7 @@ export default function GameCanvas({ dead = [] }) {
                 <Pets3D /> 
                 <ItemsAndDevices />
                 <Players3D dead={dead} />
-
+                <VoiceIndicators3D />
                 {/* Death FX */}
                 <DeathMarkers />
 

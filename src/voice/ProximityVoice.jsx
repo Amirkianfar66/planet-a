@@ -1,14 +1,19 @@
 ﻿// src/voice/ProximityVoice.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { myPlayer, usePlayersList } from "playroomkit";
-import { usePhase } from "../network/playroom"; // optional: widen range in meetings
+import { usePhase } from "../network/playroom"; // optional meeting-phase integration
 
+// Public STUNs are enough to start. You can add your own TURN here later.
 const RTC_CONFIG = {
     iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:global.stun.twilio.com:3478?transport=udp" },
     ],
 };
+
+// Player state keys
+const TALK_KEY = "isTalking";
+const MUTE_KEY = "isMuted"; // (not required by indicators, but handy to expose)
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dist2 = (ax, az, bx, bz) => {
@@ -17,26 +22,34 @@ const dist2 = (ax, az, bx, bz) => {
 };
 
 export default function ProximityVoice({
-    radius = 7,                 // meters
+    radius = 7,                 // hearing radius in meters
     falloff = "smooth",         // "smooth" | "linear"
-    globalDuringMeeting = true, // optionally ignore distance during meetings
+    globalDuringMeeting = true, // if true, ignore distance in meeting phase
+    pushToTalk = true,          // hold V to speak
 }) {
     const players = usePlayersList(true);
     const me = myPlayer();
     const [phase] = usePhase();
 
     // UI state
-    const [enabled, setEnabled] = useState(false); // mic permission obtained
+    const [enabled, setEnabled] = useState(false); // mic permission granted
     const [muted, setMuted] = useState(false);     // local mute toggle
-    const [ptt, setPTT] = useState(false);         // push-to-talk (hold V)
+    const [ptt, setPTT] = useState(false);         // Push-To-Talk (hold V)
 
-    // Media / connections
+    // Media + RTC refs
     const localStreamRef = useRef(null);
     const pcsRef = useRef(new Map());     // peerId -> RTCPeerConnection
     const audiosRef = useRef(new Map());  // peerId -> HTMLAudioElement
-    const seenSigRef = useRef({});        // de-dupe signaling blobs
+    const seenSigRef = useRef({});        // de-dupe signaling payloads
 
-    // Helper: get my current world position (poll like other systems do)
+    // Web Audio for basic VAD (voice activity detection)
+    const audioCtxRef = useRef(null);
+    const analyserRef = useRef(null);
+    const vadBufRef = useRef(new Float32Array(2048));
+    const lastTalkSendRef = useRef(0);
+    const lastTalkStateRef = useRef(false);
+
+    // Helper: my current world position (as synced by your movement system)
     const myPos = () => {
         const p = myPlayer();
         return {
@@ -45,7 +58,7 @@ export default function ProximityVoice({
         };
     };
 
-    // --- UI + mic capture ---
+    /* ------------------ Mic capture ------------------ */
     const ensureMic = async () => {
         if (localStreamRef.current) return localStreamRef.current;
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -58,33 +71,106 @@ export default function ProximityVoice({
         });
         localStreamRef.current = stream;
         setEnabled(true);
+
+        // Minimal WebAudio analyser for RMS-based VAD
+        try {
+            if (!audioCtxRef.current) {
+                audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const src = audioCtxRef.current.createMediaStreamSource(stream);
+            const analyser = audioCtxRef.current.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.7;
+            src.connect(analyser);
+            analyserRef.current = analyser;
+        } catch {
+            // Ignore if AudioContext fails (Safari autoplay policies etc.)
+        }
+
+        // Publish initial mute state
+        try { me?.setState?.(MUTE_KEY, 0, true); } catch { }
         return stream;
     };
 
-    // Push-to-talk (hold V)
+    // PTT + mute key handlers
     useEffect(() => {
         const down = (e) => {
-            if ((e.code || e.key) === "KeyV") setPTT(true);
-            if ((e.code || e.key) === "KeyM") setMuted((m) => !m);
+            const code = e.code || e.key;
+            if (code === "KeyV") setPTT(true);
+            if (code === "KeyM") {
+                setMuted((m) => {
+                    const next = !m;
+                    try { me?.setState?.(MUTE_KEY, next ? 1 : 0, true); } catch { }
+                    return next;
+                });
+            }
         };
-        const up = (e) => { if ((e.code || e.key) === "KeyV") setPTT(false); };
+        const up = (e) => {
+            const code = e.code || e.key;
+            if (code === "KeyV") setPTT(false);
+        };
         window.addEventListener("keydown", down, { passive: true });
         window.addEventListener("keyup", up, { passive: true });
-        return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
-    }, []);
+        return () => {
+            window.removeEventListener("keydown", down);
+            window.removeEventListener("keyup", up);
+        };
+    }, [me]);
 
-    // Keep local track enabled/disabled based on mute/PTT
+    // Keep local audio tracks enabled/disabled based on mute/PTT
     useEffect(() => {
         const stream = localStreamRef.current;
         if (!stream) return;
-        const talking = !muted && (ptt || !ptt); // if you want "always-on", set to !muted
-        for (const track of stream.getAudioTracks()) {
-            // choose PTT semantics: enable only while holding V
-            track.enabled = !muted && (ptt ? ptt : true);
-        }
-    }, [muted, ptt]);
 
-    // --- Signaling helpers (using per-player state as the bus) ---
+        const shouldSend =
+            !muted && (pushToTalk ? ptt : true); // open-mic if pushToTalk=false
+
+        for (const track of stream.getAudioTracks()) {
+            track.enabled = shouldSend;
+        }
+    }, [muted, ptt, pushToTalk]);
+
+    // Clear flags on unmount
+    useEffect(() => {
+        return () => {
+            try { me?.setState?.(TALK_KEY, 0, true); } catch { }
+            try { me?.setState?.(MUTE_KEY, 0, true); } catch { }
+        };
+    }, [me]);
+
+    /* ------------------ VAD: publish TALK_KEY ------------------ */
+    useEffect(() => {
+        let raf;
+        const loop = () => {
+            const analyser = analyserRef.current;
+            const stream = localStreamRef.current;
+            const now = Date.now();
+            let talking = false;
+
+            if (enabled && !muted && stream && analyser) {
+                const buf = vadBufRef.current;
+                analyser.getFloatTimeDomainData(buf);
+                let sum = 0;
+                for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+                const rms = Math.sqrt(sum / buf.length);
+                // Threshold tuned for speech; adjust 0.03–0.06 as needed
+                talking = rms > 0.035 && (!pushToTalk || ptt);
+            }
+
+            const changed = talking !== lastTalkStateRef.current;
+            if (changed || now - lastTalkSendRef.current > 2000) {
+                try { me?.setState?.(TALK_KEY, talking ? 1 : 0, true); } catch { }
+                lastTalkSendRef.current = now;
+                lastTalkStateRef.current = talking;
+            }
+
+            raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(raf);
+    }, [enabled, muted, ptt, pushToTalk, me]);
+
+    /* ------------------ Signaling helpers ------------------ */
     const setMySig = (key, data) => {
         try { me?.setState?.(key, JSON.stringify(data), true); } catch { }
     };
@@ -95,17 +181,18 @@ export default function ProximityVoice({
             if (seenSigRef.current[`${p.id}:${key}`] === raw) return null;
             seenSigRef.current[`${p.id}:${key}`] = raw;
             return JSON.parse(raw);
-        } catch { return null; }
+        } catch {
+            return null;
+        }
     };
 
-    // Create + register a peer connection toward a target
     const getOrCreatePC = async (targetId) => {
         let pc = pcsRef.current.get(targetId);
         if (pc) return pc;
 
         pc = new RTCPeerConnection(RTC_CONFIG);
 
-        // Play incoming audio
+        // Incoming audio -> <audio>
         pc.ontrack = (ev) => {
             let audio = audiosRef.current.get(targetId);
             if (!audio) {
@@ -117,19 +204,17 @@ export default function ProximityVoice({
                 audiosRef.current.set(targetId, audio);
             }
             audio.srcObject = ev.streams[0];
-            audio.volume = 0; // will be set by proximity loop
+            audio.volume = 0; // set by proximity loop
         };
 
-        // Trickle ICE to target
+        // Trickle ICE to peer
         pc.onicecandidate = (ev) => {
             if (!ev.candidate) return;
-            const msg = {
-                from: me?.id, to: targetId, type: "ice", candidate: ev.candidate, ts: Date.now(),
-            };
+            const msg = { from: me?.id, to: targetId, type: "ice", candidate: ev.candidate, ts: Date.now() };
             setMySig(`voip_ice_to_${targetId}`, msg);
         };
 
-        // Add my mic
+        // Add my mic track
         const stream = await ensureMic();
         for (const track of stream.getAudioTracks()) {
             pc.addTrack(track, stream);
@@ -139,34 +224,30 @@ export default function ProximityVoice({
         return pc;
     };
 
-    // Outgoing offers to everyone (on first enable or when new players join)
+    // Offer to all others once enabled / when players change
     useEffect(() => {
         if (!enabled) return;
-        let cancelled = false;
-
         (async () => {
             for (const p of players) {
                 if (!me || p.id === me.id) continue;
                 const pc = await getOrCreatePC(p.id);
-
-                // Only offer if we don't have a connection yet
                 if (pc.signalingState === "stable" && !pc.localDescription) {
                     try {
                         const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
                         await pc.setLocalDescription(offer);
-                        setMySig(`voip_offer_to_${p.id}`, { from: me.id, to: p.id, sdp: offer.sdp, type: offer.type, ts: Date.now() });
+                        setMySig(`voip_offer_to_${p.id}`, {
+                            from: me.id, to: p.id, sdp: offer.sdp, type: offer.type, ts: Date.now(),
+                        });
                     } catch (e) {
-                        console.warn("[VOIP] offer failed:", e);
+                        // ignore transient failures
                     }
                 }
             }
         })();
-
-        return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, players.length]);
 
-    // Signaling poll loop: handle offers to me, answers to my offers, and ICE
+    // Handle incoming offers/answers/ICE (light polling)
     useEffect(() => {
         let t;
         const tick = async () => {
@@ -174,7 +255,7 @@ export default function ProximityVoice({
                 for (const p of players) {
                     if (!me || p.id === me.id) continue;
 
-                    // 1) If someone sent me an offer -> create answer
+                    // 1) Offers to me -> answer
                     const offer = getSig(p, `voip_offer_to_${me.id}`);
                     if (offer && offer.sdp) {
                         const pc = await getOrCreatePC(p.id);
@@ -183,12 +264,16 @@ export default function ProximityVoice({
                                 await pc.setRemoteDescription({ type: "offer", sdp: offer.sdp });
                                 const ans = await pc.createAnswer();
                                 await pc.setLocalDescription(ans);
-                                setMySig(`voip_answer_to_${p.id}`, { from: me.id, to: p.id, sdp: ans.sdp, type: ans.type, ts: Date.now() });
+                                setMySig(`voip_answer_to_${p.id}`, {
+                                    from: me.id, to: p.id, sdp: ans.sdp, type: ans.type, ts: Date.now(),
+                                });
                             }
-                        } catch (e) { /* ignore repeated/in-flight */ }
+                        } catch {
+                            // ignore repeated/in-flight
+                        }
                     }
 
-                    // 2) If they answered my offer -> setRemoteDescription
+                    // 2) Answers to my offers
                     const answer = getSig(p, `voip_answer_to_${me.id}`);
                     if (answer && answer.sdp) {
                         const pc = await getOrCreatePC(p.id);
@@ -197,7 +282,7 @@ export default function ProximityVoice({
                         }
                     }
 
-                    // 3) ICE destined to me -> addCandidate
+                    // 3) ICE to me
                     const ice = getSig(p, `voip_ice_to_${me.id}`);
                     if (ice && ice.candidate && ice.candidate.candidate) {
                         const pc = await getOrCreatePC(p.id);
@@ -205,16 +290,16 @@ export default function ProximityVoice({
                     }
                 }
             } finally {
-                t = setTimeout(tick, 250); // light polling (similar to other state refresh loops)
+                t = setTimeout(tick, 250);
             }
         };
         tick();
         return () => clearTimeout(t);
     }, [players, me]);
 
-    // Disconnect + cleanup when peers leave
+    // Cleanup when peers leave
     useEffect(() => {
-        const liveIds = new Set(players.map(p => p.id));
+        const liveIds = new Set(players.map((p) => p.id));
         for (const [peerId, pc] of pcsRef.current.entries()) {
             if (!liveIds.has(peerId)) {
                 try { pc.close(); } catch { }
@@ -229,7 +314,7 @@ export default function ProximityVoice({
         }
     }, [players]);
 
-    // Proximity volume loop
+    /* ------------------ Proximity volume loop ------------------ */
     useEffect(() => {
         let raf;
         const loop = () => {
@@ -242,7 +327,6 @@ export default function ProximityVoice({
                 const audio = audiosRef.current.get(p.id);
                 if (!audio) continue;
 
-                // speaker position (the remote player's current pos)
                 const px = Number(p.getState?.("x") || 0);
                 const pz = Number(p.getState?.("z") || 0);
 
@@ -254,7 +338,7 @@ export default function ProximityVoice({
                     else /* smooth */        vol = clamp(1 - (d / r) ** 2, 0, 1);
                 }
 
-                // hard mute beats proximity
+                // Do not honor the speaker's mute—mute only affects sending. This is listener-side gating.
                 audio.volume = (enabled && !muted) ? vol : 0;
             }
 
@@ -264,48 +348,94 @@ export default function ProximityVoice({
         return () => cancelAnimationFrame(raf);
     }, [players, enabled, muted, radius, falloff, phase, globalDuringMeeting]);
 
-    // Teardown on unmount
+    /* ------------------ Teardown ------------------ */
     useEffect(() => {
         return () => {
             for (const [, pc] of pcsRef.current) { try { pc.close(); } catch { } }
             pcsRef.current.clear();
+
             for (const [, el] of audiosRef.current) { try { el.remove(); } catch { } }
             audiosRef.current.clear();
-            const s = localStreamRef.current;
-            if (s) { s.getTracks().forEach(t => t.stop()); localStreamRef.current = null; }
-        };
-    }, []);
 
-    // Tiny floating UI
+            const s = localStreamRef.current;
+            if (s) { s.getTracks().forEach((t) => t.stop()); localStreamRef.current = null; }
+
+            if (audioCtxRef.current) {
+                try { audioCtxRef.current.close(); } catch { }
+                audioCtxRef.current = null;
+                analyserRef.current = null;
+            }
+
+            try { me?.setState?.(TALK_KEY, 0, true); } catch { }
+            try { me?.setState?.(MUTE_KEY, 0, true); } catch { }
+        };
+    }, [me]);
+
+    /* ------------------ Tiny overlay UI ------------------ */
     return (
-        <div style={{
-            position: "absolute", left: 16, top: 16, zIndex: 10000,
-            display: "flex", gap: 8, alignItems: "center",
-            background: "rgba(14,17,22,0.9)", color: "#e5efff",
-            border: "1px solid #2a3242", borderRadius: 10, padding: "6px 8px",
-            fontFamily: "ui-sans-serif", fontSize: 12, pointerEvents: "auto"
-        }}>
+        <div
+            style={{
+                position: "absolute",
+                left: 16,
+                top: 16,
+                zIndex: 10000,
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                background: "rgba(14,17,22,0.9)",
+                color: "#e5efff",
+                border: "1px solid #2a3242",
+                borderRadius: 10,
+                padding: "6px 8px",
+                fontFamily: "ui-sans-serif",
+                fontSize: 12,
+                pointerEvents: "auto",
+            }}
+        >
             {!enabled ? (
                 <button
                     onClick={ensureMic}
-                    style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #41506b", cursor: "pointer" }}
+                    style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #41506b",
+                        background: "#101722",
+                        color: "#cfe3ff",
+                        cursor: "pointer",
+                    }}
                     title="Grant microphone access to enable proximity voice"
                 >
                     🎙️ Enable Voice
                 </button>
             ) : (
                 <>
-                    <span style={{ opacity: 0.85 }}>🎙️ Voice:</span>
+                    <span style={{ opacity: 0.85 }}>🎙️ Voice</span>
                     <button
-                        onClick={() => setMuted(m => !m)}
-                        className="item-btn"
-                        style={{ padding: "4px 8px" }}
+                        onClick={() => {
+                            const next = !muted;
+                            setMuted(next);
+                            try { me?.setState?.(MUTE_KEY, next ? 1 : 0, true); } catch { }
+                        }}
+                        style={{
+                            padding: "4px 8px",
+                            borderRadius: 8,
+                            border: "1px solid #41506b",
+                            background: muted ? "#241a1a" : "#14211a",
+                            color: muted ? "#ffbdbd" : "#bdf4cf",
+                            cursor: "pointer",
+                        }}
                         title="Toggle mute (M). Hold V for Push-To-Talk."
                     >
                         {muted ? "Muted (M)" : "Live (M)"}
                     </button>
                     <span style={{ opacity: 0.8 }}>Radius: {radius}m</span>
-                    <span style={{ opacity: 0.6 }}>Hold <b>V</b> to talk</span>
+                    {pushToTalk ? (
+                        <span style={{ opacity: 0.65 }}>
+                            Hold <b>V</b> to talk
+                        </span>
+                    ) : (
+                        <span style={{ opacity: 0.65 }}>Open mic</span>
+                    )}
                 </>
             )}
         </div>
