@@ -4,41 +4,60 @@ import { myPlayer, usePlayersList, useMultiplayerState } from "playroomkit";
 import "./ui.css";
 
 /* ---------- helpers ---------- */
-const safe = (v) => { try { return String(v ?? "").trim(); } catch { return ""; } };
+const safe = (v) => {
+    try { return String(v ?? "").trim(); } catch { return ""; }
+};
 const firstNonEmpty = (...vals) => vals.find((v) => safe(v)) || "";
-const normTeamId = (s) => safe(s || "team").toLowerCase().replace(/\s+/g, "-").slice(0, 32);
+const normTeamId = (s) =>
+    safe(s || "team").toLowerCase().replace(/\s+/g, "-").slice(0, 32);
 
+/**
+ * Team-only chat using a shared multiplayer state:
+ *  - canonical channel per team: `chat:<normalized team>`
+ *  - writes replicate with setState(..., true)
+ *  - presence shows only same-team players
+ */
 export default function TeamChatPanel({
-    teamName,            // optional override; otherwise reads myPlayer state
+    teamName,               // optional override; otherwise reads myPlayer state
     inputDisabled = false,
     style,
 }) {
-    // keep UI fresh as presence can be eventual
+    // Presence in playroom can be eventual; this small ticker keeps UI fresh.
     const [, force] = useReducer((x) => x + 1, 0);
-    useEffect(() => { const id = setInterval(force, 500); return () => clearInterval(id); }, []);
+    useEffect(() => {
+        const id = setInterval(force, 500);
+        return () => clearInterval(id);
+    }, []);
 
     const me = myPlayer();
     const myId = me?.id || "me";
     const allPlayers = usePlayersList(true);
 
-    // canonical team + channel
-    const liveTeam = firstNonEmpty(teamName, me?.getState?.("team"), me?.getState?.("teamName"), "Team");
+    // Canonical team label/id
+    const liveTeam = firstNonEmpty(
+        teamName,
+        me?.getState?.("team"),
+        me?.getState?.("teamName"),
+        "Team"
+    );
     const teamId = normTeamId(liveTeam);
     const channel = `chat:${teamId}`;
 
-    // shared, networked buffer for this team
+    // Shared, networked buffer for this team
     const [netMsgs, setMsgs] = useMultiplayerState(channel, []); // [{id, fromId, name, text, ts}]
     const msgs = Array.isArray(netMsgs) ? netMsgs : [];
 
-    // same-team presence
+    // Same-team presence
     const members = useMemo(() => {
         return (allPlayers || []).filter((p) => {
-            const t = normTeamId(firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName")));
+            const t = normTeamId(
+                firstNonEmpty(p?.getState?.("team"), p?.getState?.("teamName"))
+            );
             return t === teamId;
         });
     }, [allPlayers, teamId]);
 
-    // compose + send
+    // Compose + send
     const [draft, setDraft] = useState("");
     const send = (textRaw) => {
         const text = safe(textRaw);
@@ -59,7 +78,7 @@ export default function TeamChatPanel({
             ts,
         };
 
-        // sync to everyone on this team
+        // Important: pass 'true' to sync to everyone on this team
         setMsgs((prev) => {
             const base = Array.isArray(prev) ? prev : [];
             const next = [...base, msg];
@@ -78,7 +97,7 @@ export default function TeamChatPanel({
         }
     };
 
-    // autoscroll
+    // Autoscroll
     const listRef = useRef(null);
     useEffect(() => {
         const el = listRef.current;
@@ -92,69 +111,89 @@ export default function TeamChatPanel({
             const hh = String(d.getHours()).padStart(2, "0");
             const mm = String(d.getMinutes()).padStart(2, "0");
             return `${hh}:${mm}`;
-        } catch { return ""; }
+        } catch {
+            return "";
+        }
     };
 
     return (
-        <section className="tc tc--illustrated tc--half" data-component="teamchat" style={style}>
-            <div className="tc-card">
-                {/* Header (glass strip): team name + online pills */}
-                <header className="tc__header">
-                    <div className="tc__title">{String(liveTeam).toUpperCase()}</div>
-                    <div className="tc__members">
-                        {members.map((p) => {
-                            const name =
-                                p?.getState?.("name") ||
-                                p?.getProfile?.().name ||
-                                p?.name ||
-                                `Player-${String(p?.id || "").slice(-4)}`;
-                            return (
-                                <span key={p.id} className="member-pill" title={name}>
-                                    <span className="dot on" />
-                                    <span className="pill-name">{name}</span>
-                                </span>
-                            );
-                        })}
-                    </div>
-                </header>
-
-                {/* Messages */}
-                <div className="tc__list" ref={listRef}>
-                    {msgs.length === 0 && <div className="tc__empty">No messages yet.</div>}
-
-                    {msgs.map((m) => {
-                        const mine = m.fromId === myId;
-                        const time = fmt(m.ts);
+        <div
+            className="team-chat"
+            style={{
+                background: "rgba(14,17,22,0.9)",
+                border: "1px solid #2a3242",
+                borderRadius: 12,
+                color: "white",
+                padding: 10,
+                fontFamily: "ui-sans-serif",
+                width: "100%",
+                ...style,
+            }}
+        >
+            {/* Header */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                }}
+            >
+                <div style={{ fontWeight: 700 }}>Team Chat — {liveTeam}</div>
+                <div className="member-row">
+                    {members.map((p) => {
+                        const name =
+                            p?.getState?.("name") ||
+                            p?.getProfile?.().name ||
+                            p?.name ||
+                            `Player-${String(p?.id || "").slice(-4)}`;
                         return (
-                            <div key={m.id} className={`tc-bubble ${mine ? "me" : ""}`} title={`${m.name} · ${time}`}>
-                                {!mine && <div className="tc-bubble__meta">{m.name} · {time}</div>}
-                                <div className="tc-bubble__text">{String(m.text || "")}</div>
+                            <span key={p.id} className="member-pill" title={name}>
+                                <span className="dot on" />
+                                <span style={{ fontSize: 12 }}>{name}</span>
+                            </span>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Body */}
+            <div className="chat-body">
+                <div ref={listRef} className="chat-list">
+                    {(msgs || []).map((m) => {
+                        const isMe = m.fromId === myId;
+                        return (
+                            <div key={m.id} className={`bubble ${isMe ? "me" : ""}`}>
+                                <div className="bubble-author">
+                                    <span style={{ fontWeight: 700 }}>{m.name || "Player"}</span>
+                                    <span style={{ opacity: 0.7 }}>· {fmt(m.ts)}</span>
+                                </div>
+                                <div className="bubble-text">{String(m.text || "")}</div>
                             </div>
                         );
                     })}
                 </div>
 
                 {/* Input */}
-                <form className="tc__inputRow" onSubmit={(e) => { e.preventDefault(); send(draft); }}>
+                <div className="chat-input">
                     <input
-                        className="tc-input"
-                        type="text"
-                        placeholder={inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"}
+                        disabled={inputDisabled}
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={onKey}
-                        disabled={inputDisabled}
+                        placeholder={
+                            inputDisabled ? "Chat disabled" : "Type a message… (Enter to send)"
+                        }
                     />
                     <button
-                        className="tc-send"
-                        disabled={inputDisabled || draft.trim() === ""}
-                        type="submit"
-                        title="Send"
+                        className="item-btn"
+                        disabled={inputDisabled || !draft.trim()}
+                        onClick={() => send(draft)}
                     >
                         Send
                     </button>
-                </form>
+                </div>
             </div>
-        </section>
+        </div>
     );
 }
