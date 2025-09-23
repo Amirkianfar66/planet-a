@@ -186,7 +186,7 @@ function ItemMesh({ visibleType = "crate" }) {
         case "fuel_tank":
         case "protection_tank":
             return (
-                <group scale={[4, 4, 4]}>
+                <group scale={[2, 4, 2]}>
                     <mesh>
                         <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
                         <meshStandardMaterial color={color} metalness={0.2} roughness={0.4} />

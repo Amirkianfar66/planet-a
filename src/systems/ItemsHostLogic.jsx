@@ -39,7 +39,7 @@ const GRAV = 16;
 const DT = 0.05;
 const THROW_SPEED = 8;
 const TANK_CAP_DEFAULT = 6;
-const UNITS_PER_LOAD = 2;
+const UNITS_PER_LOAD = 1;
 
 // Keep spawned things inside the designated outdoor rectangle.
 const OUT_MARGIN = 0.75; // small buffer so they don't hug the edge
@@ -85,6 +85,32 @@ const TANK_ACCEPTS = {
 };
 const isTankType = (t) =>
     t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+// Receivers
+const isReceiverType = (t) => t === "food_receiver" || t === "protection_receiver";
+
+// Team normalizer: 'Alpha'/'A'/'teama' -> 'teama'
+const TEAM_LABELS_LOWER = { teama: "alpha", teamb: "beta", teamc: "gamma", teamd: "delta" };
+function normalizeTeamKey(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (TEAM_LABELS_LOWER[s]) return s;            // already teama/b/c/d
+    const hit = Object.entries(TEAM_LABELS_LOWER).find(([, v]) => v === s); // pretty -> slug
+    return hit ? hit[0] : "";
+}
+
+// Add one stackable item to backpack
+function addOneToBackpack(bp, type) {
+    const list = Array.isArray(bp) ? bp : [];
+    const idx = list.findIndex((b) => !b?.id && String(b?.type).toLowerCase() === String(type).toLowerCase());
+    if (idx >= 0) {
+        const e = list[idx];
+        const qty = Number(e.qty || 1);
+        const next = [...list];
+        next[idx] = { ...e, qty: qty + 1 };
+        return next;
+    }
+    return [...list, { type, qty: 1 }];
+}
+
 
 // Find an actual world item of a given type held by player p
 const findHeldItemByType = (type, p, itemsList) =>
@@ -186,6 +212,35 @@ const tryLoadIntoTank = ({
 
     return true;
 };
+
+function tryDispenseFromTeamTank({ player: p, receiver, itemsList, getBackpack, setBackpack, setItems }) {
+    const want = receiver.type === "food_receiver" ? "food" : "protection";
+    const tankType = `${want}_tank`;
+
+    // Team gate
+    const myTeam = normalizeTeamKey(p.getState?.("team") || p.getState?.("teamName"));
+    const rxTeam = normalizeTeamKey(receiver.team);
+    if (!myTeam || !rxTeam || myTeam !== rxTeam) return false;
+
+    // Find that team's tank of the right kind
+    const tank = (itemsList || []).find((it) => it?.type === tankType && normalizeTeamKey(it.team) === myTeam);
+    if (!tank) return false;
+
+    const stored = Number(tank.stored || 0);
+    if (stored < 1) return false;                           // must have at least 1
+
+    const bp = getBackpack(p) || [];
+    if (bp.length >= Number(BAG_CAPACITY || 8)) return false;
+
+    // -1 from tank
+    setItems((prev) => prev.map((j) => (j.id === tank.id ? { ...j, stored: stored - 1 } : j)), true);
+
+    // +1 to backpack (stackable)
+    const nextBp = addOneToBackpack(bp, want);
+    setBackpack(p, nextBp);
+
+    return true;
+}
 
 /* ---- role helper for Officer/Guard/Security ---- */
 const isOfficerRole = (r) => {
@@ -400,6 +455,52 @@ export default function ItemsHostLogic() {
 
         return () => clearInterval(timer);
     }, [host]);
+    // OXYGEN REGEN: +3 each in-game hour when under a roof (not outside)
+    useEffect(() => {
+        if (!host) return;
+
+        // Use the game-clock's in-game seconds if available (same pattern as meeting trigger)
+        const store = typeof useGameClock.getState === "function" ? useGameClock.getState() : null;
+        const getSec = store && typeof store.nowGameSec === "function" ? store.nowGameSec : null;
+        if (!getSec) return; // safe no-op if your clock doesn't expose seconds
+
+        let prevSec = getSec();
+
+        const onHour = () => {
+            const everyone = [...(playersRef.current || [])];
+            const self = myPlayer();
+            if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
+
+            for (const pl of everyone) {
+                if (pl.getState?.("dead")) continue;
+
+                const x = Number(pl.getState?.("x") || 0);
+                const z = Number(pl.getState?.("z") || 0);
+                const outside = isOutsideByRoof(x, z); // true = outside (no roof)
+
+                if (!outside) {
+                    const cur = Number(pl.getState?.("oxygen") ?? 100);
+                    const next = Math.min(100, cur + 3);
+                    if (next !== cur) pl.setState?.("oxygen", next, true);
+                }
+            }
+        };
+
+        let raf;
+        const tick = () => {
+            const curSec = getSec();
+            // Fire exactly when the in-game hour changes (handles midnight wrap automatically)
+            const hPrev = Math.floor(prevSec / 3600);
+            const hCur = Math.floor(curSec / 3600);
+            if (hCur !== hPrev) onHour();
+
+            prevSec = curSec;
+            raf = requestAnimationFrame(tick);
+        };
+
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [host]);
 
     /* -------- give Officers one CCTV camera at the start of each day -------- */
     useEffect(() => {
@@ -572,6 +673,27 @@ export default function ItemsHostLogic() {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
+                        // Receivers are NOT pickable — treat P near a receiver as "dispense from team tank"
+                        if (isReceiverType(it.type)) {
+                            const dx = px - it.x, dz = pz - it.z;
+                            if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                                const ok = tryDispenseFromTeamTank({
+                                    player: p,
+                                    receiver: it,
+                                    itemsList: list,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                                if (ok) {
+                                    const nowSec = Math.floor(Date.now() / 1000);
+                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                }
+                            }
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
                         // Tanks are NOT pickable — treat P near any tank as "load one matching item"
                         if (isTankType(it.type)) {
                             const dx = px - it.x,
@@ -829,16 +951,19 @@ export default function ItemsHostLogic() {
                         // eat food / poison
                         if (kind === "eat" && (it.type === "food" || it.type === "poison_food")) {
                             if (it.type === "poison_food") {
-                                // apply damage on eat
+                                // apply damage on eat (poison)
                                 const curLife = Number(p.getState("life") ?? 100);
-                                const nextLife = Math.max(0, curLife - 35); // tweak damage as you like
+                                const nextLife = Math.max(0, curLife - 35);
                                 p.setState("life", nextLife, true);
                                 if (nextLife <= 0) p.setState("dead", true, true);
+                            } else {
+                                // normal food → +25 energy (cap 100)
+                                const e = Number(p.getState?.("energy") ?? 100);
+                                const nextE = Math.min(100, e + 25);
+                                p.setState?.("energy", nextE, true);
                             }
-                            // (optionally: give a small energy boost for normal food)
-                            // else { const e = Number(p.getState("energy") ?? 100); p.setState("energy", Math.min(100, e + 20), true); }
 
-                            // consume the item (same as before)
+                            // consume the item (unchanged)
                             setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
                             setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
                             if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
@@ -846,6 +971,7 @@ export default function ItemsHostLogic() {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
+
 
                         // use on device (reactor/medbay/shield/etc.)
                         const dev = DEVICES.find((d) => d.id === kind);

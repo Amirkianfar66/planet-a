@@ -58,7 +58,7 @@ const COOLDOWN = {
     },
 
     ITEMS: {
-        PICKUP_SEC: 20,                 // host uses seconds for pickup lock
+        PICKUP_SEC: 3,                 // host uses seconds for pickup lock
     },
 };
 
