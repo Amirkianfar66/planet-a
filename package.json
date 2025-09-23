@@ -36,11 +36,13 @@
     "@gltf-transform/core": "^4.2.1",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "dxf-parser": "^1.1.2",
     "playroomkit": "^0.0.91",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.9.1",
     "three": "^0.180.0",
+    "three-stdlib": "^2.36.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

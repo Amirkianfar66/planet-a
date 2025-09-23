@@ -77,6 +77,27 @@ function spawnInMeetingRoom(fallbackX = 0, fallbackZ = 0) {
 const isType = (v, t) =>
     String(v || "").toLowerCase() === String(t || "").toLowerCase();
 
+// Treat anything that looks like a food item as edible.
+// Excludes tanks/receivers so we don't eat those by accident.
+const isFoodConsumableType = (t) => {
+    const s = String(t || "").toLowerCase();
+    if (!s) return false;
+    if (s.endsWith("_tank") || s.endsWith("_receiver")) return false;
+    return s === "food" || s === "poison_food" || s.includes("food");
+};
+
+// Poison variant of food (poison + food in the name, or explicit poison_food)
+const isPoisonFoodType = (t) => {
+    const s = String(t || "").toLowerCase();
+    return s === "poison_food" || (s.includes("poison") && s.includes("food"));
+};
+// Map any item type to the implied action
+const inferKindFor = (t) => {
+  if (isFoodConsumableType(t)) return "eat";   // handles "food", "poison_food", and any *food*-ish name
+  if (isType(t, "protection")) return "cure";
+  return null;
+};
+
 // Tank helpers
 const TANK_ACCEPTS = {
     food_tank: "food",
@@ -502,7 +523,34 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(raf);
     }, [host]);
 
-    /* -------- give Officers one CCTV camera at the start of each day -------- */
+    // POISON TICK: -1 life/sec while poisoned, stops when cured (using Protection)
+    useEffect(() => {
+        if (!host) return;
+        const DMG_PER_TICK = 1;
+        const TICK_MS = 1000;
+
+        const timer = setInterval(() => {
+            const everyone = [...(playersRef.current || [])];
+            const self = myPlayer();
+            if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
+
+            for (const pl of everyone) {
+                if (pl.getState?.("dead")) continue;
+                const poisoned = !!pl.getState?.("poisoned");
+                if (!poisoned) continue;
+
+                const life = Number(pl.getState?.("life") ?? 100);
+                if (life <= 0) continue;
+                const next = Math.max(0, life - DMG_PER_TICK);
+                pl.setState?.("life", next, true);
+                if (next <= 0) pl.setState?.("dead", true, true);
+            }
+        }, TICK_MS);
+
+        return () => clearInterval(timer);
+    }, [host]);
+
+    /* -------- give Officers/Guards exactly ONE CCTV for the whole game -------- */
     useEffect(() => {
         if (!host) return;
 
@@ -511,24 +559,32 @@ export default function ItemsHostLogic() {
         if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
         for (const p of everyone) {
-            const role = p.getState?.("role");
+            const role = String(p.getState?.("role") || "");
             if (!isOfficerRole(role)) continue;
 
-            const camId = `cam_${p.id}_d${dayNumber}`;
-            const bp = p.getState?.("backpack") || [];
-            const hasTodayCam = Array.isArray(bp) && bp.some((b) => b.id === camId);
+            // One-time flag on the player to prevent re-grant
+            const hasFlag = !!p.getState?.("hasCCTVOnce");
+            if (hasFlag) continue;
 
-            if (!hasTodayCam) {
+            const bp = p.getState?.("backpack") || [];
+            const camId = `cam_${p.id}`; // <-- stable id, no day suffix
+            const alreadyHas = Array.isArray(bp) && bp.some((b) => b.id === camId);
+
+            if (!alreadyHas) {
                 const nextBp = [...bp, { id: camId, type: "cctv", name: "CCTV Camera" }];
                 p.setState?.("backpack", nextBp, true);
-                // auto-equip if hands free
+                // optional: auto-equip if hands free
                 const carry = String(p.getState?.("carry") || "");
                 if (!carry) p.setState?.("carry", camId, true);
-                console.log(`[HOST] Granted daily CCTV to ${p.id}: ${camId}`);
+                console.log(`[HOST] Granted one-time CCTV to ${p.id}: ${camId}`);
             }
+
+            // mark as granted so we never add again (even if they drop it)
+            p.setState?.("hasCCTVOnce", true, true);
         }
-    }, [host, dayNumber]);
-    /* -------- END DAILY CCTV -------- */
+    }, [host]);
+    /* -------- END one-time CCTV -------- */
+
 
     // Process client requests (pickup / drop / throw / use / abilities / container)
     useEffect(() => {
@@ -867,192 +923,217 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+                    let [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
+                    let it = findItem(idStr);
+                    const bp = getBackpack(p);
 
-                    // USE (includes CCTV place)
+                    // Resolve single-token "use|<id>"
+                    if (!it && kind && !idStr) {
+                        const maybe = findItem(kind);
+                        if (maybe) { it = maybe; idStr = kind; }
+                    }
+
+                    
+
+
+                    if (!kind || kind === "use" || kind === "item") {
+                        if (it) {
+                            const inferred = inferKindFor(it.type);
+                            if (inferred) kind = inferred;
+                        } else {
+                            const key = String(idStr || kind || "").toLowerCase();
+                            if (isFoodConsumableType(key)) kind = "eat";
+                            else if (isType(key, "protection")) kind = "cure";
+                        }
+                    }
+
+                    // --- SINGLE unified USE handler (keep only one of these in the loop) ---
                     if (type === "use") {
-                        const [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
-                        const it = findItem(idStr);
+                        let [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
+                        let it = findItem(idStr);
                         const bp = getBackpack(p);
 
-                        // PLACE CCTV from backpack (or while held)
+
+
+                        // Infer the action if UI sent just "use|<id>" or "use|<type-ish>"
+                        if (!kind || kind === "use" || kind === "item") {
+                            if (it) {
+                                kind = inferKindFor(it.type);
+                            } else if (idStr) {
+                                if (isFoodConsumableType(idStr)) kind = "eat";        // <- robust, handles any "food"-ish label
+                                else if (isType(idStr, "protection")) kind = "cure";
+                            }
+                        }
+
+
+                        /* ---------- place CCTV (unchanged) ---------- */
                         if (kind === "place") {
                             const heldOk = !!it && it.holder === p.id && it.type === "cctv";
                             const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
-
-                            if (!heldOk && !bpCam) {
-                                processed.current.set(p.id, reqId);
-                                continue;
-                            }
+                            if (!heldOk && !bpCam) { processed.current.set(p.id, reqId); continue; }
 
                             const yaw = Number(p.getState("yaw") || 0);
-                            const fdx = Math.sin(yaw),
-                                fdz = Math.cos(yaw);
-
+                            const fdx = Math.sin(yaw), fdz = Math.cos(yaw);
                             if (!it) {
-                                setItems(
-                                    (prev) => [
-                                        ...prev,
-                                        {
-                                            id: idStr,
-                                            type: "cctv",
-                                            name: "CCTV Camera",
-                                            holder: null,
-                                            hidden: false,
-                                            x: px + fdx * 0.6,
-                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                            z: pz + fdz * 0.6,
-                                            yaw,
-                                            placed: true,
-                                            owner: p.id,
-                                            day: useGameClock.getState().dayNumber,
-                                        },
-                                    ],
-                                    true
-                                );
+                                setItems(prev => [...prev, {
+                                    id: idStr, type: "cctv", name: "CCTV Camera",
+                                    holder: null, hidden: false,
+                                    x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
+                                    yaw, placed: true, owner: p.id, day: useGameClock.getState().dayNumber,
+                                }], true);
                             } else {
-                                setItems(
-                                    (prev) =>
-                                        prev.map((j) =>
-                                            j.id === it.id
-                                                ? {
-                                                    ...j,
-                                                    holder: null,
-                                                    hidden: false,
-                                                    x: px + fdx * 0.6,
-                                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
-                                                    z: pz + fdz * 0.6,
-                                                    vx: 0,
-                                                    vy: 0,
-                                                    vz: 0,
-                                                    yaw,
-                                                    placed: true,
-                                                    owner: p.id,
-                                                }
-                                                : j
-                                        ),
-                                    true
-                                );
+                                setItems(prev => prev.map(j => j.id === it.id ? {
+                                    ...j, holder: null, hidden: false,
+                                    x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
+                                    vx: 0, vy: 0, vz: 0, yaw, placed: true, owner: p.id,
+                                } : j), true);
                             }
-
                             setBackpack(p, bp.filter((b) => b.id !== idStr));
-                            if (String(p.getState("carry") || "") === idStr)
-                                p.setState("carry", "", true);
-
+                            if (String(p.getState("carry") || "") === idStr) p.setState("carry", "", true);
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        // From here down: legacy "use" flows that require a held world item
-                        if (!it || it.holder !== p.id) {
-                            processed.current.set(p.id, reqId);
-                            continue;
-                        }
-
-                        // eat food / poison  (supports held world item OR stack entry without id)
+                        /* ---------- EAT: any food-like item gives +25 energy; poison variants also set poisoned ---------- */
                         if (kind === "eat") {
-                            const applyEatEffect = (player, type) => {
-                                if (type === "poison_food") {
-                                    const curLife = Number(player.getState("life") ?? 100);
-                                    const nextLife = Math.max(0, curLife - 35);
-                                    player.setState("life", nextLife, true);
-                                    if (nextLife <= 0) player.setState("dead", true, true);
-                                } else {
-                                    const e = Number(player.getState?.("energy") ?? 100);
-                                    const nextE = Math.min(100, e + 25);
-                                    player.setState?.("energy", nextE, true);
-                                }
+                            const applyEat = (player, itemType) => {
+                                // +25 energy (cap 100)
+                                const e = Number(player.getState?.("energy") ?? 100);
+                                const nextE = Math.min(100, e + 25);
+                                player.setState?.("energy", nextE, true);
+
+                                // poison variants add DOT until cured
+                                if (isPoisonFoodType(itemType)) player.setState("poisoned", true, true);
                             };
 
-                            const consumeOneFromStack = (bp, type) => {
-                                const idx = Array.isArray(bp) ? bp.findIndex((b) => !b.id && b.type === type) : -1;
-                                if (idx === -1) return null; // nothing consumed
-                                const entry = bp[idx];
-                                const qty = Number(entry?.qty || 1);
+                            const consumeOneFoodStack = (bpArr) => {
+                                const idx = Array.isArray(bpArr) ? bpArr.findIndex((b) => !b?.id && isFoodConsumableType(b?.type)) : -1;
+                                if (idx === -1) return null;
+                                const row = bpArr[idx];
+                                const qty = Number(row?.qty || 1);
+                                const eatenType = row?.type;
                                 if (qty > 1) {
-                                    const next = [...bp];
-                                    next[idx] = { ...entry, qty: qty - 1 };
-                                    return next;
+                                    const next = [...bpArr];
+                                    next[idx] = { ...row, qty: qty - 1 };
+                                    return { nextBp: next, eatenType };
                                 }
-                                // remove the stack row
-                                return bp.filter((_, i) => i !== idx);
+                                return { nextBp: bpArr.filter((_, i) => i !== idx), eatenType };
                             };
 
-                            // 1) Prefer held world item (old behavior)
-                            if (it && it.holder === p.id && (it.type === "food" || it.type === "poison_food")) {
-                                applyEatEffect(p, it.type);
+                            const consumeIdRowByIdIfFood = (id) => {
+                                const idEntry = bp.find((b) => b.id === id && isFoodConsumableType(b.type));
+                                if (!idEntry) return false;
+                                const entity = findItem(idEntry.id);
+                                if (entity) {
+                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
+                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                }
+                                setBackpack(p, bp.filter((b) => b.id !== idEntry.id));
+                                applyEat(p, idEntry.type);
+                                return true;
+                            };
 
-                                // consume the world item
-                                setItems((prev) =>
-                                    prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j)),
-                                    true
-                                );
+                            const consumeFirstIdRowAnyFood = () => {
+                                const idEntry = bp.find((b) => b.id && isFoodConsumableType(b.type));
+                                if (!idEntry) return false;
+                                const entity = findItem(idEntry.id);
+                                if (entity) {
+                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
+                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                }
+                                setBackpack(p, bp.filter((b) => b.id !== idEntry.id));
+                                applyEat(p, idEntry.type);
+                                return true;
+                            };
+
+                            // A) explicit id (supports any food-like type): use|<id>
+                            if (idStr && consumeIdRowByIdIfFood(idStr)) { processed.current.set(p.id, reqId); continue; }
+
+                            // B) held world item
+                            if (it && it.holder === p.id && isFoodConsumableType(it.type)) {
+                                applyEat(p, it.type);
+                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
                                 setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
                                 if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-
                                 processed.current.set(p.id, reqId);
                                 continue;
                             }
 
-                            // 2) Fallback: consume from backpack stack (no id) → this fixes FoodSupplier bonus
-                            {
-                                const bp = getBackpack(p);
-                                // Try normal food first
-                                let nextBp = consumeOneFromStack(bp, "food");
-                                let ateType = null;
-
-                                // If no normal food, allow poison stack if you want poison to be edible from stack too.
-                                if (!nextBp) {
-                                    nextBp = consumeOneFromStack(bp, "poison_food");
-                                    if (nextBp) ateType = "poison_food";
-                                } else {
-                                    ateType = "food";
-                                }
-
-                                if (nextBp) {
-                                    applyEatEffect(p, ateType || "food");
-                                    setBackpack(p, nextBp);
+                            // C) explicit type: use|food / use|poison_food / use|<anything-with-"food">
+                            if (idStr && isFoodConsumableType(idStr)) {
+                                // try stack first, then id-row
+                                const stackTry = consumeOneFoodStack(bp);
+                                if (stackTry) {
+                                    setBackpack(p, stackTry.nextBp);
+                                    applyEat(p, stackTry.eatenType);
                                     processed.current.set(p.id, reqId);
                                     continue;
                                 }
+                                if (consumeFirstIdRowAnyFood()) { processed.current.set(p.id, reqId); continue; }
                             }
 
-                            // Nothing to eat found; just finish the request
+                            // D) fallback: stack any food, else any id-row food
+                            const stackTry = consumeOneFoodStack(bp);
+                            if (stackTry) {
+                                setBackpack(p, stackTry.nextBp);
+                                applyEat(p, stackTry.eatenType);
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
+                            if (consumeFirstIdRowAnyFood()) { processed.current.set(p.id, reqId); continue; }
+
+                            // nothing edible
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
 
-                        // use on device (reactor/medbay/shield/etc.)
-                        const dev = DEVICES.find((d) => d.id === kind);
-                        if (dev) {
-                            const dx = px - dev.x,
-                                dz = pz - dev.z;
-                            const r = Number(dev.radius || DEVICE_RADIUS);
-                            if (dx * dx + dz * dz <= r * r) {
-                                const eff = USE_EFFECTS?.[it.type]?.[dev.type];
-                                if (eff) {
-                                    // Consume item
-                                    setItems(
-                                        (prev) =>
-                                            prev.map((j) =>
-                                                j.id === it.id
-                                                    ? { ...j, holder: "_used_", y: -999, hidden: true }
-                                                    : j
-                                            ),
-                                        true
-                                    );
-                                    setBackpack(
-                                        p,
-                                        getBackpack(p).filter((b) => b.id !== it.id)
-                                    );
-                                    if (String(p.getState("carry") || "") === it.id)
-                                        p.setState("carry", "", true);
+                        /* ---------- CURE: Protection clears poison (unchanged) ---------- */
+                        if (kind === "cure") {
+                            const consumeOneProtectionFromStack = (bpArr) => {
+                                const idx = Array.isArray(bpArr) ? bpArr.findIndex((b) => !b?.id && isType(b?.type, "protection")) : -1;
+                                if (idx === -1) return null;
+                                const row = bpArr[idx];
+                                const qty = Number(row?.qty || 1);
+                                if (qty > 1) { const next = [...bpArr]; next[idx] = { ...row, qty: qty - 1 }; return next; }
+                                return bpArr.filter((_, i) => i !== idx);
+                            };
+
+                            let cured = false;
+                            if (it && it.holder === p.id && isType(it.type, "protection")) {
+                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
+                                setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                cured = true;
+                            } else {
+                                const nextBp = consumeOneProtectionFromStack(bp);
+                                if (nextBp) { setBackpack(p, nextBp); cured = true; }
+                            }
+                            if (cured) p.setState("poisoned", false, true);
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        // Device use fallback (unchanged)
+                        if (it && it.holder === p.id) {
+                            const dev = DEVICES.find((d) => d.id === kind);
+                            if (dev) {
+                                const dx = px - dev.x, dz = pz - dev.z;
+                                const r = Number(dev.radius || DEVICE_RADIUS);
+                                if (dx * dx + dz * dz <= r * r) {
+                                    const eff = USE_EFFECTS?.[it.type]?.[dev.type];
+                                    if (eff) {
+                                        setItems(prev => prev.map((j) => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
+                                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                                        if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                    }
                                 }
                             }
                         }
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+
 
                     // Fallback
                     processed.current.set(p.id, reqId);

@@ -43,7 +43,8 @@ const legacySaveDraftRooms = RT.saveDraft;
 const legacyLoadDraftRooms = RT.loadDraft;
 
 // rooms seed
-import { ROOMS as INITIAL_DECK_ROOMS } from "../map/deckA";
+import { ROOMS as INITIAL_DECK_ROOMS, FLOOR } from "../map/deckA";
+import ImageUnderlay from "./ImageUnderlay";
 
 // ---------------- Textured material helpers ----------------
 function useTiledTexture(url, repeat = [1, 1], rotation = 0, anisotropy = 8) {
@@ -204,6 +205,16 @@ export function MapEditorProvider({
             floors: [],
         };
     }, [initialRooms]);
+    // ADD THIS state (shared image/DXF underlay config)
+    const [underlay, setUnderlay] = useState({
+        enabled: false,
+        url: "/refs/plan.png", // use a PNG (or the UI will auto-swap .dxf->.png)
+        scale: 0.01,           // world units per pixel (try 0.005–0.02)
+        x: 0,
+        z: 0,
+        color: "#ffffff",
+        opacity: 0.6,
+    });
 
     const [rooms, setRooms] = useState(seed.rooms);
     const [floors, setFloors] = useState(seed.floors);
@@ -271,6 +282,8 @@ export function MapEditorProvider({
             setShowRoofs,
             worldGLB,
             setWorldGLB,
+            underlay,
+            setUnderlay,
 
             editorItems,
             setEditorItems,
@@ -496,7 +509,7 @@ export function MapEditor3D() {
         exportOBJRef,
         exportSplitRef,
     } = useMapEditor();
-
+    const { underlay /*, setUnderlay*/ } = useMapEditor();
     const snapV = (s, v) => (s > 0 ? Math.round(v / s) * s : v);
     const matRoom = useMemo(
         () => new THREE.MeshBasicMaterial({ color: 0x4ea1ff, transparent: true, opacity: 0.18 }),
@@ -751,7 +764,26 @@ export function MapEditor3D() {
     return (
         <>
             <DisableRotateWhenDrawing active={draw.active} />
-            {showGrid && <gridHelper args={[120, 120]} position={[0, 0.005, 0]} />}
+            {showGrid && (
+               <gridHelper
+                 args={[Math.max(FLOOR.w, FLOOR.d), Math.round(Math.max(FLOOR.w, FLOOR.d) / 2)]}
+                 position={[0, 0.005, 0]}
+              />
+           )}
+            {underlay.enabled && (
+                <ImageUnderlay
+                    url={
+                        underlay.url?.toLowerCase().endsWith(".dxf")
+                            ? underlay.url.replace(/\.dxf$/i, ".png")
+                            : (underlay.url || "/refs/plan.png")
+                    }
+                    scale={underlay.scale}
+                    x={underlay.x}
+                    z={underlay.z}
+                    opacity={underlay.opacity}
+                    tint={underlay.color}
+                />
+            )}
 
             {/* drag-rect capture plane */}
             <mesh
@@ -761,7 +793,7 @@ export function MapEditor3D() {
                 onPointerMove={onGroundMove}
                 onPointerUp={onGroundUp}
             >
-                <planeGeometry args={[200, 200]} />
+                <planeGeometry args={[FLOOR.w, FLOOR.d]} />
                 <meshBasicMaterial visible={false} />
             </mesh>
 
@@ -1164,7 +1196,11 @@ export function MapEditorUI() {
         exportOBJRef,
         exportSplitRef,
     } = useMapEditor();
+    // add this line:
+    const { underlay, setUnderlay } = useMapEditor();
 
+    // or duplicate simple controls here by lifting state to Provider later.
+    
     const r = rooms[selected];
     const f = selFloor != null ? floors[selFloor] : null;
 
@@ -1638,6 +1674,73 @@ export function MapEditorUI() {
                 <button onClick={() => fileInputRef.current?.click()}>Load JSON…</button>
                 <button onClick={loadDefault}>Load Default</button>
             </div>
+            {/* DXF / Image Underlay (shared with 3D layer) */}
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2b2b2b" }}>
+                <strong>DXF / Image Underlay</strong>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, marginTop: 6 }}>
+                    <label>Show</label>
+                    <input
+                        type="checkbox"
+                        checked={underlay.enabled}
+                        onChange={(e) => setUnderlay({ ...underlay, enabled: e.target.checked })}
+                    />
+
+                    <label>URL</label>
+                    <input
+                        value={underlay.url}
+                        onChange={(e) => setUnderlay({ ...underlay, url: e.target.value })}
+                        placeholder="/refs/plan.png"
+                    />
+
+                    <label>Scale</label>
+                    <input
+                        type="number"
+                        step={0.001}
+                        value={underlay.scale}
+                        onChange={(e) => setUnderlay({ ...underlay, scale: Math.max(0.0001, Number(e.target.value)) })}
+                    />
+
+                    <label>Pos X</label>
+                    <input
+                        type="number"
+                        step={0.1}
+                        value={underlay.x}
+                        onChange={(e) => setUnderlay({ ...underlay, x: Number(e.target.value) })}
+                    />
+
+                    <label>Pos Z</label>
+                    <input
+                        type="number"
+                        step={0.1}
+                        value={underlay.z}
+                        onChange={(e) => setUnderlay({ ...underlay, z: Number(e.target.value) })}
+                    />
+
+                    <label>Tint</label>
+                    <input
+                        type="color"
+                        value={underlay.color}
+                        onChange={(e) => setUnderlay({ ...underlay, color: e.target.value })}
+                    />
+
+                    <label>Opacity</label>
+                    <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={underlay.opacity}
+                        onChange={(e) => setUnderlay({ ...underlay, opacity: Number(e.target.value) })}
+                    />
+                </div>
+
+                <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                    Put your image at <code>/public/refs/plan.png</code> so it’s served at
+                    <code> http://localhost:5173/refs/plan.png</code>.
+                    If you enter a <code>.dxf</code> URL, it will auto-swap to <code>.png</code>.
+                </div>
+            </div>
+
 
             {/* room list */}
             <div
