@@ -135,6 +135,7 @@ export default function RolePanel({ style, floating = false }) {
                 {baseRole === "Officer" && <OfficerScanPanel />}
             </div>
         </section>
+        </section>
     );
 }
 

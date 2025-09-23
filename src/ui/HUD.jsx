@@ -309,7 +309,7 @@ export default function HUD({ game = {} }) {
             </div>
 
             {/* TOP-RIGHT (fixed): MetersPanel */}
-            <div style={{ position: "fixed", top: 40, right: 16, pointerEvents: "auto", zIndex: 52 }}>
+            <div style={{ position: "fixed", top: 60, right: 16, pointerEvents: "auto", zIndex: 52 }}>
                 <MetersPanel life={lifeVal} energy={energyVal} oxygen={oxygenVal} />
             </div>
 
