@@ -3,8 +3,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { myPlayer } from "playroomkit";
 import { getMyPos, setMyPos } from "../network/playroom";
-import { FLOOR, WALL_THICKNESS, wallAABBs, ROOMS, roomCenter } from "../map/deckA";
 import { getStaticAABBs } from "../systems/collision";
+import { FLOOR, WALL_THICKNESS, wallAABBs } from "../map/deckA";
 
 const SPEED = 4;
 const PLAYER_RADIUS = 0.35;
@@ -12,13 +12,13 @@ const GRAVITY = 16;
 const JUMP_V = 5.2;
 const GROUND_Y = 0;
 
-
-
 function resolveCollisions(next, boxes) {
     for (let pass = 0; pass < 2; pass++) {
         for (const b of boxes) {
-            const insideX = next.x > (b.minX - PLAYER_RADIUS) && next.x < (b.maxX + PLAYER_RADIUS);
-            const insideZ = next.z > (b.minZ - PLAYER_RADIUS) && next.z < (b.maxZ + PLAYER_RADIUS);
+            const insideX =
+                next.x > b.minX - PLAYER_RADIUS && next.x < b.maxX + PLAYER_RADIUS;
+            const insideZ =
+                next.z > b.minZ - PLAYER_RADIUS && next.z < b.maxZ + PLAYER_RADIUS;
             if (!(insideX && insideZ)) continue;
 
             const dxLeft = next.x - (b.minX - PLAYER_RADIUS);
@@ -30,9 +30,11 @@ function resolveCollisions(next, boxes) {
             const minZPen = Math.min(dzTop, dzBottom);
 
             if (minXPen < minZPen) {
-                next.x = dxLeft < dxRight ? (b.minX - PLAYER_RADIUS) : (b.maxX + PLAYER_RADIUS);
+                next.x =
+                    dxLeft < dxRight ? b.minX - PLAYER_RADIUS : b.maxX + PLAYER_RADIUS;
             } else {
-                next.z = dzTop < dzBottom ? (b.minZ - PLAYER_RADIUS) : (b.maxZ + PLAYER_RADIUS);
+                next.z =
+                    dzTop < dzBottom ? b.minZ - PLAYER_RADIUS : b.maxZ + PLAYER_RADIUS;
             }
         }
     }
@@ -71,18 +73,29 @@ function LocalControllerInner() {
             if (e.code === "Space" && groundedRef.current) {
                 vyRef.current = JUMP_V;
                 groundedRef.current = false;
+                // prevent page scroll on space
+                e.preventDefault?.();
             }
         };
         const up = (e) => (keys.current[e.key.toLowerCase()] = false);
-        const md = (e) => { if (e.button === 2) { dragging.current = true; lastX.current = e.clientX; } };
-        const mu = (e) => { if (e.button === 2) dragging.current = false; };
+        const md = (e) => {
+            if (e.button === 2) {
+                dragging.current = true;
+                lastX.current = e.clientX;
+            }
+        };
+        const mu = (e) => {
+            if (e.button === 2) dragging.current = false;
+        };
         const mm = (e) => {
             if (!dragging.current) return;
             const dx = e.clientX - lastX.current;
             lastX.current = e.clientX;
             yawRef.current -= dx * 0.003;
         };
-        const cm = (e) => { if (dragging.current) e.preventDefault(); };
+        const cm = (e) => {
+            if (dragging.current) e.preventDefault();
+        };
 
         window.addEventListener("keydown", down);
         window.addEventListener("keyup", up);
@@ -105,13 +118,49 @@ function LocalControllerInner() {
 
         const p = myPlayer();
 
+        // --- Summon-to handler (client-side teleport) ---
+        try {
+            const req = p?.getState?.("summon_to");
+            if (req && typeof req.x === "number" && typeof req.z === "number") {
+                const target = {
+                    x: req.x,
+                    y: Number.isFinite(req.y) ? req.y : 1.2,
+                    z: req.z,
+                };
+
+                // Snap locally
+                setPos(target);
+                setMyPos(target.x, target.y, target.z);
+                publishPlayerPos(target);
+
+                // Tag world state (room + lockdown flags) — only use room from request
+                if (req.room) p?.setState?.("room", req.room, true);
+
+                if (req.lock) {
+                    p?.setState?.("in_lockdown", true, true);
+                    p?.setState?.("locked", true, true);
+                }
+
+                // Clear request so it runs once
+                p?.setState?.("summon_to", null, true);
+
+                // Reset motion for a clean stop at the destination
+                p?.setState?.("yaw", yawRef.current, false);
+                p?.setState?.("spd", 0, false);
+                p?.setState?.("air", false, false);
+                return; // skip rest of this frame to avoid overwriting
+            }
+        } catch { }
+
         // Authoritative teleport acceptance:
         // If the network pos is far from local pos (e.g., team spawn), snap locally once.
         const net = getMyPos();
         if (net) {
-            const dx = net.x - pos.x, dz = net.z - pos.z;
+            const dx = net.x - pos.x,
+                dz = net.z - pos.z;
             const horizSq = dx * dx + dz * dz;
-            if (horizSq > 1.0) { // > ~1m horizontal → treat as teleport
+            if (horizSq > 1.0) {
+                // > ~1m horizontal → treat as teleport
                 setPos(net);
                 setMyPos(net.x, net.y, net.z);
                 publishPlayerPos(net);
@@ -124,18 +173,27 @@ function LocalControllerInner() {
         }
 
         // Dynamic colliders: static walls + extra boxes (doors, etc.)
-        const doorStore = (typeof window !== "undefined" && window.__doorAABBs) ? window.__doorAABBs : null;
+        const doorStore =
+            typeof window !== "undefined" && window.__doorAABBs
+                ? window.__doorAABBs
+                : null;
         const dynamicDoorAABBs = doorStore ? Array.from(doorStore.values()) : [];
         const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
-
-        
 
         // yaw rotation keys
         if (keys.current["q"]) yawRef.current += 1.5 * dt;
         if (keys.current["e"]) yawRef.current -= 1.5 * dt;
 
-        const forward = new THREE.Vector3(Math.sin(yawRef.current), 0, Math.cos(yawRef.current));
-        const right = new THREE.Vector3(Math.cos(yawRef.current), 0, -Math.sin(yawRef.current));
+        const forward = new THREE.Vector3(
+            Math.sin(yawRef.current),
+            0,
+            Math.cos(yawRef.current)
+        );
+        const right = new THREE.Vector3(
+            Math.cos(yawRef.current),
+            0,
+            -Math.sin(yawRef.current)
+        );
 
         let move = new THREE.Vector3();
         if (keys.current["w"]) move.add(forward);
@@ -160,7 +218,8 @@ function LocalControllerInner() {
 
             // smooth face-the-move
             const targetYaw = Math.atan2(move.x, move.z);
-            const a = yawRef.current, b = targetYaw;
+            const a = yawRef.current,
+                b = targetYaw;
             const shortest = Math.atan2(Math.sin(b - a), Math.cos(b - a));
             yawRef.current = a + shortest * 0.25;
         }

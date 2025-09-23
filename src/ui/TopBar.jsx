@@ -2,16 +2,16 @@
 import React, { useEffect, useState, useRef } from "react";
 import { myPlayer } from "playroomkit";
 import { useGameClock } from "../systems/dayNightClock";
+import "./ui.css";
 
 export function TopBar({ phase, timer, players, events = [] }) {
-    // Game-clock state
+    // --- Game clock state ---
     const format = useGameClock((s) => s.format);
     const phaseFn = useGameClock((s) => s.phase);
     const pct = useGameClock((s) => s.phaseProgress);
     const dayNumber = useGameClock((s) => s.dayNumber);
     const maxDays = useGameClock((s) => s.maxDays);
 
-    // Live UI clock + day/night chip
     const [clock, setClock] = useState(format());
     const [ph, setPh] = useState(phaseFn());
     useEffect(() => {
@@ -48,6 +48,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
     // ---- Votes detection ----
     const isVotesLine = (s) => /^Votes:\s*/i.test(String(s));
     const list = Array.isArray(events) ? events : [];
+
     const findLatestVotes = (arr) => {
         for (let i = arr.length - 1; i >= 0; i--) {
             const s = String(arr[i]);
@@ -58,7 +59,9 @@ export function TopBar({ phase, timer, players, events = [] }) {
     const { index: latestVotesIndex, line: latestVotesLine } = findLatestVotes(list);
 
     const eventsRef = useRef(list);
-    useEffect(() => { eventsRef.current = Array.isArray(events) ? events : []; }, [events]);
+    useEffect(() => {
+        eventsRef.current = Array.isArray(events) ? events : [];
+    }, [events]);
 
     const [votesFlash, setVotesFlash] = useState(null);
     const hideTimerRef = useRef(null);
@@ -73,9 +76,11 @@ export function TopBar({ phase, timer, players, events = [] }) {
         hideTimerRef.current = setTimeout(() => setVotesFlash(null), 20000);
     }, [latestVotesIndex, latestVotesLine]);
 
+    // post-meeting poll for late "Votes:" line
     const prevPhaseRef = useRef(phase);
     useEffect(() => {
         const prev = prevPhaseRef.current;
+        prevPhaseRef.current = phase;
         if (prev === "meeting" && phase !== "meeting") {
             let tries = 0;
             const id = setInterval(() => {
@@ -91,12 +96,14 @@ export function TopBar({ phase, timer, players, events = [] }) {
             }, 100);
             return () => clearInterval(id);
         }
-        prevPhaseRef.current = phase;
     }, [phase]);
 
-    useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); }, []);
+    useEffect(() => {
+        return () => {
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        };
+    }, []);
 
-    // Parse "Votes: Alice: 3 | Bob: 2 | ..."
     const parsedRows = (() => {
         if (!votesFlash) return [];
         const raw = String(votesFlash).replace(/^Votes:\s*/i, "");
@@ -117,7 +124,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
             ? String(list[list.length - 1])
             : "No events yet";
 
-    // ---- Shared “illustrated glass” tokens (fallbacks if CSS vars aren’t global) ----
+    // shared tokens
     const INK = "var(--bp-ink, #07334a)";
     const BLUE = "var(--bp-blue, #0f4f68)";
     const ORANGE = "var(--bp-orange, #ffb340)";
@@ -125,44 +132,40 @@ export function TopBar({ phase, timer, players, events = [] }) {
 
     return (
         <div
+            className="topbar"
             style={{
                 position: "relative",
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
-                padding: "8px 14px 12px",
+                gap: 10,
+                padding: "4px 8px 8px",
                 color: TEXT,
                 fontFamily:
                     'ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, Arial, sans-serif',
-
-                /* glassy top bar shell */
-                background: "linear-gradient(180deg, rgba(15,79,104,0.50), rgba(15,79,104,0.35))",
-                border: `4px solid ${INK}`,
-                borderRadius: 16,
-                backdropFilter: "blur(8px)",
-                WebkitBackdropFilter: "blur(8px)",
-                boxShadow: "0 8px 24px rgba(0,0,0,.25), inset 0 0 0 4px rgba(16,95,126,.6)",
+                // removed background/border/blur/shadow per request
             }}
         >
             {/* Left cluster */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <strong style={{ letterSpacing: ".03em" }}>Planet A — Prototype</strong>
-                <span style={{ opacity: 0.9 }}>| Day: <b>{dayNumber}/{maxDays}</b></span>
-                <span style={{ opacity: 0.9 }}>| Phase: <b>{String(phase)}</b></span>
+                <span className="tb-dim">
+                    | Day: <b>{dayNumber}/{maxDays}</b>
+                </span>
+                <span className="tb-dim">
+                    | Phase: <b>{String(phase)}</b>
+                </span>
 
-                {/* Day/Night chip (glass pill) */}
+                {/* Day/Night chip (keeps tiny pill, smaller type) */}
                 <span
+                    className="tb-chip"
                     style={{
                         marginLeft: 6,
-                        padding: "2px 10px",
-                        border: `3px solid ${INK}`,
-                        borderRadius: 999,
+                        border: `2px solid ${INK}`,
                         background:
                             ph === "day"
-                                ? "linear-gradient(180deg, rgba(255,230,160,.35), rgba(255,230,160,.18))"
-                                : "linear-gradient(180deg, rgba(140,180,255,.35), rgba(140,180,255,.18))",
-                        fontWeight: 900,
-                        fontSize: 12,
+                                ? "transparent"
+                                : "transparent",
+                        fontWeight: 800,
                         letterSpacing: ".04em",
                     }}
                 >
@@ -170,36 +173,33 @@ export function TopBar({ phase, timer, players, events = [] }) {
                 </span>
 
                 {/* Clock */}
-                <span style={{ opacity: 0.9 }}>
-                    | Clock: <b style={{ letterSpacing: 1 }}>{clock}</b>
+                <span className="tb-dim">
+                    | Clock: <b style={{ letterSpacing: 0.5 }}>{clock}</b>
                 </span>
             </div>
 
-            {/* Vote Results (glass chip) */}
+            {/* Vote Results (compact) */}
             {votesFlash && (
                 <div
+                    className="tb-chip"
                     style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
+                        gap: 8,
                         marginLeft: 8,
-                        padding: "4px 10px",
-                        border: `3px solid ${INK}`,
-                        borderRadius: 12,
-                        background: "linear-gradient(180deg, rgba(120,160,255,0.28), rgba(120,160,255,0.18))",
-                        fontSize: 12,
-                        maxWidth: 560,
+                        border: `2px solid ${INK}`,
+                        maxWidth: 520,
                         overflow: "hidden",
                         whiteSpace: "nowrap",
                         textOverflow: "ellipsis",
                     }}
                     title={votesFlash}
                 >
-                    <strong style={{ opacity: 0.95 }}>Vote Results:</strong>
-                    <div style={{ display: "flex", gap: 10, overflow: "hidden" }}>
+                    <strong>Vote Results:</strong>
+                    <div style={{ display: "flex", gap: 8, overflow: "hidden" }}>
                         {parsedRows.length
                             ? parsedRows.map((r) => (
-                                <span key={r.id} style={{ fontWeight: 900 }}>
+                                <span key={r.id} style={{ fontWeight: 800 }}>
                                     {r.name}: {r.votes}
                                 </span>
                             ))
@@ -208,16 +208,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
                     <button
                         onClick={() => setVotesFlash(null)}
                         title="Hide"
-                        style={{
-                            marginLeft: 8,
-                            background: "rgba(255,255,255,0.10)",
-                            border: `2px solid ${INK}`,
-                            color: TEXT,
-                            padding: "2px 8px",
-                            borderRadius: 8,
-                            fontSize: 11,
-                            cursor: "pointer",
-                        }}
+                        className="tb-btn"
                     >
                         ×
                     </button>
@@ -233,85 +224,67 @@ export function TopBar({ phase, timer, players, events = [] }) {
                     transform: "translateX(-50%)",
                     display: "flex",
                     alignItems: "center",
-                    gap: 8,
+                    gap: 6,
                 }}
             >
                 <button
                     onClick={() => setOpen((s) => !s)}
                     title="Show recent events"
+                    className="tb-btn"
                     style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
-                        background: "linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06))",
-                        border: `3px solid ${INK}`,
-                        color: TEXT,
-                        padding: "4px 12px",
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 900,
+                        gap: 6,
+                        border: `2px solid ${INK}`,
+                        fontWeight: 800,
                         letterSpacing: ".03em",
-                        cursor: "pointer",
                         whiteSpace: "nowrap",
                     }}
                 >
                     Events
-                    <span
-                        style={{
-                            background: "rgba(255,255,255,0.22)",
-                            borderRadius: 999,
-                            padding: "0 8px",
-                            fontWeight: 900,
-                            fontVariantNumeric: "tabular-nums",
-                        }}
-                    >
+                    <span className="tb-badge">
                         {events?.length ?? 0}
                     </span>
                 </button>
 
-                {/* Latest preview (glass outline when it's a Votes line) */}
+                {/* Latest preview */}
                 <div
+                    className="tb-dim"
                     style={{
-                        maxWidth: 520,
+                        maxWidth: 480,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
-                        opacity: 0.9,
-                        fontSize: 12,
-                        padding: isVotesLine(latestPreview) ? "2px 8px" : 0,
+                        padding: isVotesLine(latestPreview) ? "1px 6px" : 0,
                         border: isVotesLine(latestPreview) ? `2px solid ${INK}` : "none",
-                        borderRadius: isVotesLine(latestPreview) ? 10 : 0,
-                        background: isVotesLine(latestPreview)
-                            ? "linear-gradient(180deg, rgba(120,160,255,0.20), rgba(120,160,255,0.10))"
-                            : "transparent",
+                        borderRadius: isVotesLine(latestPreview) ? 8 : 0,
                     }}
                     title={latestPreview}
                 >
                     {latestPreview}
                 </div>
 
-                {/* Popover (glass card) */}
+                {/* Popover */}
                 {open && (
                     <div
                         style={{
                             position: "absolute",
-                            top: "calc(100% + 10px)",
+                            top: "calc(100% + 8px)",
                             left: "50%",
                             transform: "translateX(-50%)",
-                            width: 520,
-                            maxHeight: 240,
+                            width: 480,
+                            maxHeight: 220,
                             overflow: "auto",
-                            background: "linear-gradient(180deg, rgba(15,79,104,0.50), rgba(15,79,104,0.35))",
-                            border: `4px solid ${INK}`,
-                            borderRadius: 16,
-                            boxShadow: "0 8px 24px rgba(0,0,0,0.35), inset 0 0 0 4px rgba(16,95,126,.6)",
-                            backdropFilter: "blur(8px)",
-                            WebkitBackdropFilter: "blur(8px)",
-                            padding: 10,
+                            background: "transparent",
+                            border: `2px solid ${INK}`,
+                            borderRadius: 12,
+                            padding: 8,
                             zIndex: 20,
                         }}
                     >
-                        <div style={{ opacity: 0.75, marginBottom: 6, fontWeight: 900, letterSpacing: ".03em" }}>Events</div>
+                        <div className="tb-dim" style={{ marginBottom: 6, fontWeight: 800, letterSpacing: ".03em" }}>
+                            Events
+                        </div>
                         <div style={{ display: "grid", gap: 6 }}>
                             {(Array.isArray(events) ? events : [])
                                 .slice()
@@ -323,13 +296,9 @@ export function TopBar({ phase, timer, players, events = [] }) {
                                         <div
                                             key={i}
                                             style={{
-                                                fontSize: 12,
                                                 lineHeight: 1.3,
-                                                padding: votes ? "4px 8px" : "2px 0",
-                                                borderRadius: votes ? 8 : 0,
-                                                background: votes
-                                                    ? "linear-gradient(180deg, rgba(120,160,255,0.20), rgba(120,160,255,0.10))"
-                                                    : "transparent",
+                                                padding: votes ? "3px 6px" : "1px 0",
+                                                borderRadius: votes ? 6 : 0,
                                                 border: votes ? `2px solid ${INK}` : "none",
                                                 fontFamily: votes
                                                     ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace'
@@ -348,46 +317,43 @@ export function TopBar({ phase, timer, players, events = [] }) {
             {/* Meeting countdown chip */}
             {isMeeting && (
                 <span
+                    className="tb-chip"
                     style={{
                         marginLeft: 8,
-                        padding: "2px 10px",
-                        border: `3px solid ${INK}`,
-                        borderRadius: 999,
-                        background: "linear-gradient(180deg, rgba(255,120,120,.30), rgba(255,120,120,.18))",
-                        fontWeight: 900,
-                        fontSize: 12,
+                        border: `2px solid ${INK}`,
+                        fontWeight: 800,
                         letterSpacing: ".03em",
                     }}
                 >
-                    MEETING{" "}
-                    <span style={{ marginLeft: 6, fontVariantNumeric: "tabular-nums" }}>
-                        {mm}:{ss}
-                    </span>
+                    MEETING <span style={{ marginLeft: 6, fontVariantNumeric: "tabular-nums" }}>{mm}:{ss}</span>
                 </span>
             )}
 
             {/* Right cluster */}
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-                <span>Alive: <b>{players}</b></span>
-                <span style={{ opacity: 0.8 }}>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="tb-dim">
+                    Alive: <b>{players}</b>
+                </span>
+                <span className="tb-dim">
                     you are: {myPlayer()?.getProfile?.().name || "Anon"}
                 </span>
             </div>
 
-            {/* Phase progress (thin inked track) */}
+            {/* Phase progress — slimmer */}
             <div
                 style={{
                     position: "absolute",
-                    left: 8,
-                    right: 8,
-                    bottom: 6,
-                    height: 6,
-                    borderRadius: 6,
-                    border: `2px solid ${INK}`,
-                    background: "rgba(255,255,255,0.12)",
+                    left: 6,
+                    right: 6,
+                    bottom: 4,
+                    height: 6,            // was 4
+                    borderRadius: 6,      // was 4
+                    border: `1px solid ${INK}`,
+                    background: "transparent",
                     overflow: "hidden",
                 }}
             >
+
                 <div
                     style={{
                         height: "100%",

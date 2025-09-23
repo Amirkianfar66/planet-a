@@ -151,19 +151,46 @@ export function useMeetingVoteResolution({
         if (matchPhase !== "meeting") return;
         if (Number(timer) > 0) return;
 
-        const aliveIds = new Set(players.filter((p) => !dead.includes(p.id)).map((p) => p.id));
-        const counts = new Map();
-        for (const p of players) {
-            if (!aliveIds.has(p.id)) continue;
-            const v = String(p.getState("vote") || "");
-            if (!v || v === "skip") continue;
+        // Alive players
+        const alivePlayers = players.filter(p => !dead.includes(p.id));
+        const aliveIds = new Set(alivePlayers.map(p => p.id));
+
+        // Names map (for pretty output)
+        const nameOf = (id) => {
+            const p = players.find(x => x.id === id);
+            return p ? (p.getProfile()?.name || ("Player " + p.id.slice(0, 4))) : "Player";
+        };
+
+        // Tally votes
+        const counts = new Map();  // id -> votes
+        let skipCount = 0;
+        for (const p of alivePlayers) {
+            const v = String(p.getState?.("vote") || "");
+            if (!v) continue;
+            if (v === "skip") { skipCount++; continue; }
+            if (!aliveIds.has(v)) continue;          // ignore votes on dead/unknown
             counts.set(v, (counts.get(v) || 0) + 1);
         }
 
+        // ---- NEW: emit a "Votes:" summary line for the TopBar ----
+        // Build rows "Name: N", sorted by votes desc.
+        const rows = [...counts.entries()]
+            .map(([id, n]) => ({ name: nameOf(id), n }))
+            .sort((a, b) => b.n - a.n)
+            .map(r => `${r.name}: ${r.n}`);
+
+        if (skipCount > 0) rows.push(`Skip: ${skipCount}`);
+        if (rows.length) {
+            hostAppendEvent(setEvents, `Votes: ${rows.join(" | ")}`);
+        } else {
+            hostAppendEvent(setEvents, "Votes: (no votes cast)");
+        }
+
+        // Resolve winner (unique top, otherwise tie/no-eject)
         let target = "", top = 0;
         for (const [id, c] of counts.entries()) {
             if (c > top) { top = c; target = id; }
-            else if (c === top) { target = ""; }
+            else if (c === top) { target = ""; }     // tie => no unique target
         }
 
         if (target && aliveIds.has(target)) {
@@ -175,8 +202,13 @@ export function useMeetingVoteResolution({
         } else {
             hostAppendEvent(setEvents, "Vote ended: no ejection.");
         }
+
+        // (Optional) clear votes for next round:
+        // for (const p of players) p?.setState?.("vote", "", true);
+
     }, [ready, matchPhase, timer, players, dead, setDead, setEvents]);
 }
+
 
 // ------------------- 6) Meters init & daily decay -------------------
 /** Initialize meters to 100% on Day 1, then halve Energy at the start of each new day (host-only). */

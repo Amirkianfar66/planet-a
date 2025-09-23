@@ -1,4 +1,4 @@
-/* ===========================
+Ôªø/* ===========================
    Base UI styles
    =========================== */
 
@@ -235,7 +235,7 @@
 }
 
 /* ===========================
-   Illustrated ìBackpackî skin
+   Illustrated ‚ÄúBackpack‚Äù skin
    =========================== */
 .bp--illustrated {
     --bp-ink: #07334a;
@@ -350,7 +350,7 @@
         box-shadow: inset 0 -4px 0 var(--bp-ink), inset 0 0 0 6px #0f5f7e;
     }
 
-    /* 2◊4 grid + uniform tiles */
+    /* 2√ó4 grid + uniform tiles */
     .bp--illustrated .bp__grid {
         display: grid;
         grid-template-columns: repeat(4,minmax(0,1fr));
@@ -361,7 +361,7 @@
         margin-bottom: 12px;
     }
 
-    /* Item tiles ó transparent (no border/shadow/fill) */
+    /* Item tiles ‚Äî transparent (no border/shadow/fill) */
     .bp--illustrated .bp-item {
         position: relative;
         display: grid;
@@ -404,7 +404,7 @@
         display: none !important;
     }
 
-    /* Qty pill ó flat, no border/shadow */
+    /* Qty pill ‚Äî flat, no border/shadow */
     .bp--illustrated .bp-item__qty {
         position: absolute;
         top: 8px;
@@ -807,7 +807,7 @@
 .rp--half {
     --rp-scale: .5;
 }
-/* match other panelsí half size */
+/* match other panels‚Äô half size */
 
 .rp--illustrated .rp-card {
     background: linear-gradient(180deg, rgba(15,79,104,.55), rgba(15,79,104,.35));
@@ -943,3 +943,53 @@
             opacity: .6;
             cursor: not-allowed;
         }
+/* ===== TopBar (solid, matches panels) ===== */
+.topbar {
+    /* match panels */
+    background: var(--ui-card, #0e1b2a) !important; /* solid fill */
+    border: 1px solid var(--ui-border, rgba(255,255,255,.08)) !important;
+    /* remove glass */
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    border-radius: 12px;
+    /* sizing (your ‚Äúin-between‚Äù scale) */
+    font-size: 13.5px;
+    line-height: 1.3;
+    padding: 6px 10px 10px;
+}
+
+    /* keep the rest as before */
+    .topbar .tb-dim {
+        opacity: 0.9;
+    }
+
+    .topbar .tb-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: transparent;
+        font-size: 12.5px;
+    }
+
+    .topbar .tb-btn {
+        background: transparent;
+        color: var(--bp-text, #e8f1ff);
+        border-radius: 10px;
+        padding: 3px 10px;
+        font-size: 12.5px;
+        cursor: pointer;
+    }
+
+    .topbar .tb-badge {
+        display: inline-block;
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        border: 1px solid var(--bp-ink, #07334a);
+        background: transparent;
+        font-size: 12.5px;
+    }

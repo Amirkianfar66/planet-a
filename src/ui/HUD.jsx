@@ -1,11 +1,11 @@
 // src/ui/HUD.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
-import { MetersPanel, RolePanel } from ".";
+import { MetersPanel, RolePanel, VotePanel, VoteResultsPanel } from ".";
 import TeamChatPanel from "./TeamChatPanel.jsx";
 import BackpackPanel from "./BackpackPanel.jsx";
 import { useGameState } from "../game/GameStateProvider";
-import { requestAction as prRequestAction } from "../network/playroom";
+import { requestAction as prRequestAction, usePhase, useEvents } from "../network/playroom";
 import { getAbilitiesForRole } from "../game/roleAbilities";
 import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
@@ -127,7 +127,9 @@ function AbilityBar({ role, onUse, disabled = false, abovePx = 360 }) {
  */
 export default function HUD({ game = {} }) {
     const { oxygen = 100, power = 100, myRole = "Unassigned" } = useGameState();
-
+      // 🔗 bring phase & events from the synced store
+    const [phase] = usePhase();          // e.g., "day" | "night" | "meeting" | etc.
+    const [events] = useEvents();        // array of event strings (includes "Votes: ...")
     const me = myPlayer();
     const lifeVal = Number(me?.getState?.("life") ?? 100);
     const amDead = Boolean(me?.getState?.("dead"));
@@ -300,6 +302,11 @@ export default function HUD({ game = {} }) {
                         <RolePanel onPingObjective={() => requestAction("pingObjective", "")} />
                     </div>
                 </div>
+
+                {/* Voting results overlay (auto-opens when a "Votes:" line appears) */}
+                            <VoteResultsPanel phase={phase} events={events} />
+
+
 
                 {/* CENTER column */}
                 <div />

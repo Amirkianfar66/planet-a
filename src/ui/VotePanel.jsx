@@ -5,15 +5,24 @@ import { useGameState } from "../game/GameStateProvider";
 
 export function VotePanel() {
     const { dead = [], phase, timer } = useGameState();
-    const players = usePlayersList(); // presence-based; doesn't add 'state' listeners
+    const players = usePlayersList(); // presence-based
 
-    // Only show during meeting
-    if (phase !== "meeting") return null;
-
-    const alive = useMemo(
-        () => players.filter((p) => !dead.includes(p.id)),
-        [players, dead]
-    );
+    // Candidates = alive and NOT in lockdown
+    const candidates = useMemo(() => {
+        return players.filter((p) => {
+            if (dead.includes(p.id)) return false;             // excluded by server list
+            try {
+                const isDead = !!p.getState?.("dead");
+                const lockedNow =
+                    !!p.getState?.("inLockdown") ||                // arrest flow
+                    !!p.getState?.("in_lockdown") ||               // vote-summon flow
+                    !!p.getState?.("locked");                      // extra flag in vote-summon
+                return !isDead && !lockedNow;
+            } catch {
+                return true;
+            }
+        });
+    }, [players, dead]);
 
     const me = myPlayer();
     const myVote = String(me?.getState?.("vote") || "");
@@ -22,6 +31,7 @@ export function VotePanel() {
     const mt = Number(timer ?? 0);
     const mm = String(Math.floor(mt / 60)).padStart(2, "0");
     const ss = String(mt % 60).padStart(2, "0");
+    if (phase !== "meeting") return null;
 
     return (
         <div
@@ -29,7 +39,7 @@ export function VotePanel() {
                 position: "fixed",
                 inset: 0,
                 display: "grid",
-                placeItems: "center",
+                placeItems: "right",
                 background: "rgba(0,0,0,0.5)",
                 color: "white",
                 fontFamily: "ui-sans-serif",
@@ -39,13 +49,11 @@ export function VotePanel() {
             <div style={{ background: "#141922", padding: 16, borderRadius: 10, width: 420 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                     <h3 style={{ margin: 0 }}>Meeting — Vote</h3>
-                    <small style={{ opacity: 0.7 }}>
-                        {mm}:{ss}
-                    </small>
+                    <small style={{ opacity: 0.7 }}>{mm}:{ss}</small>
                 </div>
 
                 <div style={{ display: "grid", gap: 8, maxHeight: 320, overflow: "auto" }}>
-                    {alive.map((p) => {
+                    {candidates.map((p) => {
                         const name = p.getProfile().name || "Player " + p.id.slice(0, 4);
                         const selected = myVote === p.id;
                         return (
