@@ -948,26 +948,75 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
-                        // eat food / poison
-                        if (kind === "eat" && (it.type === "food" || it.type === "poison_food")) {
-                            if (it.type === "poison_food") {
-                                // apply damage on eat (poison)
-                                const curLife = Number(p.getState("life") ?? 100);
-                                const nextLife = Math.max(0, curLife - 35);
-                                p.setState("life", nextLife, true);
-                                if (nextLife <= 0) p.setState("dead", true, true);
-                            } else {
-                                // normal food → +25 energy (cap 100)
-                                const e = Number(p.getState?.("energy") ?? 100);
-                                const nextE = Math.min(100, e + 25);
-                                p.setState?.("energy", nextE, true);
+                        // eat food / poison  (supports held world item OR stack entry without id)
+                        if (kind === "eat") {
+                            const applyEatEffect = (player, type) => {
+                                if (type === "poison_food") {
+                                    const curLife = Number(player.getState("life") ?? 100);
+                                    const nextLife = Math.max(0, curLife - 35);
+                                    player.setState("life", nextLife, true);
+                                    if (nextLife <= 0) player.setState("dead", true, true);
+                                } else {
+                                    const e = Number(player.getState?.("energy") ?? 100);
+                                    const nextE = Math.min(100, e + 25);
+                                    player.setState?.("energy", nextE, true);
+                                }
+                            };
+
+                            const consumeOneFromStack = (bp, type) => {
+                                const idx = Array.isArray(bp) ? bp.findIndex((b) => !b.id && b.type === type) : -1;
+                                if (idx === -1) return null; // nothing consumed
+                                const entry = bp[idx];
+                                const qty = Number(entry?.qty || 1);
+                                if (qty > 1) {
+                                    const next = [...bp];
+                                    next[idx] = { ...entry, qty: qty - 1 };
+                                    return next;
+                                }
+                                // remove the stack row
+                                return bp.filter((_, i) => i !== idx);
+                            };
+
+                            // 1) Prefer held world item (old behavior)
+                            if (it && it.holder === p.id && (it.type === "food" || it.type === "poison_food")) {
+                                applyEatEffect(p, it.type);
+
+                                // consume the world item
+                                setItems((prev) =>
+                                    prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j)),
+                                    true
+                                );
+                                setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+
+                                processed.current.set(p.id, reqId);
+                                continue;
                             }
 
-                            // consume the item (unchanged)
-                            setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
-                            setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                            if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                            // 2) Fallback: consume from backpack stack (no id) → this fixes FoodSupplier bonus
+                            {
+                                const bp = getBackpack(p);
+                                // Try normal food first
+                                let nextBp = consumeOneFromStack(bp, "food");
+                                let ateType = null;
 
+                                // If no normal food, allow poison stack if you want poison to be edible from stack too.
+                                if (!nextBp) {
+                                    nextBp = consumeOneFromStack(bp, "poison_food");
+                                    if (nextBp) ateType = "poison_food";
+                                } else {
+                                    ateType = "food";
+                                }
+
+                                if (nextBp) {
+                                    applyEatEffect(p, ateType || "food");
+                                    setBackpack(p, nextBp);
+                                    processed.current.set(p.id, reqId);
+                                    continue;
+                                }
+                            }
+
+                            // Nothing to eat found; just finish the request
                             processed.current.set(p.id, reqId);
                             continue;
                         }
