@@ -3,6 +3,8 @@
 // Optional: central colors you can re-use in UI (e.g., Backpack icons)
 export const ITEM_TYPES = {
     food: { label: "Food", color: "#22c55e" }, // green
+    poison_food: { label: "Poisoned Food", color: "#84cc16" }, // lime-ish
+
     fuel: { label: "Fuel", color: "#a855f7" }, // purple
     protection: { label: "Protection", color: "#f59e0b" }, // orange
     cure_red: { label: "Cure (Red)", color: "#ef4444" }, // red
@@ -20,6 +22,7 @@ export const INITIAL_ITEMS = [
     { id: "food1", type: "food", name: "Ration Pack", x: -6, z: -2, color: ITEM_TYPES.food.color },
     { id: "food2", type: "food", name: "Ration Pack", x: -4, z: 1, color: ITEM_TYPES.food.color },
     { id: "food3", type: "food", name: "Ration Pack", x: -5, z: -0.5, color: ITEM_TYPES.food.color },
+    { id: "pfood1", type: "poison_food", name: "Ration Pack", x: -7, z: -1, color: ITEM_TYPES.poison_food.color },
 
     // --- FUEL ×3 ---
     { id: "fuel1", type: "fuel", name: "Fuel Rod", x: -1, z: 5, color: ITEM_TYPES.fuel.color },

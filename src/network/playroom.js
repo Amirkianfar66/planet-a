@@ -8,6 +8,7 @@ import {
 } from "playroomkit";
 import { GUN_OFFSETS } from "../game/gunOffsets";
 import { randomPointInRoom, roomCenter } from "../map/deckA";
+import COOLDOWN from "../data/cooldowns";
 /* -------------------- Room code helpers -------------------- */
 export async function ensureRoomCodeInUrl(retries = 120) {
     if (typeof window === "undefined") return undefined;
@@ -212,15 +213,19 @@ function stopShootTimer(playerId) {
 export function hostHandleShoot({ shooter, payload, setEvents, players }) {
     if (!isGuard(shooter)) return;
 
-    const SHOOT_DURATION = 1000;
-    const FIRE_PERIOD = 120;
+    const SHOOT_DURATION = COOLDOWN.ABILITIES.GUARD_SHOOT.SERVER_BURST_MS;
+    const FIRE_PERIOD = COOLDOWN.ABILITIES.GUARD_SHOOT.FIRE_PERIOD_MS;
     const RANGE = 10;
     const now = nowMs();
 
     const curUntil = Number(shooter.getState("shootingUntil") || 0);
     const newUntil = Math.max(curUntil, now + SHOOT_DURATION);
     shooter.setState("shootingUntil", newUntil, true);
-    shooter.setState(ABILITY_CD_KEY("shoot"), newUntil + 500, true);
+    shooter.setState(
+          ABILITY_CD_KEY("shoot"),
+          newUntil + COOLDOWN.ABILITIES.GUARD_SHOOT.SERVER_LOCK_AFT_BURST_MS,
+            true
+         );
 
     const fireOnce = () => {
         const px = Number(shooter.getState("x") || 0);
@@ -428,8 +433,8 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
     }
 
     // Start cooldown (4 minutes) + tiny FX flag
-    biter.setState(cdKey, now + 240000, true); // 4 min
-    biter.setState("bitingUntil", now + 600, true);
+    biter.setState(cdKey, now + COOLDOWN.ABILITIES.INFECTED_BITE.SERVER_MS, true);
+    biter.setState("bitingUntil", now + COOLDOWN.ABILITIES.INFECTED_BITE.FX_MS, true);
 
     if (!best) return;
 
@@ -525,62 +530,66 @@ export function hostHandleArrest({ officer, players = [], setEvents }) {
     } catch { }
 }
 
-/** Officer ability: Blood Test (Scan) — reveals if the target is infected */
-/** Officer ability: Blood Test — immediate result, 1.0 m radius, 6 min cooldown */
-/** Officer ability: Blood Test — 1.0 m radius, instant result, 6 min cooldown */
-/** Officer ability: Blood Test — 1.0 m radius, result revealed after 3s, 6 min ability cooldown */
-/** Officer ability: Blood Test (Scan) — waits 3s then reveals name + infected/clear */
+//** Officer ability: Blood Test — uses central cooldowns */
 export function hostHandleScan({ officer, players = [], setEvents }) {
     if (!officer?.id) return;
-
-    // Only Officers can scan
     const role = String(officer.getState?.("role") || "");
     if (role !== "Officer") return;
 
     const now = Date.now();
-
-    // Cooldown (3s)
     const cdKey = "cd:scanUntil";
     const until = Number(officer.getState(cdKey) || 0);
     if (now < until) return;
 
-    // Find nearest living player in a short cone within 1.0 m
-    // (uses your existing helper)
-    const target = _frontConeTarget(officer, players, /*range*/ 1.0, /*deg*/ 85);
-    if (!target) return;
+    const RANGE = Number(COOLDOWN.ABILITIES.OFFICER_SCAN.RANGE_M || 1.0);
+    const range2 = RANGE * RANGE;
 
-    // Start cooldown + set "pending" fields the UI reads
-    const REVEAL_MS = 3000;
-    officer.setState(cdKey, now + REVEAL_MS, true);
+    // Find nearest living player within RANGE (no cone)
+    const ox = Number(officer.getState("x") || 0);
+    const oz = Number(officer.getState("z") || 0);
+    let nearest = null, bestD2 = Infinity;
+    for (const p of players) {
+        if (!p?.id || p.id === officer.id) continue;
+        if (p.getState?.("dead")) continue;
+        const px = Number(p.getState("x") || 0);
+        const pz = Number(p.getState("z") || 0);
+        const dx = px - ox, dz = pz - oz;
+        const d2 = dx * dx + dz * dz;
+        if (d2 <= range2 && d2 < bestD2) { nearest = p; bestD2 = d2; }
+    }
+    if (!nearest) return;
 
-    const tName =
-        target.getState?.("name") ||
-        target.getProfile?.().name ||
-        "Player";
+    // Set ability cooldown
+    const ABILITY_MS = Number(COOLDOWN.ABILITIES.OFFICER_SCAN.SERVER_MS || 3000);
+    officer.setState(cdKey, now + ABILITY_MS, true);
+
+    // 3s delayed reveal (name immediately, result later)
+    const REVEAL_MS = Number(COOLDOWN.ABILITIES.OFFICER_SCAN.RESULT_DELAY_MS || 3000);
+    const tName = nearest.getState?.("name") || nearest.getProfile?.().name || "Player";
+    const infectedAtSample = !!nearest.getState?.("infected");
 
     officer.setState("scanPendingName", tName, true);
     officer.setState("scanPendingUntil", now + REVEAL_MS, true);
 
-    // After 3 seconds, reveal the result (and clear pending)
+    // Guard against overlap
+    const token = ((Number(officer.getState("scanPendingToken")) || 0) + 1) | 0;
+    officer.setState("scanPendingToken", token, true);
+
     setTimeout(() => {
-        const infected = !!target.getState?.("infected");
-
+        if (Number(officer.getState("scanPendingToken")) !== token) return;
         officer.setState("lastScanName", tName, true);
-        officer.setState("lastScanInfected", infected ? 1 : 0, true);
+        officer.setState("lastScanInfected", infectedAtSample ? 1 : 0, true);
         officer.setState("lastScanAt", Date.now(), true);
-
         officer.setState("scanPendingName", "", true);
         officer.setState("scanPendingUntil", 0, true);
 
         try {
             const oName = officer.getState?.("name") || "Officer";
-            hostAppendEvent(
-                setEvents,
-                `${oName} blood-tested ${tName}: ${infected ? "INFECTED" : "clear"}.`
-            );
+            hostAppendEvent(setEvents, `${oName} blood test result for ${tName}: ${infectedAtSample ? "INFECTED" : "clear"}.`);
         } catch { }
     }, REVEAL_MS);
 }
+
 
 
 /** Research ability: command pet follow/stay. Payload: { mode: "follow" | "stay" }.

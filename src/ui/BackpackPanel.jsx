@@ -140,7 +140,7 @@ export default function BackpackPanel({
 function renderIcon(it) {
     if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
     const TYPE_ICON = {
-        food: "🥫", fuel: "🔋", protection: "🛡️", cure_red: "🧪", cure_blue: "🧪", food_tank: "🧃",
+        food: "🥫", poison_food: "🥫", fuel: "🔋", protection: "🛡️", cure_red: "🧪", cure_blue: "🧪", food_tank: "🧃",
     };
     if (it.type && TYPE_ICON[it.type]) return <span style={{ fontSize: 26 }}>{TYPE_ICON[it.type]}</span>;
     const ch = (it.name || "?").trim()[0] || "?";

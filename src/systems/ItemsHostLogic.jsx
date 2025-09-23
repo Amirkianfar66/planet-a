@@ -16,7 +16,6 @@ import {
     PICKUP_RADIUS,
     DEVICE_RADIUS,
     BAG_CAPACITY,
-    PICKUP_COOLDOWN,
 } from "../data/constants.js";
 import { useGameClock } from "../systems/dayNightClock";
 import {
@@ -27,6 +26,7 @@ import {
     randomPointInRoom,
     roomCenter,
 } from "../map/deckA";
+import COOLDOWN from "../data/cooldowns"; //
 
 // id helper (prevents seeding from crashing if id is missing)
 const cryptoRandomId = () =>
@@ -586,11 +586,7 @@ export default function ItemsHostLogic() {
                                     setItems,
                                 });
                                 if (ok) {
-                                    p.setState(
-                                        "pickupUntil",
-                                        nowSec + Number(PICKUP_COOLDOWN || 20),
-                                        true
-                                    );
+                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN.ITEMS.PICKUP_SEC || 20), true);
                                 }
                             }
                             processed.current.set(p.id, reqId);
@@ -667,7 +663,7 @@ export default function ItemsHostLogic() {
 
                         p.setState(
                             "pickupUntil",
-                            nowSec + Number(PICKUP_COOLDOWN || 20),
+                            nowSec + Number(COOLDOWN.ITEMS.PICKUP_SEC || 20),
                             true
                         );
                         processed.current.set(p.id, reqId);
@@ -830,18 +826,23 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
-                        // eat food
-                        if (kind === "eat" && it.type === "food") {
-                            setItems(
-                                (prev) =>
-                                    prev.map((j) =>
-                                        j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j
-                                    ),
-                                true
-                            );
+                        // eat food / poison
+                        if (kind === "eat" && (it.type === "food" || it.type === "poison_food")) {
+                            if (it.type === "poison_food") {
+                                // apply damage on eat
+                                const curLife = Number(p.getState("life") ?? 100);
+                                const nextLife = Math.max(0, curLife - 35); // tweak damage as you like
+                                p.setState("life", nextLife, true);
+                                if (nextLife <= 0) p.setState("dead", true, true);
+                            }
+                            // (optionally: give a small energy boost for normal food)
+                            // else { const e = Number(p.getState("energy") ?? 100); p.setState("energy", Math.min(100, e + 20), true); }
+
+                            // consume the item (same as before)
+                            setItems((prev) => prev.map((j) => (j.id === it.id ? { ...j, holder: "_gone_", y: -999 } : j)), true);
                             setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                            if (String(p.getState("carry") || "") === it.id)
-                                p.setState("carry", "", true);
+                            if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+
                             processed.current.set(p.id, reqId);
                             continue;
                         }

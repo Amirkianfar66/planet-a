@@ -77,7 +77,7 @@ export default function InteractionSystem() {
                 const worldItem = (itemsRef.current || []).find(x => x.id === carryId);
                 const isCameraIdOnly = /^cam_/.test(String(carryId)); // daily backpack cam ids
                 const isCameraType = worldItem?.type === "cctv";
-                const isFood = worldItem?.type === "food";
+                const isFood = worldItem?.type === "food" || worldItem?.type === "poison_food"; 
 
                 if (isCameraType || isCameraIdOnly) {
                     // Place CCTV (works even if camera exists only in backpack)

@@ -18,6 +18,23 @@ function ensureOutdoorPos(x = 0, z = 0) {
     const c = clampToRect(OUTSIDE_AREA, x, z, OUT_MARGIN);
     return { x: c.x, z: c.z };
 }
+// --- Viewer role (who's looking at the item) ---
+function getViewerRole() {
+    try {
+        const me = myPlayer?.();
+        return String(me?.getState?.("role") || "");
+    } catch {
+        return "";
+    }
+}
+// If item is poison_food, only FoodSupplier should see it as "poison_food".
+// Everyone else sees it as regular "food" (same mesh, label, color).
+function visibleTypeForViewer(itemType, viewerRole) {
+    if (itemType === "poison_food" && viewerRole !== "FoodSupplier") {
+        return "food";
+    }
+    return itemType;
+}
 
 // ---------------------------------
 // Type metadata (labels + colors)
@@ -101,11 +118,12 @@ function TextSprite({ text = "", width = 0.95 }) {
 // ---------------------------------
 // Item meshes for each type
 // ---------------------------------
-function ItemMesh({ type = "crate" }) {
-    const color = TYPE_META[type]?.color ?? "#9ca3af";
+function ItemMesh({ visibleType = "crate" }) {
+    const color = TYPE_META[visibleType]?.color ?? "#9ca3af";
 
-    switch (type) {
+    switch (visibleType) {
         case "food":
+        case "poison_food": // FoodSupplier will still pass "poison_food" and get its color
             return (
                 <group>
                     <mesh>
@@ -118,6 +136,7 @@ function ItemMesh({ type = "crate" }) {
                     </mesh>
                 </group>
             );
+
         case "fuel":
             return (
                 <mesh>
@@ -246,13 +265,28 @@ function prettyLabel(it) {
 // Single floor item
 // ---------------------------------
 function ItemEntity({ it }) {
-    if (!it || it.holder || it.hidden) return null; // <-- hide when picked/hidden
-    if (String(it.type).toLowerCase() === "pet") return null; // Pets handled by Pets3D
+    if (!it || it.holder || it.hidden) return null;
+    if (String(it.type).toLowerCase() === "pet") return null;
 
+    const viewerRole = getViewerRole();
+    const vType = visibleTypeForViewer(it.type, viewerRole);
     const actionable = canPickUp(it);
-    const label = prettyLabel(it);
 
-    // Defaults
+    // Base label text should use the *visible* type so non-suppliers see "Food".
+    function prettyLabelVisible(it, vType) {
+        if (isTankType(it?.type)) {
+            const stored = Number(it.stored ?? 0);
+            const cap = Number(it.cap ?? 6);
+            const base = it.name || TYPE_META[it.type]?.label || "Tank";
+            return `${base} (${stored}/${cap})`;
+        }
+        const t = TYPE_META[vType];
+        return it.name || t?.label || vType || "Item";
+    }
+
+    const label = prettyLabelVisible(it, vType);
+
+    // Defaults (green ring when pickable, neutral otherwise)
     let prompt = actionable ? `Press P to pick up ${label}` : label;
     let ringColor = actionable ? "#86efac" : "#64748b";
     let ringScale = 1;
@@ -265,7 +299,22 @@ function ItemEntity({ it }) {
         prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
     }
 
-    // Tanks (non-pickable)
+    // Poisoned food: only FoodSupplier gets the warning & distinct color/ring.
+    const isPoison = it.type === "poison_food";
+    const isSupplier = viewerRole === "FoodSupplier";
+
+    if (isPoison && isSupplier) {
+        // Supplier sees the *real* type + warning styling
+        const warnLabel = TYPE_META.poison_food?.label || "Poisoned Food";
+        prompt = actionable ? `⚠️ Press P to pick up ${warnLabel}` : warnLabel;
+
+        // make it visually distinct for supplier
+        ringColor = actionable ? "#f87171" : "#9ca3af"; // red-ish in range
+        // Optionally brighten the mesh by using poison color via vType === "poison_food"
+        // (Already handled by passing vType to ItemMesh below)
+    }
+
+    // Tanks (non-pickable UI behavior)
     if (isTankType(it.type)) {
         const me = myPlayer?.();
         const bp = me?.getState?.("backpack") || [];
@@ -294,7 +343,8 @@ function ItemEntity({ it }) {
 
     return (
         <group position={[it.x, (it.y || 0) + 0.25, it.z]} rotation={[0, rotationY, 0]}>
-            <ItemMesh type={it.type} />
+            {/* Use the visibleType so only the supplier sees the poison color */}
+            <ItemMesh visibleType={vType} />
 
             {/* Ground ring */}
             <group scale={[ringScale, 1, ringScale]}>
@@ -311,6 +361,7 @@ function ItemEntity({ it }) {
         </group>
     );
 }
+
 
 // ---------------------------------
 // Main scene block (render-only)
