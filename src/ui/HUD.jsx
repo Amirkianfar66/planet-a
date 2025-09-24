@@ -214,6 +214,7 @@ export default function HUD({ game = {} }) {
             ? game.requestAction
             : (type, target, value) => prRequestAction(type, target, value);
 
+    // HUD.jsx  (inside handleUseItem)
     const handleUseItem = (id) => {
         if (amDead) return;
         const item = (items || []).find((b) => b.id === id);
@@ -222,13 +223,24 @@ export default function HUD({ game = {} }) {
             requestAction("container", "food_tank", { containerId: id, op: "toggle" });
             return;
         }
-        if (item?.type === "food") {
-            requestAction("use", `eat|${id}`, 0);
+
+        // Eat any food-like item (food or poison_food)
+        if (String(item?.type || "").toLowerCase().includes("food")) {
+            const token = item?.id || String(item?.type);
+            requestAction("use", `eat|${token}`, 0);
             return;
         }
+
+        // ✅ Use Protection → tell host to CURE (this is the keyword your host handles)
+        if (item?.type === "protection") {
+            requestAction("use", `cure|${id}`, 0);
+            return;
+        }
+
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
+
 
     const handleDrop = (id) => {
         if (amDead) return;
