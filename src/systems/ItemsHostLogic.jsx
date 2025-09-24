@@ -117,31 +117,6 @@ const CURE_NEED_BLUE = 2;
 // Cure Receiver
 const isCureReceiver = (t) => String(t || "").toLowerCase() === "cure_receiver";
 
-function findNearestCureReceiver(x, z) {
-    const list = itemsRef.current || [];
-    let best = null, bestD = Infinity;
-    for (const it of list) {
-        if (!isCureReceiver(it?.type)) continue;
-        const dx = x - Number(it.x || 0);
-        const dz = z - Number(it.z || 0);
-        const d2 = dx * dx + dz * dz;
-        if (d2 < bestD) { best = it; bestD = d2; }
-    }
-    return best;
-}
-
-/** Try to deliver one "cure_advanced" into the nearest Cure Receiver.
- *  Returns true if delivered; false if none found or receiver full.
- */
-function deliverAdvancedCureToReceiver(device) {
-    const rec = findNearestCureReceiver(Number(device?.x || 0), Number(device?.z || 0));
-    if (!rec) return false;
-    const cap = Number(rec.cap ?? 6);
-    const stored = Number(rec.stored || 0);
-    if (stored >= cap) return false;
-    setItems((prev) => prev.map((j) => (j.id === rec.id ? { ...j, stored: stored + 1 } : j)), true);
-    return true;
-}
 
 // Receivers
 const isReceiverType = (t) => t === "food_receiver" || t === "protection_receiver";
