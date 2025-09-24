@@ -19,6 +19,10 @@ export const ITEM_TYPES = {
     protection_receiver: { label: "Protection Receiver", color: "#fb923c" }, // amber
     // Add this entry
     oxygen_device: { label: "Oxygen Device", color: "#60a5fa" }, // blue
+    // New device + crafted output
+    cure_device: { label: "Cure Device", color: "#22d3ee" }, // cyan
+    cure_advanced: { label: "Cure (Advanced)", color: "#a21caf" }, // result of recipe (example)
+    cure_receiver: { label: "Cure Receiver", color: "#14b8a6" }, // teal
 
 };
 
@@ -52,6 +56,29 @@ const makeReceiverItem = (kind, id, teamKey, roomKey, offset) => ({
         offset,
         color: ITEM_TYPES[kind].color,
 });
+// Helper for Cure Device (stores counts per type; total limited by cap)
+const makeCureDevice = (id, roomKey, offset, cap = 4, stored = { red: 0, blue: 0 }) => ({
+    id,
+    type: "cure_device",
+    name: ITEM_TYPES.cure_device.label,
+    roomKey,
+    offset,
+    cap,              // total slots (red + blue)
+    stored,           // { red, blue }
+    color: ITEM_TYPES.cure_device.color,
+});
+// Helper for Cure Receiver (counts crafted advanced cures)
+const makeCureReceiver = (id, roomKey, offset, cap = 6, stored = 0) => ({
+    id,
+    type: "cure_receiver",
+    name: ITEM_TYPES.cure_receiver.label,
+    roomKey,
+    offset,
+    cap,     // how many advanced cures it can hold
+    stored,  // number of advanced cures received
+    color: ITEM_TYPES.cure_receiver.color,
+});
+
 // Simple starter content (positions are just examples)
 export const INITIAL_ITEMS = [
     // --- FOOD ×3 ---
@@ -80,6 +107,11 @@ export const INITIAL_ITEMS = [
     { id: "cureB2", type: "cure_blue", name: "Cure — Blue", x: 6, z: 2, color: ITEM_TYPES.cure_blue.color },
     { id: "cureB3", type: "cure_blue", name: "Cure — Blue", x: 7, z: 2.5, color: ITEM_TYPES.cure_blue.color },
 
+    // Cure Device in the Lab
+    makeCureDevice("cure_device_1", "Lab", { x: 0, z: 0 }, 4, { red: 0, blue: 0 }),
+    // Cure Receiver in the Lab (collects the crafted result)
+    makeCureReceiver("cure_receiver_lab_1", "Lab", { x: 2.5, z: -2.5 }, 6, 0),
+
     // Team-specific tanks (placed around the room center using offsets)
     // Team-specific tanks (placed at room corners via offsets)
 
@@ -90,10 +122,10 @@ export const INITIAL_ITEMS = [
     makeTankItem("food_tank", "tank_food_teamd", "teamd", "Kitchen", { x: 2, z: 3 }), // SE
 
     // PROTECTION TANKS — Lab corners
-    makeTankItem("protection_tank", "tank_prot_teama", "teama", "Lab", { x: -2, z: -3 }), // NW
-    makeTankItem("protection_tank", "tank_prot_teamb", "teamb", "Lab", { x: 2, z: -3 }), // NE
-    makeTankItem("protection_tank", "tank_prot_teamc", "teamc", "Lab", { x: -2, z: 3 }), // SW
-    makeTankItem("protection_tank", "tank_prot_teamd", "teamd", "Lab", { x: 2, z: 3 }), // SE
+    makeTankItem("protection_tank", "tank_prot_teama", "teama", "Storage", { x: -2, z: -3 }), // NW
+    makeTankItem("protection_tank", "tank_prot_teamb", "teamb", "Storage", { x: 2, z: -3 }), // NE
+    makeTankItem("protection_tank", "tank_prot_teamc", "teamc", "Storage", { x: -2, z: 3 }), // SW
+    makeTankItem("protection_tank", "tank_prot_teamd", "teamd", "Storage", { x: 2, z: 3 }), // SE
 
     // --- TEAM BASE RECEIVERS ---
     // NOTE: Update room keys to your real team rooms if different.
@@ -109,6 +141,7 @@ export const INITIAL_ITEMS = [
     makeReceiverItem("protection_receiver", "recv_prot_teamb", "teamb", "TeamB", { x: 2.5, z: 2.5 }),
     makeReceiverItem("protection_receiver", "recv_prot_teamc", "teamc", "TeamC", { x: 2.5, z: 2.5 }),
     makeReceiverItem("protection_receiver", "recv_prot_teamd", "teamd", "TeamD", { x: 2.5, z: 2.5 }),
+
     // Keep your single fuel tank (unchanged)
     {
         id: "tank_fuel_1",
@@ -134,6 +167,8 @@ export const INITIAL_ITEMS = [
     },
 
 ]; // <-- IMPORTANT: close INITIAL_ITEMS before starting DEVICES!
+
+
 
 // World devices you can interact with when pressing "I"
 export const DEVICES = [

@@ -9,6 +9,8 @@ import { requestAction as prRequestAction, usePhase, useEvents } from "../networ
 import { getAbilitiesForRole } from "../game/roleAbilities";
 import { isOutsideByRoof } from "../map/deckA";
 import "./ui.css";
+import InfectionCountdown from "./InfectionCountdown.jsx";
+
 
 
 /* ---------- Ability bar (auto-positions above backpack) --------- */
@@ -237,6 +239,12 @@ export default function HUD({ game = {} }) {
             return;
         }
 
+        // ✅ Advanced Cure → extend infection countdown (+4:00)
+        if (item?.type === "cure_advanced") {
+            requestAction("use", `adv|${id}`, 0);
+            return;
+        }
+
         if (typeof game.onUseItem === "function") return game.onUseItem(id);
         requestAction("useItem", String(id));
     };
@@ -370,8 +378,8 @@ export default function HUD({ game = {} }) {
             >
                 <TeamChatPanel scope="global" height={380} style={{ position: "static" }} />
             </div>
-
-
+            {/* Infection incubation countdown chip (fixed overlay; non-interactive) */}
+            <InfectionCountdown />
 
             {/* Death overlay */}
             {amDead && (

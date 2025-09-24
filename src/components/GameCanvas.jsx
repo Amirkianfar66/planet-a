@@ -26,6 +26,8 @@ import PetHostLogic from "../systems/PetHostLogic.jsx";
 import { SlidingDoor as Door3D } from "../dev/SlidingDoorPreview";
 import CCTVViewer from "../systems/CCTVViewer.jsx";
 import CCTVControlPanel from "../ui/CCTVControlPanel.jsx";
+import HostInfectionIncubator from "../systems/HostInfectionIncubator.jsx";
+import InfectionCountdown from "../ui/InfectionCountdown.jsx";
 // live player position (updated by your LocalController via window.__playerPos)
 function usePlayerPosRefFromWindow() {
     const ref = useRef([0, 0, 0]);
@@ -222,6 +224,7 @@ export default function GameCanvas({ dead = [] }) {
                 
                 
             </Canvas>
+            
             {/* HTML overlay (outside Canvas so <div>/<strong>/<button> are valid) */}
             <CCTVControlPanel />
             {/* Proximity voice UI + logic */}
@@ -234,6 +237,7 @@ export default function GameCanvas({ dead = [] }) {
             {/* Host-only logic */}
             <ItemsHostLogic />
             <PetHostLogic />
+            <HostInfectionIncubator setEvents={undefined /* optional: pipe your TopBar events setter here */} />
             {/* Death logic */}
             <DeathSystem />
         </div>

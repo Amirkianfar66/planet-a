@@ -42,14 +42,29 @@ function visibleTypeForViewer(itemType, viewerRole) {
 const TYPE_META = ITEM_TYPES;
 
 // What each stationary container accepts:
+// What each stationary container accepts:
 const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
     protection_tank: "protection",
-    oxygen_device: "fuel",        // NEW: oxygen device consumes fuel rods
+    oxygen_device: "fuel", // oxygen device consumes fuel rods
 };
+
+// Cure device: multi-accept container
+const isCureDevice = (t) => t === "cure_device";
+
+const isCureReceiver = (t) => t === "cure_receiver";
+
+// Tanks + oxygen device only (single-accept UI)
 const isTankType = (t) =>
     t === "food_tank" || t === "fuel_tank" || t === "protection_tank" || t === "oxygen_device";
+
+// Pretty name for cure subcounts
+const fmtCureCount = (stored) => {
+    const r = Number(stored?.red || 0);
+    const b = Number(stored?.blue || 0);
+    return `A:${r}  B:${b}`;
+};
 
 // ---------------------------------
 // Billboard / Text sprite
@@ -234,6 +249,39 @@ function ItemMesh({ visibleType = "crate" }) {
                     </mesh>
                 </group>
             );
+        case "cure_device":
+            // Show a tank-like cylinder, but colored per ITEM_TYPES.cure_device
+            return (
+                <group scale={[4, 4, 4]}>
+                    <mesh>
+                        <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
+                        <meshStandardMaterial color={TYPE_META.cure_device?.color || "#22d3ee"} metalness={0.2} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 0.19, 0]}>
+                        <cylinderGeometry args={[0.23, 0.23, 0.03, 20]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
+                    <mesh position={[0, -0.19, 0]}>
+                        <cylinderGeometry args={[0.21, 0.21, 0.02, 20]} />
+                        <meshStandardMaterial color="#0b1220" />
+                    </mesh>
+                </group>
+            );
+
+        case "cure_receiver":
+            return (
+                <group scale={[3.2, 3.2, 3.2]}>
+                    <mesh>
+                        <cylinderGeometry args={[0.22, 0.22, 0.16, 20]} />
+                        <meshStandardMaterial color={TYPE_META.cure_receiver?.color || "#14b8a6"} metalness={0.2} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 0.1, 0]}>
+                        <cylinderGeometry args={[0.24, 0.24, 0.02, 20]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
+                </group>
+            );
+
         case "o2can":
             return (
                 <group>
@@ -294,6 +342,10 @@ function ItemEntity({ it }) {
 
     // Base label text should use the *visible* type so non-suppliers see "Food".
     function prettyLabelVisible(it, vType) {
+        if (isCureDevice(it?.type)) {
+            const cap = Number(it?.cap ?? 4);
+            return `${it.name || TYPE_META[it.type]?.label || "Cure Device"} (${fmtCureCount(it.stored)} / ${cap})`;
+        }
         if (isTankType(it?.type)) {
             const stored = Number(it.stored ?? 0);
             const cap = Number(it.cap ?? 6);
@@ -303,6 +355,7 @@ function ItemEntity({ it }) {
         const t = TYPE_META[vType];
         return it.name || t?.label || vType || "Item";
     }
+
 
     const label = prettyLabelVisible(it, vType);
 
@@ -318,6 +371,7 @@ function ItemEntity({ it }) {
         rotationY = Number(it.yaw || 0);
         prompt = actionable ? "Press P to pick up CCTV Camera" : "CCTV Camera";
     }
+    
 
     // Poisoned food: only FoodSupplier gets the warning & distinct color/ring.
     const isPoison = it.type === "poison_food";
@@ -332,6 +386,50 @@ function ItemEntity({ it }) {
         ringColor = actionable ? "#f87171" : "#9ca3af"; // red-ish in range
         // Optionally brighten the mesh by using poison color via vType === "poison_food"
         // (Already handled by passing vType to ItemMesh below)
+    }
+    // Cure Device: custom label/prompt (multi-accept container)
+    if (isCureDevice(it.type)) {
+        const me = myPlayer?.();
+        const bp = me?.getState?.("backpack") || [];
+        const hasA = bp.some((b) => String(b.type).toLowerCase() === "cure_red");
+        const hasB = bp.some((b) => String(b.type).toLowerCase() === "cure_blue");
+
+        const red = Number(it?.stored?.red || 0);
+        const blue = Number(it?.stored?.blue || 0);
+        const cap = Number(it?.cap ?? 4);
+        const total = red + blue;
+        const full = total >= cap;
+
+        // Label shows A/B count and total/cap
+        const base = it.name || TYPE_META[it.type]?.label || "Cure Device";
+        const labelCure = `${base} (${fmtCureCount(it.stored)} / ${cap})`;
+
+        // Can load if in range, not full, and have either A or B in backpack
+        const canLoad = actionable && !full && (hasA || hasB);
+
+        prompt = !actionable
+            ? labelCure
+            : full
+                ? "Cure Device full"
+                : (!hasA && !hasB)
+                    ? "No Cure A/B in backpack"
+                    : "Press P to add Cure A or B";
+
+        ringColor = canLoad ? "#86efac" : "#64748b";
+        ringScale = 4;
+        billboardY = 1.7;
+    }
+    // Cure Receiver: show stored count; not pickable
+    if (isCureReceiver(it.type)) {
+        const cap = Number(it?.cap ?? 6);
+        const stored = Number(it?.stored || 0);
+        const base = it.name || TYPE_META[it.type]?.label || "Cure Receiver";
+        const labelRx = `${base} (Advanced: ${stored}/${cap})`;
+
+        prompt = labelRx;              // no "Press P"
+        ringColor = "#64748b";
+        ringScale = 4;
+        billboardY = 1.7;
     }
 
     // Tanks (non-pickable UI behavior)

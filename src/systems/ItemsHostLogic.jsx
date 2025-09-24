@@ -108,6 +108,41 @@ const TANK_ACCEPTS = {
 const isTankType = (t) =>
     t === "food_tank" || t === "fuel_tank" || t === "protection_tank" || t === "oxygen_device";
 
+// Cure Device (already present in your file)
+const isCureDevice = (t) => String(t || "").toLowerCase() === "cure_device";
+const cureTotal = (stored) => Number(stored?.red || 0) + Number(stored?.blue || 0);
+const CURE_NEED_RED = 2;
+const CURE_NEED_BLUE = 2;
+
+// Cure Receiver
+const isCureReceiver = (t) => String(t || "").toLowerCase() === "cure_receiver";
+
+function findNearestCureReceiver(x, z) {
+    const list = itemsRef.current || [];
+    let best = null, bestD = Infinity;
+    for (const it of list) {
+        if (!isCureReceiver(it?.type)) continue;
+        const dx = x - Number(it.x || 0);
+        const dz = z - Number(it.z || 0);
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bestD) { best = it; bestD = d2; }
+    }
+    return best;
+}
+
+/** Try to deliver one "cure_advanced" into the nearest Cure Receiver.
+ *  Returns true if delivered; false if none found or receiver full.
+ */
+function deliverAdvancedCureToReceiver(device) {
+    const rec = findNearestCureReceiver(Number(device?.x || 0), Number(device?.z || 0));
+    if (!rec) return false;
+    const cap = Number(rec.cap ?? 6);
+    const stored = Number(rec.stored || 0);
+    if (stored >= cap) return false;
+    setItems((prev) => prev.map((j) => (j.id === rec.id ? { ...j, stored: stored + 1 } : j)), true);
+    return true;
+}
+
 // Receivers
 const isReceiverType = (t) => t === "food_receiver" || t === "protection_receiver";
 
@@ -240,6 +275,163 @@ const tryLoadIntoTank = ({
     return true;
 };
 
+/**
+ * Load ONE cure item (A or B) into a Cure Device.
+ * - Prefers the type that moves toward 2A/2B.
+ * - Consumes from held entity if applicable, else from stack row in backpack.
+ * - After loading, if stored == 2A/2B, crafts Cure (Advanced) and spawns it on floor.
+ */
+const tryLoadIntoCureDevice = ({
+    player: p,
+    device,
+    itemsList,
+    getBackpack,
+    setBackpack,
+    setItems,
+}) => {
+    if (!isCureDevice(device?.type)) return false;
+
+    const cap = Number(device.cap ?? 4);
+    const red = Number(device?.stored?.red || 0);
+    const blue = Number(device?.stored?.blue || 0);
+    const total = red + blue;
+    if (total >= cap) return false;
+
+    const bp = getBackpack(p) || [];
+
+    // what the player is carrying right now
+    const carryId = String(p.getState?.("carry") || "");
+    const carriedEntity = (itemsList || []).find(
+        (i) =>
+            i?.id === carryId &&
+            (isType(i?.type, "cure_red") || isType(i?.type, "cure_blue"))
+    );
+
+    // pick which color to load next (bias toward completing 2+2)
+    const hasA = carriedEntity
+        ? isType(carriedEntity.type, "cure_red")
+        : bp.some((b) => isType(b?.type, "cure_red"));
+    const hasB = carriedEntity
+        ? isType(carriedEntity.type, "cure_blue")
+        : bp.some((b) => isType(b?.type, "cure_blue"));
+
+    const needR = Math.max(0, CURE_NEED_RED - red);
+    const needB = Math.max(0, CURE_NEED_BLUE - blue);
+
+    let loadType = null; // "cure_red" | "cure_blue"
+    if (needR > 0 && hasA) loadType = "cure_red";
+    else if (needB > 0 && hasB) loadType = "cure_blue";
+    else if (hasA) loadType = "cure_red";
+    else if (hasB) loadType = "cure_blue";
+    else return false;
+
+    if (total + 1 > cap) return false;
+
+    // remove from carry/backpack
+    let nextBp = bp;
+    if (carriedEntity && isType(carriedEntity.type, loadType)) {
+        setItems(
+            (prev) =>
+                prev.map((j) =>
+                    j.id === carriedEntity.id
+                        ? { ...j, holder: "_gone_", y: -999, hidden: true, vx: 0, vy: 0, vz: 0 }
+                        : j
+                ),
+            true
+        );
+        nextBp = removeOneByType(bp, loadType, carriedEntity.id);
+        if (String(p.getState("carry") || "") === carriedEntity.id) {
+            p.setState("carry", "", true);
+        }
+    } else {
+        const after = removeOneByType(bp, loadType);
+        if (after === bp) return false;
+        nextBp = after;
+    }
+    setBackpack(p, nextBp);
+
+    // compute the post-deposit counts immediately
+    const rNext = red + (isType(loadType, "cure_red") ? 1 : 0);
+    const bNext = blue + (isType(loadType, "cure_blue") ? 1 : 0);
+
+    // Case 1: this deposit COMPLETES 2A+2B → craft now (same tick)
+    if (rNext === CURE_NEED_RED && bNext === CURE_NEED_BLUE) {
+        setItems(
+            (prev) => {
+                const arr = Array.isArray(prev) ? prev : [];
+
+                // find nearest Cure Receiver
+                let recIdx = -1;
+                let bestD2 = Infinity;
+                for (let i = 0; i < arr.length; i++) {
+                    const it = arr[i];
+                    if (!isCureReceiver(it?.type)) continue;
+                    const dx = Number(device?.x || 0) - Number(it.x || 0);
+                    const dz = Number(device?.z || 0) - Number(it.z || 0);
+                    const d2 = dx * dx + dz * dz;
+                    if (d2 < bestD2) { bestD2 = d2; recIdx = i; }
+                }
+
+                let delivered = false;
+
+                const updated = arr.map((obj, i) => {
+                    // consume the 2+2 from the device (since this deposit completes it)
+                    if (obj.id === device.id) {
+                        return { ...obj, stored: { red: 0, blue: 0 } };
+                    }
+                    // try to increment the receiver if available and not full
+                    if (i === recIdx) {
+                        const cap = Number(obj.cap ?? 6);
+                        const cur = Number(obj.stored || 0);
+                        if (cur < cap) {
+                            delivered = true;
+                            return { ...obj, stored: cur + 1 };
+                        }
+                    }
+                    return obj;
+                });
+
+                // fallback: spawn Cure (Advanced) on the floor near the device
+                if (!delivered) {
+                    updated.push({
+                        id: cryptoRandomId(),
+                        type: "cure_advanced",
+                        name: "Cure (Advanced)",
+                        x: Number(device?.x ?? 0) + 0.4,
+                        y: FLOOR_Y,
+                        z: Number(device?.z ?? 0) + 0.0,
+                    });
+                }
+
+                return updated;
+            },
+            true
+        );
+
+        return true;
+    }
+
+    // Case 2: still filling → just store the one unit we deposited
+    setItems(
+        (prev) =>
+            prev.map((j) =>
+                j.id === device.id
+                    ? {
+                        ...j,
+                        stored: {
+                            red: rNext,
+                            blue: bNext,
+                        },
+                    }
+                    : j
+            ),
+        true
+    );
+
+    return true;
+};
+
+
 function tryDispenseFromTeamTank({ player: p, receiver, itemsList, getBackpack, setBackpack, setItems }) {
     const want = receiver.type === "food_receiver" ? "food" : "protection";
     const tankType = `${want}_tank`;
@@ -264,6 +456,22 @@ function tryDispenseFromTeamTank({ player: p, receiver, itemsList, getBackpack, 
 
     // +1 to backpack (stackable)
     const nextBp = addOneToBackpack(bp, want);
+    setBackpack(p, nextBp);
+
+    return true;
+}
+function tryDispenseFromCureReceiver({ player: p, receiver, getBackpack, setBackpack, setItems }) {
+    const stored = Number(receiver?.stored || 0);
+    if (stored <= 0) return false;
+
+    const bp = getBackpack(p) || [];
+    if (bp.length >= Number(BAG_CAPACITY || 8)) return false;
+
+    // -1 from receiver
+    setItems(prev => prev.map(j => (j.id === receiver.id ? { ...j, stored: stored - 1 } : j)), true);
+
+    // +1 Cure Advanced to backpack (stackable)
+    const nextBp = addOneToBackpack(bp, "cure_advanced");
     setBackpack(p, nextBp);
 
     return true;
@@ -715,14 +923,13 @@ export default function ItemsHostLogic() {
                     if (type === "container") {
                         const payload = readActionPayload(p) || {};
                         const { containerId, op } = payload || {};
-                        const tank = findItem(String(containerId));
-                        if (!tank || !isTankType(tank.type)) {
+                        const cont = findItem(String(containerId));
+                        if (!cont || (!isTankType(cont.type) && !isCureDevice(cont.type))) {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        const dx = px - tank.x,
-                            dz = pz - tank.z;
+                        const dx = px - cont.x, dz = pz - cont.z;
                         if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
                             processed.current.set(p.id, reqId);
                             continue;
@@ -730,19 +937,31 @@ export default function ItemsHostLogic() {
 
                         let changed = false;
                         if (op === "load" || op === "toggle") {
-                            changed = tryLoadIntoTank({
-                                player: p,
-                                tank,
-                                itemsList: list,
-                                getBackpack,
-                                setBackpack,
-                                setItems,
-                            });
+                            if (isTankType(cont.type)) {
+                                changed = tryLoadIntoTank({
+                                    player: p,
+                                    tank: cont,
+                                    itemsList: list,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                            } else if (isCureDevice(cont.type)) {
+                                changed = tryLoadIntoCureDevice({
+                                    player: p,
+                                    device: cont,
+                                    itemsList: list,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                            }
                         }
 
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+
 
                     // PICKUP
                     if (type === "pickup") {
@@ -779,6 +998,46 @@ export default function ItemsHostLogic() {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
+                        // Cure Device is NOT pickable — treat P near it as "load one cure" (A or B)
+                        if (isCureDevice(it.type)) {
+                            const dx = px - it.x, dz = pz - it.z;
+                            if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                                const ok = tryLoadIntoCureDevice({
+                                    player: p,
+                                    device: it,
+                                    itemsList: list,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                                if (ok) {
+                                    const nowSec = Math.floor(Date.now() / 1000);
+                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                }
+                            }
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+                        // Cure Receiver: press P to take one Cure (Advanced)
+                        if (it && isCureReceiver(it.type)) {
+                            const dx = px - it.x, dz = pz - it.z;
+                            if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+                                const ok = tryDispenseFromCureReceiver({
+                                    player: p,
+                                    receiver: it,
+                                    getBackpack,
+                                    setBackpack,
+                                    setItems,
+                                });
+                                if (ok) {
+                                    const nowSec = Math.floor(Date.now() / 1000);
+                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                }
+                            }
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
 
                         // Tanks are NOT pickable — treat P near any tank as "load one matching item"
                         if (isTankType(it.type)) {
@@ -1177,6 +1436,60 @@ export default function ItemsHostLogic() {
                                 if (nextBp) { setBackpack(p, nextBp); cured = true; }
                             }
                             if (cured) p.setState("poisoned", false, true);
+                            processed.current.set(p.id, reqId);
+                            continue;
+                        }
+
+                        /* ---------- ADVANCED CURE: extend incubation countdown by +4:00 ---------- */
+                        if (kind === "adv" || (it && isType(it.type, "cure_advanced")) || isType(idStr, "cure_advanced")) {
+                            const ADD_MS = 4 * 60 * 1000;
+                            const bpNow = getBackpack(p);
+                            let consumed = false;
+
+                            // Prefer consuming the carried world entity if it's cure_advanced
+                            if (it && it.holder === p.id && isType(it.type, "cure_advanced")) {
+                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
+                                setBackpack(p, bpNow.filter(b => b.id !== it.id));
+                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                consumed = true;
+                            } else if (idStr) {
+                                // consume a matching id-row from backpack
+                                const row = bpNow.find(b => b.id === idStr && isType(b.type, "cure_advanced"));
+                                if (row) {
+                                    const ent = (itemsRef.current || []).find(x => x.id === idStr);
+                                    if (ent) {
+                                        setItems(prev => prev.map(j => j.id === ent.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
+                                        if (String(p.getState("carry") || "") === ent.id) p.setState("carry", "", true);
+                                    }
+                                    setBackpack(p, bpNow.filter(b => b.id !== idStr));
+                                    consumed = true;
+                                }
+                            } else {
+                                // consume from a stack row
+                                const idx = bpNow.findIndex(b => !b?.id && isType(b?.type, "cure_advanced"));
+                                if (idx !== -1) {
+                                    const row = bpNow[idx];
+                                    const qty = Number(row?.qty || 1);
+                                    const next = [...bpNow];
+                                    if (qty > 1) next[idx] = { ...row, qty: qty - 1 }; else next.splice(idx, 1);
+                                    setBackpack(p, next);
+                                    consumed = true;
+                                }
+                            }
+
+                            if (consumed) {
+                                const now = Date.now();
+                                const infected = !!p.getState("infected");
+                                const until = Number(p.getState("infectionRevealUntil") || 0); // ms (HostInfectionIncubator uses ms)
+                                // Only extend if player is in incubation (not yet infected) and has a future deadline
+                                if (!infected && until > now) {
+                                    const extended = until + ADD_MS;
+                                    p.setState("infectionRevealUntil", extended, true); // drives InfectionCountdown UI
+                                    // keep the “can’t-bite” lock aligned with the new reveal time
+                                    p.setState("cd_bite_until", extended, true);
+                                }
+                            }
+
                             processed.current.set(p.id, reqId);
                             continue;
                         }

@@ -385,42 +385,36 @@ function findBiteTarget(biter, range = 1.6, maxAngleDeg = 70) {
 /** Infected ability: quick bite to infect a nearby target in front arc. */
 // --- Host bite handler (paste into src/network/playroom.js) ---
 // Infected ability: quick bite to infect a nearby target in front arc.
+/** Infected ability: quick bite to infect a nearby target in front arc. */
 export function hostHandleBite({ biter, players = [], setEvents }) {
     if (!biter?.id) return;
 
-    // ✅ Only infected can bite to gain energy
-    const infected = !!biter.getState?.("infected");
-    if (!infected) return;
+    // Only infected can bite
+    if (!biter.getState?.("infected")) return;
 
     const now = Date.now();
 
-    // Cooldown (1.5s)
+    // Cooldown gate (server-side)
     const cdKey = "cd_bite_until";
     const cdUntil = Number(biter.getState(cdKey) || 0);
     if (now < cdUntil) return;
 
-    // Biter position + facing
+    // Find target in front cone
     const bx = Number(biter.getState("x") || 0);
     const bz = Number(biter.getState("z") || 0);
     const ry = Number(biter.getState("ry") ?? biter.getState("yaw") ?? 0);
     const fdx = Math.sin(ry), fdz = Math.cos(ry);
-
-    const range = 1.6;
-    const range2 = range * range;
-    const dotThresh = Math.cos((70 * Math.PI) / 180); // 70° cone
+    const range = 1.6, range2 = range * range;
+    const dotThresh = Math.cos((70 * Math.PI) / 180);
 
     let best = null, bestD2 = Infinity;
-
     for (const p of players) {
         if (!p?.id || p.id === biter.id) continue;
         if (p.getState?.("dead")) continue;
-
-        // only bite non-infected targets
-        if (p.getState?.("infected")) continue;
+        if (p.getState?.("infected")) continue; // don't bite already infected
 
         const px = Number(p.getState("x") || 0);
         const pz = Number(p.getState("z") || 0);
-
         const dx = px - bx, dz = pz - bz;
         const d2 = dx * dx + dz * dz;
         if (d2 > range2) continue;
@@ -432,28 +426,48 @@ export function hostHandleBite({ biter, players = [], setEvents }) {
         if (d2 < bestD2) { best = p; bestD2 = d2; }
     }
 
-    // Start cooldown (4 minutes) + tiny FX flag
+    // Start bite cooldown + short FX regardless of hit
     biter.setState(cdKey, now + COOLDOWN.ABILITIES.INFECTED_BITE.SERVER_MS, true);
     biter.setState("bitingUntil", now + COOLDOWN.ABILITIES.INFECTED_BITE.FX_MS, true);
 
     if (!best) return;
 
-    // ✅ Infect the victim
-    best.setState("infected", true, true);
+    // --- Incubation deadline (centralized) ---
+    const INCUBATION_MS = Math.max(0, Number(COOLDOWN.ABILITIES.INFECTED_BITE.INCUBATION_MS ?? 0));
+    let until;
+
+    if (INCUBATION_MS > 0) {
+        // Fixed delay (testing / fast iteration)
+        until = now + INCUBATION_MS;
+    } else {
+        // Fallback to your previous half-day / full-day logic
+        const incubRatio = (Math.random() < 0.5 ? 0.5 : 1.0);
+        const dayLengthMin = Number(biter?.getState?.("dayLength")) || 60; // safe fallback 60
+        const dayMs = Math.max(1, dayLengthMin) * 60_000;
+        until = now + Math.round(dayMs * incubRatio);
+        best.setState("infectionIncubateRatio", incubRatio, true);
+    }
+
+    // Mark victim as incubating (NOT infected yet) + visible personal countdown
+    best.setState("infectionPending", 1, true);
+    best.setState("infected", 0, true);
     best.setState("infectedBy", biter.id, true);
-    best.setState("infectedAt", now, true);
+    best.setState("infectionSeedAt", now, true);
+    if (INCUBATION_MS > 0) best.setState("infectionIncubateRatio", 0, true); // not used in fixed mode
+    best.setState("infectionRevealUntil", until, true);
 
-    // ✅ Award energy to the biter (+50, cap 100)
+    // Prevent chain-biting until they actually turn
+    best.setState("cd_bite_until", until, true);
+
+
+    // Award energy to biter
     const curE = Number(biter.getState("energy") ?? 0);
-    const nextE = Math.min(100, curE + 50);
-    biter.setState("energy", nextE, true);
+    biter.setState("energy", Math.min(100, curE + 50), true);
 
-    // Optional event line
+    // Log
     try {
-        if (typeof hostAppendEvent === "function") {
-            const name = biter.getState?.("name") || "Infected";
-            hostAppendEvent(setEvents, `${name} bit a crew member! (+50 energy)`);
-        }
+        const name = biter.getState?.("name") || "Infected";
+        hostAppendEvent?.(setEvents, `${name} bit a crew member — incubation started.`);
     } catch { }
 }
 
