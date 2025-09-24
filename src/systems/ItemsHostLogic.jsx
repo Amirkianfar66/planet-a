@@ -1112,41 +1112,75 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    // DROP
+                    // DROP (world entity or stack row)
                     if (type === "drop") {
-                        const it = findItem(target);
-                        if (!it || it.holder !== p.id) {
+                        const tok = String(target || "");
+                        const it = findItem(tok);
+
+                        // Case 1: dropping a world entity I'm holding (existing behavior)
+                        if (it && it.holder === p.id) {
+                            setItems(prev => prev.map(j => j.id === it.id ? {
+                                ...j,
+                                holder: null,
+                                hidden: false,
+                                x: px,
+                                y: Math.max(py + 0.5, FLOOR_Y + 0.01),
+                                z: pz,
+                                vx: 0, vy: 0, vz: 0,
+                            } : j), true);
+
+                            if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                            setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        setItems(
-                            (prev) =>
-                                prev.map((j) =>
-                                    j.id === it.id
-                                        ? {
-                                            ...j,
-                                            holder: null,
-                                            hidden: false,
-                                            x: px,
-                                            y: Math.max(py + 0.5, FLOOR_Y + 0.01),
-                                            z: pz,
-                                            vx: 0,
-                                            vy: 0,
-                                            vz: 0,
-                                        }
-                                        : j
-                                ),
-                            true
-                        );
+                        // Case 2: dropping one unit from a STACK (no id) using a type token
+                        const tLower = tok.toLowerCase();
+                        if (tLower) {
+                            const bp = getBackpack(p);
+                            const idx = bp.findIndex(b => !b?.id && String(b?.type || "").toLowerCase() === tLower);
+                            if (idx !== -1) {
+                                const row = bp[idx];
+                                const qty = Number(row?.qty || 1);
+                                const next = [...bp];
+                                if (qty > 1) next[idx] = { ...row, qty: qty - 1 }; else next.splice(idx, 1);
+                                setBackpack(p, next);
 
-                        if (String(p.getState("carry") || "") === it.id)
-                            p.setState("carry", "", true);
-                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
+                                // spawn a world entity of that type at player's feet
+                                const nameMap = {
+                                    food: "Ration Pack",
+                                    poison_food: "Poisoned Ration",
+                                    protection: "Shield Badge",
+                                    fuel: "Fuel Rod",
+                                    cure_advanced: "Cure (Advanced)",
+                                    cure_red: "Cure — A",
+                                    cure_blue: "Cure — B",
+                                };
+                                const spawnId = cryptoRandomId();
+                                setItems(prev => [...(Array.isArray(prev) ? prev : []), {
+                                    id: spawnId,
+                                    type: tLower,
+                                    name: nameMap[tLower] || tLower,
+                                    holder: null,
+                                    hidden: false,
+                                    x: px,
+                                    y: Math.max(py + 0.5, FLOOR_Y + 0.01),
+                                    z: pz,
+                                    vx: 0, vy: 0, vz: 0,
+                                }], true);
 
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
+                        }
+
+                        // nothing to drop
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+
 
                     // THROW
                     if (type === "throw") {

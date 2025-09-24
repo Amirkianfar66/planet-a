@@ -217,26 +217,27 @@ export default function HUD({ game = {} }) {
             : (type, target, value) => prRequestAction(type, target, value);
 
     // HUD.jsx
+    // HUD.jsx
     const handleUseItem = (arg) => {
         if (amDead) return;
 
-        // Support both signatures: onUse(id) or onUse(item)
+        // Accept both signatures: onUse(id) or onUse(item)
         const bp = items || [];
         const passedItem = (arg && typeof arg === "object") ? arg : null;
         const id = passedItem?.id ?? (typeof arg === "string" ? arg : null);
         const item = passedItem ?? (id ? bp.find(b => b.id === id) : null);
         const type = String(item?.type || "").toLowerCase();
 
-        // Containers
+        // Tanks
         if (type === "food_tank") {
             const tk = item?.id || id; if (!tk) return;
             requestAction("container", "food_tank", { containerId: tk, op: "toggle" });
             return;
         }
 
-        // Eat any food-like item (handles id-row OR stack-row object)
+        // Eat food-like (id-row or stack)
         if (type.includes("food")) {
-            const token = item?.id || (type || "food");
+            const token = item?.id || type; // stack uses 'food' or 'poison_food'
             requestAction("use", `eat|${token}`, 0);
             return;
         }
@@ -248,18 +249,18 @@ export default function HUD({ game = {} }) {
             return;
         }
 
-        // ✅ Advanced Cure → extend incubation +4:00
-        // A) id-row (picked from world)
+        // ✅ Advanced Cure (id-row)
         if (type === "cure_advanced" && item?.id) {
             requestAction("use", `adv|${item.id}`, 0);
             return;
         }
-        // B) stack-row (no id): tell host to consume from stack by type token
-        if (!item && bp.some(b => !b?.id && String(b?.type).toLowerCase() === "cure_advanced")) {
+        // ✅ Advanced Cure (stack-row; no id)
+        if (type === "cure_advanced" && !item?.id) {
             requestAction("use", "adv|cure_advanced", 0);
             return;
         }
-        if (type === "cure_advanced" && !item?.id) {
+        // If we were passed only an id, but there is a stack row in bp:
+        if (!item && bp.some(b => !b?.id && String(b?.type).toLowerCase() === "cure_advanced")) {
             requestAction("use", "adv|cure_advanced", 0);
             return;
         }
@@ -270,11 +271,37 @@ export default function HUD({ game = {} }) {
     };
 
 
-    const handleDrop = (id) => {
+    const handleDrop = (arg) => {
         if (amDead) return;
-        if (typeof game.onDropItem === "function") return game.onDropItem(id);
-        requestAction("dropItem", String(id));
+
+        const bp = items || [];
+        const passedItem = (arg && typeof arg === "object") ? arg : null;
+        const id = passedItem?.id ?? (typeof arg === "string" ? arg : null);
+        const item = passedItem ?? (id ? bp.find(b => b.id === id) : null);
+        const type = String(item?.type || "").toLowerCase();
+
+        // Prefer host drop for a real world entity (has id)
+        if (item?.id) {
+            requestAction("drop", String(item.id));
+            return;
+        }
+
+        // ➜ Stack row drop: ask host to drop one unit of this type (see host patch below)
+        if (!item && id) {
+            // Some panels pass 'id' only; if that's actually a type token, forward it.
+            requestAction("drop", String(id));
+            return;
+        }
+        if (type) {
+            requestAction("drop", type);
+            return;
+        }
+
+        // old fallback (kept for safety)
+        if (typeof game.onDropItem === "function") return game.onDropItem(id || "");
+        requestAction("drop", String(id || ""));
     };
+
 
     // Ability trigger → compute origin/dir and send to host
     const useAbility = (ability) => {

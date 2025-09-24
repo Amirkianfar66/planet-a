@@ -15,7 +15,7 @@ export default function BackpackPanel({
 }) {
     const [selectedKey, setSelectedKey] = useState(null);
 
-    // ----- grouping logic (unchanged)
+    // ----- grouping logic (unchanged, but we ensure primaryId may be null) -----
     const NO_STACK = new Set(["food_tank"]);
     const stacks = useMemo(() => {
         const groups = new Map();
@@ -23,6 +23,7 @@ export default function BackpackPanel({
         for (const it of items) {
             const type = String(it.type || it.kind || "").trim().toLowerCase();
             const qty = Math.max(1, Number(it.qty) || 1);
+
             if (NO_STACK.has(type)) {
                 singles.push({
                     key: it.id,
@@ -37,23 +38,37 @@ export default function BackpackPanel({
                 });
                 continue;
             }
+
             const key = `${type}|${(it.name || type || "item").toLowerCase()}|${it.icon || ""}`;
             if (!groups.has(key)) {
                 groups.set(key, { key, type, name: it.name || type || "Item", icon: it.icon, qty: 0, ids: [] });
             }
             const g = groups.get(key);
             g.qty += qty;
-            g.ids.push(it.id);
+            g.ids.push(it.id); // may be undefined for stack-rows (no id)
         }
-        const grouped = Array.from(groups.values()).map((g) => ({ ...g, primaryId: g.ids[0] }));
+
+        // NOTE: primaryId can be null when the group is made of stack-rows only.
+        const grouped = Array.from(groups.values()).map((g) => ({
+            ...g,
+            primaryId: g.ids.find(Boolean) || null,
+        }));
         return [...grouped, ...singles];
     }, [items]);
 
     const usedSlots = items.length;
     const selected = stacks.find((s) => s.key === selectedKey) || null;
 
-    const handleUse = () => selected && onUse?.(selected.primaryId);
-    const handleDrop = () => selected && onDrop?.(selected.primaryId);
+    // 🔧 IMPORTANT: pass a rich object (type + id) so HUD can act on stack rows too.
+    const handleUse = () => {
+        if (!selected || !onUse) return;
+        onUse({ ...selected, id: selected.primaryId }); // id may be null; HUD can use .type fallback
+    };
+
+    const handleDrop = () => {
+        if (!selected || !onDrop) return;
+        onDrop({ ...selected, id: selected.primaryId }); // id or type (stack)
+    };
 
     return (
         <section className="bp bp--illustrated bp--half" data-component="backpack">
@@ -78,10 +93,12 @@ export default function BackpackPanel({
                     {stacks.length === 0 ? (
                         <div className="bp__empty">No items.</div>
                     ) : (
-                            <div className="bp__grid">
+                        <div className="bp__grid">
                             {stacks.map((g) => {
                                 const isTank = g.type === "food_tank";
                                 const qtyBadge = isTank ? `${g.stored}/${g.cap}` : g.qty > 1 ? `×${g.qty}` : null;
+
+                                const canThrow = !!g.primaryId; // only world-entity rows (id) can be thrown
 
                                 return (
                                     <button
@@ -91,7 +108,7 @@ export default function BackpackPanel({
                                         data-selected={selected?.key === g.key || undefined}
                                         onClick={() => setSelectedKey(g.key)}
                                         onContextMenu={(e) => {
-                                            if (!onThrow) return;
+                                            if (!onThrow || !canThrow) return;
                                             e.preventDefault();
                                             e.stopPropagation();
                                             setSelectedKey(g.key);
@@ -104,7 +121,6 @@ export default function BackpackPanel({
                                         }
                                     >
                                         <span className="bp-item__icon">{renderIcon(g)}</span>
-                                        
                                         {qtyBadge && <span className="bp-item__qty">{qtyBadge}</span>}
                                     </button>
                                 );
@@ -137,10 +153,18 @@ export default function BackpackPanel({
         </section>
     );
 }
+
 function renderIcon(it) {
     if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
     const TYPE_ICON = {
-        food: "🥫", poison_food: "🥫", fuel: "🔋", protection: "🛡️", cure_red: "🧪", cure_blue: "🧪", food_tank: "🧃",
+        food: "🥫",
+        poison_food: "🥫",
+        fuel: "🔋",
+        protection: "🛡️",
+        cure_red: "🧪",
+        cure_blue: "🧪",
+        cure_advanced: "💊", // ← add icon for the advanced cure
+        food_tank: "🧃",
     };
     if (it.type && TYPE_ICON[it.type]) return <span style={{ fontSize: 26 }}>{TYPE_ICON[it.type]}</span>;
     const ch = (it.name || "?").trim()[0] || "?";

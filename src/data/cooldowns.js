@@ -47,8 +47,8 @@ const COOLDOWN = {
 
         // ——— Infected ———
         INFECTED_BITE: {
-            CLIENT_MS: 240000,            // 4 min display
-            SERVER_MS: 240000,            // 4 min enforced
+            CLIENT_MS: 3000,            // 4 min display
+            SERVER_MS: 3000,            // 4 min enforced
             FX_MS: 600,                   // short "biting" FX flag
             INCUBATION_MS: 50000,          // ✅ victim turns after 5s (testing
         },
