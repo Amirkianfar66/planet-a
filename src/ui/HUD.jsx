@@ -216,37 +216,57 @@ export default function HUD({ game = {} }) {
             ? game.requestAction
             : (type, target, value) => prRequestAction(type, target, value);
 
-    // HUD.jsx  (inside handleUseItem)
-    const handleUseItem = (id) => {
+    // HUD.jsx
+    const handleUseItem = (arg) => {
         if (amDead) return;
-        const item = (items || []).find((b) => b.id === id);
 
-        if (item?.type === "food_tank") {
-            requestAction("container", "food_tank", { containerId: id, op: "toggle" });
+        // Support both signatures: onUse(id) or onUse(item)
+        const bp = items || [];
+        const passedItem = (arg && typeof arg === "object") ? arg : null;
+        const id = passedItem?.id ?? (typeof arg === "string" ? arg : null);
+        const item = passedItem ?? (id ? bp.find(b => b.id === id) : null);
+        const type = String(item?.type || "").toLowerCase();
+
+        // Containers
+        if (type === "food_tank") {
+            const tk = item?.id || id; if (!tk) return;
+            requestAction("container", "food_tank", { containerId: tk, op: "toggle" });
             return;
         }
 
-        // Eat any food-like item (food or poison_food)
-        if (String(item?.type || "").toLowerCase().includes("food")) {
-            const token = item?.id || String(item?.type);
+        // Eat any food-like item (handles id-row OR stack-row object)
+        if (type.includes("food")) {
+            const token = item?.id || (type || "food");
             requestAction("use", `eat|${token}`, 0);
             return;
         }
 
-        // ✅ Use Protection → tell host to CURE (this is the keyword your host handles)
-        if (item?.type === "protection") {
-            requestAction("use", `cure|${id}`, 0);
+        // Protection → cure poison
+        if (type === "protection") {
+            const tok = item?.id || id; if (!tok) return;
+            requestAction("use", `cure|${tok}`, 0);
             return;
         }
 
-        // ✅ Advanced Cure → extend infection countdown (+4:00)
-        if (item?.type === "cure_advanced") {
-            requestAction("use", `adv|${id}`, 0);
+        // ✅ Advanced Cure → extend incubation +4:00
+        // A) id-row (picked from world)
+        if (type === "cure_advanced" && item?.id) {
+            requestAction("use", `adv|${item.id}`, 0);
+            return;
+        }
+        // B) stack-row (no id): tell host to consume from stack by type token
+        if (!item && bp.some(b => !b?.id && String(b?.type).toLowerCase() === "cure_advanced")) {
+            requestAction("use", "adv|cure_advanced", 0);
+            return;
+        }
+        if (type === "cure_advanced" && !item?.id) {
+            requestAction("use", "adv|cure_advanced", 0);
             return;
         }
 
-        if (typeof game.onUseItem === "function") return game.onUseItem(id);
-        requestAction("useItem", String(id));
+        // Fallbacks
+        if (typeof game.onUseItem === "function") return game.onUseItem(item?.id || id || "");
+        requestAction("useItem", String(item?.id || id || ""));
     };
 
 

@@ -50,7 +50,7 @@ const COOLDOWN = {
             CLIENT_MS: 240000,            // 4 min display
             SERVER_MS: 240000,            // 4 min enforced
             FX_MS: 600,                   // short "biting" FX flag
-            INCUBATION_MS: 5000,          // ✅ victim turns after 5s (testing
+            INCUBATION_MS: 50000,          // ✅ victim turns after 5s (testing
         },
         INFECTED_DISGUISE: {
             CLIENT_MS: 500,               // cosmetic toggle pacing

@@ -67,11 +67,21 @@ export default function InteractionSystem() {
                 }
                 if (carryId && dev) { sendReq("use", `${dev.id}|${carryId}`, 0); return; }
 
-                // Carried special cases: place CCTV or eat carried food
+                // Carried special cases: place CCTV, use Advanced Cure, or eat carried food
                 if (carryId) {
                     const worldItem = (itemsRef.current || []).find(x => x.id === carryId);
                     const isCamera = /^cam_/.test(String(carryId)) || worldItem?.type === "cctv";
                     const isFoodWorld = String(worldItem?.type || "").toLowerCase().includes("food");
+                    const isAdvCureWorld = String(worldItem?.type || "").toLowerCase() === "cure_advanced";
+                    // if incubating, prefer using advanced cure from hand
+                    if (isAdvCureWorld) {
+                         const now = Date.now();
+                         const infected = !!me.getState("infected");
+                         const until = Number(me.getState("infectionRevealUntil") || 0);
+                         if (!infected && until > now) { sendReq("use", `adv|${carryId}`, 0); return; }
+                        // (optional) allow using it even if not incubating:
+                       // sendReq("use", `adv|${carryId}`, 0); return;
+                    }
                     if (isCamera) { sendReq("use", `place|${carryId}`, 0); return; }
                     if (isFoodWorld) { sendReq("use", `eat|${carryId}`, 0); return; }
                     // else fall through to backpack
@@ -79,6 +89,21 @@ export default function InteractionSystem() {
 
                 // Not carrying (or carrying non-food): consume from BACKPACK
                 const bp = me.getState("backpack") || [];
+                // If incubating, try Advanced Cure from backpack first
+                {
+                   const now = Date.now();
+                   const infected = !!me.getState("infected");
+                   const until = Number(me.getState("infectionRevealUntil") || 0);
+                   const incubating = !infected && until > now;
+                   if (incubating) {
+                          // prefer id-row first
+                             const advIdRow = bp.find(b => b.id && String(b?.type || "").toLowerCase() === "cure_advanced");
+                             if (advIdRow) { sendReq("use", `adv|${advIdRow.id}`, 0); return; }
+                            // then stack-row (no id)
+                             const hasAdvStack = bp.some(b => !b?.id && String(b?.type || "").toLowerCase() === "cure_advanced");
+                            if (hasAdvStack) { sendReq("use", "adv|cure_advanced", 0); return; }
+                   }
+                }
                 const hasPoison = bp.some(b => {
                     const t = String(b?.type || "").toLowerCase();
                     return t === "poison_food" || (t.includes("poison") && t.includes("food"));
