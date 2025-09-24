@@ -949,19 +949,19 @@ export default function ItemsHostLogic() {
 
                     // --- SINGLE unified USE handler (keep only one of these in the loop) ---
                     if (type === "use") {
-                        let [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
-                        let it = findItem(idStr);
-                        const bp = getBackpack(p);
+                        // reuse previously parsed: kind, idStr, it, bp
 
-
-
-                        // Infer the action if UI sent just "use|<id>" or "use|<type-ish>"
+                        // Infer / default if UI sent just "use" (no id or type)
                         if (!kind || kind === "use" || kind === "item") {
                             if (it) {
                                 kind = inferKindFor(it.type);
                             } else if (idStr) {
-                                if (isFoodConsumableType(idStr)) kind = "eat";        // <- robust, handles any "food"-ish label
+                                if (isFoodConsumableType(idStr)) kind = "eat";
                                 else if (isType(idStr, "protection")) kind = "cure";
+                            } else {
+                                // nothing specified -> default to eat if any food-like item exists
+                                const hasFoodish = bp.some((b) => isFoodConsumableType(b.type));
+                                if (hasFoodish) kind = "eat";
                             }
                         }
 
@@ -995,6 +995,7 @@ export default function ItemsHostLogic() {
                         }
 
                         /* ---------- EAT: any food-like item gives +25 energy; poison variants also set poisoned ---------- */
+                        /* ---------- EAT: any food-like item gives +25 energy; poison variants also set poisoned ---------- */
                         if (kind === "eat") {
                             const applyEat = (player, itemType) => {
                                 // +25 energy (cap 100)
@@ -1006,9 +1007,23 @@ export default function ItemsHostLogic() {
                                 if (isPoisonFoodType(itemType)) player.setState("poisoned", true, true);
                             };
 
-                            const consumeOneFoodStack = (bpArr) => {
-                                const idx = Array.isArray(bpArr) ? bpArr.findIndex((b) => !b?.id && isFoodConsumableType(b?.type)) : -1;
+                            // Prefer a type for stack rows when requested (e.g., "poison_food")
+                            const consumeOneFoodStack = (bpArr, preferType = null) => {
+                                if (!Array.isArray(bpArr)) return null;
+
+                                const findIdx = (pred) => bpArr.findIndex(pred);
+
+                                // 1) try preferred type first
+                                let idx = -1;
+                                if (preferType) {
+                                    idx = findIdx(b => !b?.id && isFoodConsumableType(b?.type) && isType(b?.type, preferType));
+                                }
+                                // 2) else any food-like stack
+                                if (idx === -1) {
+                                    idx = findIdx(b => !b?.id && isFoodConsumableType(b?.type));
+                                }
                                 if (idx === -1) return null;
+
                                 const row = bpArr[idx];
                                 const qty = Number(row?.qty || 1);
                                 const eatenType = row?.type;
@@ -1020,9 +1035,11 @@ export default function ItemsHostLogic() {
                                 return { nextBp: bpArr.filter((_, i) => i !== idx), eatenType };
                             };
 
+                            // Consume a *specific id* if it's a food-like entry
                             const consumeIdRowByIdIfFood = (id) => {
                                 const idEntry = bp.find((b) => b.id === id && isFoodConsumableType(b.type));
                                 if (!idEntry) return false;
+
                                 const entity = findItem(idEntry.id);
                                 if (entity) {
                                     setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
@@ -1033,17 +1050,11 @@ export default function ItemsHostLogic() {
                                 return true;
                             };
 
-                            const consumeFirstIdRowAnyFood = () => {
-                                const idEntry = bp.find((b) => b.id && isFoodConsumableType(b.type));
-                                if (!idEntry) return false;
-                                const entity = findItem(idEntry.id);
-                                if (entity) {
-                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
-                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
-                                }
-                                setBackpack(p, bp.filter((b) => b.id !== idEntry.id));
-                                applyEat(p, idEntry.type);
-                                return true;
+                            // Find an id-row food entry, preferring a type if given (returns the entry, does not consume)
+                            const findFirstIdRowAnyFood = (bpArr, preferType = null) => {
+                                return (bpArr || []).find(b =>
+                                    b.id && isFoodConsumableType(b.type) && (!preferType || isType(b.type, preferType))
+                                ) || (bpArr || []).find(b => b.id && isFoodConsumableType(b.type));
                             };
 
                             // A) explicit id (supports any food-like type): use|<id>
@@ -1061,31 +1072,57 @@ export default function ItemsHostLogic() {
 
                             // C) explicit type: use|food / use|poison_food / use|<anything-with-"food">
                             if (idStr && isFoodConsumableType(idStr)) {
-                                // try stack first, then id-row
-                                const stackTry = consumeOneFoodStack(bp);
+                                // 1) prefer a matching stack row
+                                const stackTry = consumeOneFoodStack(bp, idStr);
                                 if (stackTry) {
                                     setBackpack(p, stackTry.nextBp);
                                     applyEat(p, stackTry.eatenType);
                                     processed.current.set(p.id, reqId);
                                     continue;
                                 }
-                                if (consumeFirstIdRowAnyFood()) { processed.current.set(p.id, reqId); continue; }
+
+                                // 2) prefer a matching id-row next
+                                const idEntryMatch = findFirstIdRowAnyFood(bp, idStr);
+                                if (idEntryMatch) {
+                                    const entity = findItem(idEntryMatch.id);
+                                    if (entity) {
+                                        setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
+                                        if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                    }
+                                    setBackpack(p, bp.filter((b) => b.id !== idEntryMatch.id));
+                                    applyEat(p, idEntryMatch.type);
+                                    processed.current.set(p.id, reqId);
+                                    continue;
+                                }
                             }
 
-                            // D) fallback: stack any food, else any id-row food
-                            const stackTry = consumeOneFoodStack(bp);
-                            if (stackTry) {
-                                setBackpack(p, stackTry.nextBp);
-                                applyEat(p, stackTry.eatenType);
+                            // D) fallback: any stack food, else any id-row food
+                            const stackAny = consumeOneFoodStack(bp);
+                            if (stackAny) {
+                                setBackpack(p, stackAny.nextBp);
+                                applyEat(p, stackAny.eatenType);
                                 processed.current.set(p.id, reqId);
                                 continue;
                             }
-                            if (consumeFirstIdRowAnyFood()) { processed.current.set(p.id, reqId); continue; }
+
+                            const idEntryAny = findFirstIdRowAnyFood(bp);
+                            if (idEntryAny) {
+                                const entity = findItem(idEntryAny.id);
+                                if (entity) {
+                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
+                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                }
+                                setBackpack(p, bp.filter((b) => b.id !== idEntryAny.id));
+                                applyEat(p, idEntryAny.type);
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
 
                             // nothing edible
                             processed.current.set(p.id, reqId);
                             continue;
                         }
+
 
 
                         /* ---------- CURE: Protection clears poison (unchanged) ---------- */

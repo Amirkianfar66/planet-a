@@ -40,7 +40,7 @@ export default function InteractionSystem() {
                 let pick = null, best = Infinity;
                 for (const it of (itemsRef.current || [])) {
                     if (it.holder) continue;
-                    if (String(it.type || "").toLowerCase() === "pet") continue; // ← don't target pets
+                    if (String(it.type || "").toLowerCase() === "pet") continue; // don't target pets
                     const dx = px - it.x, dz = pz - it.z, d2 = dx * dx + dz * dz;
                     if (d2 < best && d2 <= PICKUP_RADIUS * PICKUP_RADIUS) { pick = it; best = d2; }
                 }
@@ -58,40 +58,41 @@ export default function InteractionSystem() {
             }
 
             if (k === "i") {
-                if (!carryId) return;
-
-                // nearest device
+                // Try using carried item on a nearby device first
                 let dev = null, best = Infinity;
                 for (const d of DEVICES) {
                     const dx = px - d.x, dz = pz - d.z, d2 = dx * dx + dz * dz;
                     const r = Number(d.radius || DEVICE_RADIUS);
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
-                if (dev) {
-                    // Use item on a device
-                    sendReq("use", `${dev.id}|${carryId}`, 0);
-                    return;
+                if (carryId && dev) { sendReq("use", `${dev.id}|${carryId}`, 0); return; }
+
+                // Carried special cases: place CCTV or eat carried food
+                if (carryId) {
+                    const worldItem = (itemsRef.current || []).find(x => x.id === carryId);
+                    const isCamera = /^cam_/.test(String(carryId)) || worldItem?.type === "cctv";
+                    const isFoodWorld = String(worldItem?.type || "").toLowerCase().includes("food");
+                    if (isCamera) { sendReq("use", `place|${carryId}`, 0); return; }
+                    if (isFoodWorld) { sendReq("use", `eat|${carryId}`, 0); return; }
+                    // else fall through to backpack
                 }
 
-                // No device nearby — special cases (eat / place CCTV)
-                const worldItem = (itemsRef.current || []).find(x => x.id === carryId);
-                const isCameraIdOnly = /^cam_/.test(String(carryId)); // daily backpack cam ids
-                const isCameraType = worldItem?.type === "cctv";
-                const isFood = worldItem?.type === "food" || worldItem?.type === "poison_food"; 
+                // Not carrying (or carrying non-food): consume from BACKPACK
+                const bp = me.getState("backpack") || [];
+                const hasPoison = bp.some(b => {
+                    const t = String(b?.type || "").toLowerCase();
+                    return t === "poison_food" || (t.includes("poison") && t.includes("food"));
+                });
+                if (hasPoison) { sendReq("use", "eat|poison_food", 0); return; }
 
-                if (isCameraType || isCameraIdOnly) {
-                    // Place CCTV (works even if camera exists only in backpack)
-                    sendReq("use", `place|${carryId}`, 0);
-                    return;
-                }
+                const hasFood = bp.some(b => String(b?.type || "").toLowerCase().includes("food"));
+                if (hasFood) { sendReq("use", "eat|food", 0); return; }
 
-                if (isFood) {
-                    // Eat food
-                    sendReq("use", `eat|${carryId}`, 0);
-                    return;
-                }
+                return;
             }
         }
+
+
 
         function onKeyUp(e) {
             const k = (e.key || "").toLowerCase();
