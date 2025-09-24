@@ -41,13 +41,15 @@ function visibleTypeForViewer(itemType, viewerRole) {
 // ---------------------------------
 const TYPE_META = ITEM_TYPES;
 
+// What each stationary container accepts:
 const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
     protection_tank: "protection",
+    oxygen_device: "fuel",        // NEW: oxygen device consumes fuel rods
 };
 const isTankType = (t) =>
-    t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+    t === "food_tank" || t === "fuel_tank" || t === "protection_tank" || t === "oxygen_device";
 
 // ---------------------------------
 // Billboard / Text sprite
@@ -201,6 +203,24 @@ function ItemMesh({ visibleType = "crate" }) {
                     </mesh>
                 </group>
             );
+        case "oxygen_device":
+            return (
+                <group scale={[4, 4, 4]}>
+                    <mesh>
+                        <cylinderGeometry args={[0.22, 0.22, 0.34, 20]} />
+                        <meshStandardMaterial color={TYPE_META.oxygen_device?.color || "#60a5fa"} metalness={0.2} roughness={0.4} />
+                    </mesh>
+                    <mesh position={[0, 0.19, 0]}>
+                        <cylinderGeometry args={[0.23, 0.23, 0.03, 20]} />
+                        <meshStandardMaterial color="#0f172a" />
+                    </mesh>
+                    <mesh position={[0, -0.19, 0]}>
+                        <cylinderGeometry args={[0.21, 0.21, 0.02, 20]} />
+                        <meshStandardMaterial color="#0b1220" />
+                    </mesh>
+                </group>
+            );
+
         case "battery":
             return (
                 <group>

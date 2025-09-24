@@ -17,6 +17,9 @@ export const ITEM_TYPES = {
     cctv: { label: "CCTV Camera", color: "#94a3b8" },
     food_receiver: { label: "Food Receiver", color: "#0ea5e9" },       // cyan
     protection_receiver: { label: "Protection Receiver", color: "#fb923c" }, // amber
+    // Add this entry
+    oxygen_device: { label: "Oxygen Device", color: "#60a5fa" }, // blue
+
 };
 
 // Canonical team labels (slugs → pretty)
@@ -117,6 +120,19 @@ export const INITIAL_ITEMS = [
         stored: 0,
         color: ITEM_TYPES.fuel_tank.color,
     },
+
+    // Oxygen device in Mechanical room (a stationary, loadable container)
+    {
+        id: "oxygen_device_1",
+        type: "oxygen_device",
+        name: "Oxygen Device",
+        roomKey: "Mechanical",         // auto-placed to room center
+        offset: { x: 2, z: 0 },        // tweak if you want
+        cap: 12,                       // how many fuel units it can store
+        stored: 0,                     // start empty so teams must fuel it
+        color: ITEM_TYPES.oxygen_device.color
+    },
+
 ]; // <-- IMPORTANT: close INITIAL_ITEMS before starting DEVICES!
 
 // World devices you can interact with when pressing "I"

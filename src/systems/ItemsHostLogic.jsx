@@ -103,9 +103,11 @@ const TANK_ACCEPTS = {
     food_tank: "food",
     fuel_tank: "fuel",
     protection_tank: "protection",
+    oxygen_device: "fuel",    // NEW
 };
 const isTankType = (t) =>
-    t === "food_tank" || t === "fuel_tank" || t === "protection_tank";
+    t === "food_tank" || t === "fuel_tank" || t === "protection_tank" || t === "oxygen_device";
+
 // Receivers
 const isReceiverType = (t) => t === "food_receiver" || t === "protection_receiver";
 
@@ -116,6 +118,10 @@ function normalizeTeamKey(raw) {
     if (TEAM_LABELS_LOWER[s]) return s;            // already teama/b/c/d
     const hit = Object.entries(TEAM_LABELS_LOWER).find(([, v]) => v === s); // pretty -> slug
     return hit ? hit[0] : "";
+}
+function isOxygenPowered(itemsList) {
+    const ox = (itemsList || []).find(i => i && i.type === "oxygen_device");
+    return Number(ox?.stored || 0) > 0;
 }
 
 // Add one stackable item to backpack
@@ -376,18 +382,17 @@ export default function ItemsHostLogic() {
         return () => clearInterval(h);
     }, [host, setItems]);
 
-    // ENERGY DECAY: subtract 25 once per new dayNumber
+    // DAILY TICKS: personal energy decay AND oxygen device consumption
     useEffect(() => {
         if (!host) return;
 
         const readClock = () =>
-        (typeof useGameClock.getState === "function"
-            ? useGameClock.getState()
-            : null);
+            (typeof useGameClock.getState === "function" ? useGameClock.getState() : null);
 
         let lastDay = Number(readClock()?.dayNumber ?? 0);
 
-        const applyDecay = (d) => {
+        const applyDailyUpdates = (d) => {
+            // 1) Energy -25 for all alive players (unchanged)
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
@@ -398,9 +403,23 @@ export default function ItemsHostLogic() {
                 const next = Math.max(0, Math.min(100, cur - 25));
                 pl.setState?.("energy", next, true);
             }
-            console.log(
-                `[HOST] Day ${d}: reduced personal energy by 25 for all alive players.`
-            );
+
+            // 2) Oxygen Device consumes 2 fuel at the start of the day
+            setItems((prev) => {
+                const list = Array.isArray(prev) ? prev : [];
+                let changed = false;
+                const next = list.map((it) => {
+                    if (it?.type !== "oxygen_device") return it;
+                    const have = Number(it.stored || 0);
+                    if (have <= 0) return it;           // already empty
+                    const used = Math.min(2, have);     // consume up to 2
+                    changed = true;
+                    return { ...it, stored: have - used };
+                });
+                return changed ? next : prev;
+            }, true);
+
+            console.log(`[HOST] Day ${d}: -25 energy & Oxygen Device consumed up to 2 fuel.`);
         };
 
         let rafId = 0;
@@ -409,7 +428,7 @@ export default function ItemsHostLogic() {
             if (s) {
                 const d = Number(s.dayNumber ?? 0);
                 if (d !== lastDay) {
-                    applyDecay(d);
+                    applyDailyUpdates(d);
                     lastDay = d;
                 }
             }
@@ -418,7 +437,8 @@ export default function ItemsHostLogic() {
 
         rafId = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(rafId);
-    }, [host]);
+    }, [host, setItems]);
+
 
     // BASELINE per-player state (life, role charges, oxygen)
     useEffect(() => {
@@ -447,7 +467,7 @@ export default function ItemsHostLogic() {
         }
     }, [host, players]);
 
-    // OXYGEN DRAIN while OUTSIDE (roofless)
+    // OXYGEN DRAIN: outside OR indoors when Oxygen Device is empty
     useEffect(() => {
         if (!host) return;
         const DRAIN_PER_TICK = 1; // % per second
@@ -458,6 +478,9 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
+            const list = itemsRef.current || [];
+            const indoorO2Powered = isOxygenPowered(list); // <-- NEW
+
             for (const pl of everyone) {
                 if (pl.getState?.("dead")) continue;
 
@@ -465,7 +488,8 @@ export default function ItemsHostLogic() {
                 const pz = Number(pl.getState?.("z") || 0);
                 const outside = isOutsideByRoof(px, pz);
 
-                if (outside) {
+                // drain either when outside OR when inside but no O2 power
+                if (outside || !indoorO2Powered) {
                     const cur = Number(pl.getState?.("oxygen") ?? 100);
                     if (cur <= 0) continue;
                     const next = Math.max(0, Math.min(100, cur - DRAIN_PER_TICK));
@@ -476,7 +500,8 @@ export default function ItemsHostLogic() {
 
         return () => clearInterval(timer);
     }, [host]);
-    // OXYGEN REGEN: +3 each in-game hour when under a roof (not outside)
+
+    // OXYGEN REGEN: +3 each in-game hour when under a roof AND Oxygen Device has fuel
     useEffect(() => {
         if (!host) return;
 
@@ -492,6 +517,9 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
+            // NEW: check oxygen device status once per hour tick
+            const indoorO2Powered = isOxygenPowered(itemsRef.current || []);
+
             for (const pl of everyone) {
                 if (pl.getState?.("dead")) continue;
 
@@ -499,7 +527,8 @@ export default function ItemsHostLogic() {
                 const z = Number(pl.getState?.("z") || 0);
                 const outside = isOutsideByRoof(x, z); // true = outside (no roof)
 
-                if (!outside) {
+                // REGEN only if indoors and the Oxygen Device is powered
+                if (!outside && indoorO2Powered) {
                     const cur = Number(pl.getState?.("oxygen") ?? 100);
                     const next = Math.min(100, cur + 3);
                     if (next !== cur) pl.setState?.("oxygen", next, true);
@@ -522,6 +551,7 @@ export default function ItemsHostLogic() {
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
     }, [host]);
+
 
     // POISON TICK: -1 life/sec while poisoned, stops when cured (using Protection)
     useEffect(() => {
