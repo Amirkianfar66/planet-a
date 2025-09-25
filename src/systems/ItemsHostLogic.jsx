@@ -133,6 +133,43 @@ function isOxygenPowered(itemsList) {
     const ox = (itemsList || []).find(i => i && i.type === "oxygen_device");
     return Number(ox?.stored || 0) > 0;
 }
+// ---- ROOM-MAPPED OXYGEN POWER -------------------------------------
+const ROCKET_DEVICE_ID = "oxygen_device_rocket_1";
+
+// Returns true if *any* oxygen device with stored>0 matches the predicate
+function hasPoweredOxygen(itemsList, predicate = () => true) {
+    for (const it of (itemsList || [])) {
+        if (it?.type !== "oxygen_device") continue;
+        if (Number(it?.stored || 0) <= 0) continue;
+        if (predicate(it)) return true;
+    }
+    return false;
+}
+
+// We only need to distinguish Rocket vs Not-Rocket per your spec.
+// Try to use the actual "Rocket" room center if available.
+function isInRocketRoom(x, z) {
+    try {
+        const c = roomCenter("Rocket");
+        if (!c) return false;
+        const dx = x - Number(c.x || 0);
+        const dz = z - Number(c.z || 0);
+        const R = 7; // tweak room radius if Rocket is larger/smaller
+        return dx * dx + dz * dz <= R * R;
+    } catch {
+        return false;
+    }
+}
+
+// Given player position and items, decide if indoor oxygen should be powered
+function isRoomOxygenPoweredForPlayer(x, z, itemsList) {
+    // Rocket room is powered ONLY by the Rocket device
+    if (isInRocketRoom(x, z)) {
+        return hasPoweredOxygen(itemsList, (it) => it.id === ROCKET_DEVICE_ID);
+    }
+    // All other rooms are powered by any oxygen device that is NOT the Rocket device
+    return hasPoweredOxygen(itemsList, (it) => it.id !== ROCKET_DEVICE_ID);
+}
 
 // Add one stackable item to backpack
 function addOneToBackpack(bp, type) {
@@ -587,22 +624,9 @@ export default function ItemsHostLogic() {
                 pl.setState?.("energy", next, true);
             }
 
-            // 2) Oxygen Device consumes 2 fuel at the start of the day
-            setItems((prev) => {
-                const list = Array.isArray(prev) ? prev : [];
-                let changed = false;
-                const next = list.map((it) => {
-                    if (it?.type !== "oxygen_device") return it;
-                    const have = Number(it.stored || 0);
-                    if (have <= 0) return it;           // already empty
-                    const used = Math.min(2, have);     // consume up to 2
-                    changed = true;
-                    return { ...it, stored: have - used };
-                });
-                return changed ? next : prev;
-            }, true);
+     
 
-            console.log(`[HOST] Day ${d}: -25 energy & Oxygen Device consumed up to 2 fuel.`);
+
         };
 
         let rafId = 0;
@@ -650,7 +674,7 @@ export default function ItemsHostLogic() {
         }
     }, [host, players]);
 
-    // OXYGEN DRAIN: outside OR indoors when Oxygen Device is empty
+    // OXYGEN DRAIN: outside OR indoors when Oxygen Device for this room is empty
     useEffect(() => {
         if (!host) return;
         const DRAIN_PER_TICK = 1; // % per second
@@ -662,7 +686,6 @@ export default function ItemsHostLogic() {
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
             const list = itemsRef.current || [];
-            const indoorO2Powered = isOxygenPowered(list); // <-- NEW
 
             for (const pl of everyone) {
                 if (pl.getState?.("dead")) continue;
@@ -671,8 +694,10 @@ export default function ItemsHostLogic() {
                 const pz = Number(pl.getState?.("z") || 0);
                 const outside = isOutsideByRoof(px, pz);
 
-                // drain either when outside OR when inside but no O2 power
-                if (outside || !indoorO2Powered) {
+                // ✅ room-scoped power (Rocket vs non-Rocket mapping)
+                const roomPowered = isRoomOxygenPoweredForPlayer(px, pz, list);
+
+                if (outside || !roomPowered) {
                     const cur = Number(pl.getState?.("oxygen") ?? 100);
                     if (cur <= 0) continue;
                     const next = Math.max(0, Math.min(100, cur - DRAIN_PER_TICK));
@@ -681,8 +706,9 @@ export default function ItemsHostLogic() {
             }
         }, TICK_MS);
 
-        return () => clearInterval(timer);
+        return () => clearInterval(timer);  // ✅ cleanup
     }, [host]);
+
 
     // OXYGEN REGEN: +3 each in-game hour when under a roof AND Oxygen Device has fuel
     useEffect(() => {
@@ -708,14 +734,14 @@ export default function ItemsHostLogic() {
 
                 const x = Number(pl.getState?.("x") || 0);
                 const z = Number(pl.getState?.("z") || 0);
-                const outside = isOutsideByRoof(x, z); // true = outside (no roof)
-
-                // REGEN only if indoors and the Oxygen Device is powered
-                if (!outside && indoorO2Powered) {
+                const outside = isOutsideByRoof(x, z);
+                const roomPowered = isRoomOxygenPoweredForPlayer(x, z, itemsRef.current || []);
+                if (!outside && roomPowered) {
                     const cur = Number(pl.getState?.("oxygen") ?? 100);
                     const next = Math.min(100, cur + 3);
                     if (next !== cur) pl.setState?.("oxygen", next, true);
                 }
+
             }
         };
 
@@ -762,6 +788,45 @@ export default function ItemsHostLogic() {
 
         return () => clearInterval(timer);
     }, [host]);
+
+    // EVERY day (real time): empty all oxygen devices
+    useEffect(() => {
+        if (!host) return;
+        const store = typeof useGameClock.getState === "function" ? useGameClock.getState() : null;
+        const getSec = store && typeof store.nowGameSec === "function" ? store.nowGameSec : null;
+        if (!getSec) return;
+
+        const resetAll = (tag = "ingame1day") => {
+            setItems(prev => {
+                const list = Array.isArray(prev) ? prev : [];
+                const next = list.map(it =>
+                    String(it?.type || "").trim().toLowerCase() === "oxygen_device"
+                        ? { ...it, stored: 0, _o2ResetAt: Date.now(), _o2ResetTag: tag }
+                        : it
+                );
+                return next;
+            }, true);
+            try {
+                const arr = (window.__itemsCache__?.() || [])
+                    .filter(i => String(i?.type || "").toLowerCase() === "oxygen_device")
+                    .map(i => `${i.id}=${i.stored}`);
+                console.log(`[HOST] O2 reset (${tag}) →`, arr.join(", "));
+            } catch { }
+        };
+
+        let prevBucket = Math.floor(getSec() / 48000); // 300s = 5 in-game minutes
+        let raf;
+        const loop = () => {
+            const curBucket = Math.floor(getSec() / 48000);
+            if (curBucket !== prevBucket) {
+                resetAll();
+                prevBucket = curBucket;
+            }
+            raf = requestAnimationFrame(loop);
+        };
+        raf = requestAnimationFrame(loop);
+        return () => cancelAnimationFrame(raf);
+    }, [host, setItems]);
 
     /* -------- give Officers/Guards exactly ONE CCTV for the whole game -------- */
     useEffect(() => {

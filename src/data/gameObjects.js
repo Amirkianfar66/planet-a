@@ -161,10 +161,22 @@ export const INITIAL_ITEMS = [
         name: "Oxygen Device",
         roomKey: "Mechanical",         // auto-placed to room center
         offset: { x: 2, z: 0 },        // tweak if you want
-        cap: 12,                       // how many fuel units it can store
+        cap: 2,                       // how many fuel units it can store
         stored: 0,                     // start empty so teams must fuel it
         color: ITEM_TYPES.oxygen_device.color
     },
+    // Oxygen device for the Rocket area (independent of the Mechanical one)
+    {
+        id: "oxygen_device_rocket_1",
+        type: "oxygen_device",
+        name: "Oxygen Device — Rocket",
+        roomKey: "Rocket",        // auto-placed at the Rocket room center
+        offset: { x: 0, z: 0 },   // tweak placement inside the room
+        cap: 2,
+        stored: 0,
+        color: ITEM_TYPES.oxygen_device.color
+    },
+
 
 ]; // <-- IMPORTANT: close INITIAL_ITEMS before starting DEVICES!
 

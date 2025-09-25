@@ -1,0 +1,3624 @@
+{
+  "rooms": [
+    {
+      "key": "TeamC",
+      "name": "TeamC",
+      "type": "TeamC",
+      "x": -13,
+      "z": -15,
+      "w": 10,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Kitchen",
+      "name": "Kitchen",
+      "type": "Kitchen",
+      "x": -3,
+      "z": 12,
+      "w": 10,
+      "d": 20,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "TeamD",
+      "name": "TeamD",
+      "type": "TeamD",
+      "x": -13,
+      "z": -25,
+      "w": 10,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Lab",
+      "name": "Lab",
+      "type": "Lab",
+      "x": -3,
+      "z": -20,
+      "w": 10,
+      "d": 20,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Mechanical",
+      "name": "Mechanical",
+      "type": "Mechanical",
+      "x": 17,
+      "z": 16,
+      "w": 15,
+      "d": 12,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Electrical",
+      "name": "Electrical",
+      "type": "Electrical",
+      "x": 17,
+      "z": 5,
+      "w": 15,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "ControlRoom",
+      "name": "Control Room",
+      "type": "Control Room",
+      "x": 17,
+      "z": -24,
+      "w": 15,
+      "d": 12,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "DataCenter",
+      "name": "DataCenter",
+      "type": "DataCenter",
+      "x": 17,
+      "z": -13,
+      "w": 15,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorWest",
+      "name": "CorridorWest",
+      "type": "CorridorWest",
+      "x": -20,
+      "z": -6.5,
+      "w": 5,
+      "d": 57,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#17385e"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorNorth",
+      "name": "CorridorNorth",
+      "type": "CorridorNorth",
+      "x": 3.5,
+      "z": -32.5,
+      "w": 42,
+      "d": 5,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#7b92ad"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorEast",
+      "name": "CorridorEast",
+      "type": "CorridorEast",
+      "x": 27,
+      "z": -4,
+      "w": 5,
+      "d": 62,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#00ff2a"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Storage",
+      "name": "Storage",
+      "type": "Storage",
+      "x": 22,
+      "z": 35,
+      "w": 15,
+      "d": 16,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "EntranceB",
+      "name": "EntranceB",
+      "type": "EntranceB",
+      "x": 4.7,
+      "z": 35,
+      "w": 20,
+      "d": 16,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "EntranceA",
+      "name": "EntranceA",
+      "type": "EntranceA",
+      "x": -32.5,
+      "z": -6.6,
+      "w": 20,
+      "d": 6,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "TeamB",
+      "name": "TeamB",
+      "type": "TeamB",
+      "x": -13,
+      "z": 7,
+      "w": 10,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "meeting_room",
+      "name": "Meeting Area",
+      "type": "meeting_room",
+      "x": 5.9,
+      "z": -4,
+      "w": 8,
+      "d": 52,
+      "rotDeg": -180,
+      "h": 6,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorWideEast",
+      "name": "CorridorWideEast",
+      "type": "CorridorWideEast",
+      "x": 17,
+      "z": -4.1,
+      "w": 15,
+      "d": 7.9,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#a4bbd6"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "TeamA",
+      "name": "TeamA",
+      "type": "TeamA",
+      "x": -13,
+      "z": 17,
+      "w": 10,
+      "d": 10,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#1e6dc8"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorSouth",
+      "name": "CorridorSouth",
+      "type": "CorridorSouth",
+      "x": 1,
+      "z": 24.5,
+      "w": 47,
+      "d": 5,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#88f2bb"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": {
+            "offset": 4.4
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "lockdown",
+      "name": "lockdown",
+      "type": "lockdown",
+      "x": 50,
+      "z": -60,
+      "w": 15,
+      "d": 15,
+      "rotDeg": 0,
+      "h": 6,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#225da0"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "CorridorWideWest",
+      "name": "CorridorWideWest",
+      "type": "CorridorWideWest",
+      "x": -7.7,
+      "z": -3.2,
+      "w": 20,
+      "d": 14,
+      "rotDeg": 0,
+      "h": 5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": 0.2,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "t": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "GreenHouse",
+      "name": "GreenHouse",
+      "type": "GreenHouse",
+      "x": 56,
+      "z": 55,
+      "w": 19,
+      "d": 25,
+      "rotDeg": 0,
+      "h": 4.5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "PowerGenerate",
+      "name": "PowerGenerate",
+      "type": "PowerGenerate",
+      "x": -39,
+      "z": -64,
+      "w": 10,
+      "d": 15,
+      "rotDeg": 0,
+      "h": 4.5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": true,
+          "door": {
+            "offset": 0
+          },
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": true,
+          "door": null,
+          "h": null,
+          "mat": null
+        }
+      ]
+    },
+    {
+      "key": "Rocket",
+      "name": "Rocket",
+      "type": "Rocket",
+      "x": -45,
+      "z": 58,
+      "w": 31,
+      "d": 34,
+      "rotDeg": 0,
+      "h": 4.5,
+      "floorY": 0,
+      "roofT": 0.12,
+      "hasFloor": true,
+      "hasRoof": true,
+      "wallT": null,
+      "exported": true,
+      "wallMat": {
+        "color": "#9aa4b2"
+      },
+      "floorMat": {
+        "color": "#30363d"
+      },
+      "roofMat": {
+        "color": "#232a31"
+      },
+      "edges": [
+        {
+          "id": "room_N",
+          "side": "N",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_E",
+          "side": "E",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_S",
+          "side": "S",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        },
+        {
+          "id": "room_W",
+          "side": "W",
+          "present": false,
+          "door": null,
+          "h": null,
+          "mat": null
+        }
+      ]
+    }
+  ],
+  "walls": [
+    {
+      "x": -13,
+      "z": -20,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "TeamC_N_0",
+      "room": "TeamC",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -8,
+      "z": -15,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "TeamC_E_1",
+      "room": "TeamC",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -13,
+      "z": -10,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "TeamC_S_2",
+      "room": "TeamC",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -18,
+      "z": -15,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "TeamC_W_3",
+      "room": "TeamC",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -3,
+      "z": 2,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "Kitchen_N_0",
+      "room": "Kitchen",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 2,
+      "z": 12,
+      "w": 0.2,
+      "d": 20,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Kitchen_E_1",
+      "room": "Kitchen",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -3,
+      "z": 22,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Kitchen_S_2",
+      "room": "Kitchen",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -8,
+      "z": 12,
+      "w": 0.2,
+      "d": 20,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "Kitchen_W_3",
+      "room": "Kitchen",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -13,
+      "z": -30,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "TeamD_N_0",
+      "room": "TeamD",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -8,
+      "z": -25,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "TeamD_E_1",
+      "room": "TeamD",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -18,
+      "z": -25,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "TeamD_W_2",
+      "room": "TeamD",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -3,
+      "z": -30,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "Lab_N_0",
+      "room": "Lab",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 2,
+      "z": -20,
+      "w": 0.2,
+      "d": 20,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Lab_E_1",
+      "room": "Lab",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -3,
+      "z": -10,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Lab_S_2",
+      "room": "Lab",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": 10,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "Mechanical_N_0",
+      "room": "Mechanical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 24.5,
+      "z": 16,
+      "w": 0.2,
+      "d": 12,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Mechanical_E_1",
+      "room": "Mechanical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": 22,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Mechanical_S_2",
+      "room": "Mechanical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 9.5,
+      "z": 16,
+      "w": 0.2,
+      "d": 12,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "Mechanical_W_3",
+      "room": "Mechanical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": 0,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "Electrical_N_0",
+      "room": "Electrical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 24.5,
+      "z": 5,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Electrical_E_1",
+      "room": "Electrical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": 10,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Electrical_S_2",
+      "room": "Electrical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 9.5,
+      "z": 5,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "Electrical_W_3",
+      "room": "Electrical",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": -30,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "ControlRoom_N_0",
+      "room": "ControlRoom",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 24.5,
+      "z": -24,
+      "w": 0.2,
+      "d": 12,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "ControlRoom_E_1",
+      "room": "ControlRoom",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": -18,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "ControlRoom_S_2",
+      "room": "ControlRoom",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 9.5,
+      "z": -24,
+      "w": 0.2,
+      "d": 12,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "ControlRoom_W_3",
+      "room": "ControlRoom",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": -18,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "DataCenter_N_0",
+      "room": "DataCenter",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 24.5,
+      "z": -13,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "DataCenter_E_1",
+      "room": "DataCenter",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 17,
+      "z": -8,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "DataCenter_S_2",
+      "room": "DataCenter",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 9.5,
+      "z": -13,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "DataCenter_W_3",
+      "room": "DataCenter",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -20,
+      "z": -35,
+      "w": 5,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "CorridorWest_N_0",
+      "room": "CorridorWest",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -22.5,
+      "z": -6.5,
+      "w": 0.2,
+      "d": 57,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "CorridorWest_W_1",
+      "room": "CorridorWest",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 3.5,
+      "z": -35,
+      "w": 42,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "CorridorNorth_N_0",
+      "room": "CorridorNorth",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 27,
+      "z": -35,
+      "w": 5,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "CorridorEast_N_0",
+      "room": "CorridorEast",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 29.5,
+      "z": -4,
+      "w": 0.2,
+      "d": 62,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "CorridorEast_E_1",
+      "room": "CorridorEast",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 29.5,
+      "z": 35,
+      "w": 0.2,
+      "d": 16,
+      "h": 5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "Storage_E_0",
+      "room": "Storage",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 22,
+      "z": 43,
+      "w": 15,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "Storage_S_1",
+      "room": "Storage",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 14.5,
+      "z": 35,
+      "w": 0.2,
+      "d": 16,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "Storage_W_2",
+      "room": "Storage",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 4.7,
+      "z": 43,
+      "w": 20,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "EntranceB_S_0",
+      "room": "EntranceB",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -5.3,
+      "z": 35,
+      "w": 0.2,
+      "d": 16,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "EntranceB_W_1",
+      "room": "EntranceB",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -32.5,
+      "z": -9.6,
+      "w": 20,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "EntranceA_N_0",
+      "room": "EntranceA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -32.5,
+      "z": -3.5999999999999996,
+      "w": 20,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "EntranceA_S_1",
+      "room": "EntranceA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -42.5,
+      "z": -6.6,
+      "w": 0.2,
+      "d": 6,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "EntranceA_W_2",
+      "room": "EntranceA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -13,
+      "z": 2,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "TeamB_N_0",
+      "room": "TeamB",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -18,
+      "z": 7,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "TeamB_W_1",
+      "room": "TeamB",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -13,
+      "z": 12,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "TeamA_N_0",
+      "room": "TeamA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -13,
+      "z": 22,
+      "w": 10,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "TeamA_S_1",
+      "room": "TeamA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -18,
+      "z": 17,
+      "w": 0.2,
+      "d": 10,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "TeamA_W_2",
+      "room": "TeamA",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 1,
+      "z": 27,
+      "w": 47,
+      "d": 0.2,
+      "h": 5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "CorridorSouth_S_0",
+      "room": "CorridorSouth",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -22.5,
+      "z": 24.5,
+      "w": 0.2,
+      "d": 5,
+      "h": 5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "CorridorSouth_W_1",
+      "room": "CorridorSouth",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 50,
+      "z": -67.5,
+      "w": 15,
+      "d": 0.6,
+      "h": 6,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "lockdown_N_0",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 57.5,
+      "z": -60,
+      "w": 0.6,
+      "d": 15,
+      "h": 6,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "lockdown_E_1",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 50,
+      "z": -52.5,
+      "w": 15,
+      "d": 0.6,
+      "h": 6,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "lockdown_S_2",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 42.5,
+      "z": -60,
+      "w": 0.6,
+      "d": 15,
+      "h": 6,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "lockdown_W_3",
+      "room": "lockdown",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 56,
+      "z": 42.5,
+      "w": 19,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "GreenHouse_N_0",
+      "room": "GreenHouse",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 65.5,
+      "z": 55,
+      "w": 0.6,
+      "d": 25,
+      "h": 4.5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "GreenHouse_E_1",
+      "room": "GreenHouse",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 56,
+      "z": 67.5,
+      "w": 19,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "GreenHouse_S_2",
+      "room": "GreenHouse",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": 46.5,
+      "z": 55,
+      "w": 0.6,
+      "d": 25,
+      "h": 4.5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "GreenHouse_W_3",
+      "room": "GreenHouse",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -39,
+      "z": -71.5,
+      "w": 10,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "N",
+      "rotDeg": 0,
+      "id": "PowerGenerate_N_0",
+      "room": "PowerGenerate",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -34,
+      "z": -64,
+      "w": 0.6,
+      "d": 15,
+      "h": 4.5,
+      "side": "E",
+      "rotDeg": 0,
+      "id": "PowerGenerate_E_1",
+      "room": "PowerGenerate",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -39,
+      "z": -56.5,
+      "w": 10,
+      "d": 0.6,
+      "h": 4.5,
+      "side": "S",
+      "rotDeg": 0,
+      "id": "PowerGenerate_S_2",
+      "room": "PowerGenerate",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    },
+    {
+      "x": -44,
+      "z": -64,
+      "w": 0.6,
+      "d": 15,
+      "h": 4.5,
+      "side": "W",
+      "rotDeg": 0,
+      "id": "PowerGenerate_W_3",
+      "room": "PowerGenerate",
+      "mat": {
+        "color": "#9aa4b2"
+      }
+    }
+  ],
+  "wallAABBs": [
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": -20.1,
+      "maxZ": -19.9
+    },
+    {
+      "minX": -13,
+      "maxX": -3,
+      "minZ": -15.1,
+      "maxZ": -14.9
+    },
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": -10.1,
+      "maxZ": -9.9
+    },
+    {
+      "minX": -23,
+      "maxX": -13,
+      "minZ": -15.1,
+      "maxZ": -14.9
+    },
+    {
+      "minX": -8,
+      "maxX": 2,
+      "minZ": 1.9,
+      "maxZ": 2.1
+    },
+    {
+      "minX": -8,
+      "maxX": 12,
+      "minZ": 11.9,
+      "maxZ": 12.1
+    },
+    {
+      "minX": -8,
+      "maxX": 2,
+      "minZ": 21.9,
+      "maxZ": 22.1
+    },
+    {
+      "minX": -18,
+      "maxX": 2,
+      "minZ": 11.9,
+      "maxZ": 12.1
+    },
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": -30.1,
+      "maxZ": -29.9
+    },
+    {
+      "minX": -13,
+      "maxX": -3,
+      "minZ": -25.1,
+      "maxZ": -24.9
+    },
+    {
+      "minX": -23,
+      "maxX": -13,
+      "minZ": -25.1,
+      "maxZ": -24.9
+    },
+    {
+      "minX": -8,
+      "maxX": 2,
+      "minZ": -30.1,
+      "maxZ": -29.9
+    },
+    {
+      "minX": -8,
+      "maxX": 12,
+      "minZ": -20.1,
+      "maxZ": -19.9
+    },
+    {
+      "minX": -8,
+      "maxX": 2,
+      "minZ": -10.1,
+      "maxZ": -9.9
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": 9.9,
+      "maxZ": 10.1
+    },
+    {
+      "minX": 18.5,
+      "maxX": 30.5,
+      "minZ": 15.9,
+      "maxZ": 16.1
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": 21.9,
+      "maxZ": 22.1
+    },
+    {
+      "minX": 3.5,
+      "maxX": 15.5,
+      "minZ": 15.9,
+      "maxZ": 16.1
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": -0.1,
+      "maxZ": 0.1
+    },
+    {
+      "minX": 19.5,
+      "maxX": 29.5,
+      "minZ": 4.9,
+      "maxZ": 5.1
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": 9.9,
+      "maxZ": 10.1
+    },
+    {
+      "minX": 4.5,
+      "maxX": 14.5,
+      "minZ": 4.9,
+      "maxZ": 5.1
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": -30.1,
+      "maxZ": -29.9
+    },
+    {
+      "minX": 18.5,
+      "maxX": 30.5,
+      "minZ": -24.1,
+      "maxZ": -23.9
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": -18.1,
+      "maxZ": -17.9
+    },
+    {
+      "minX": 3.5,
+      "maxX": 15.5,
+      "minZ": -24.1,
+      "maxZ": -23.9
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": -18.1,
+      "maxZ": -17.9
+    },
+    {
+      "minX": 19.5,
+      "maxX": 29.5,
+      "minZ": -13.1,
+      "maxZ": -12.9
+    },
+    {
+      "minX": 9.5,
+      "maxX": 24.5,
+      "minZ": -8.1,
+      "maxZ": -7.9
+    },
+    {
+      "minX": 4.5,
+      "maxX": 14.5,
+      "minZ": -13.1,
+      "maxZ": -12.9
+    },
+    {
+      "minX": -22.5,
+      "maxX": -17.5,
+      "minZ": -35.1,
+      "maxZ": -34.9
+    },
+    {
+      "minX": -51,
+      "maxX": 6,
+      "minZ": -6.6,
+      "maxZ": -6.4
+    },
+    {
+      "minX": -17.5,
+      "maxX": 24.5,
+      "minZ": -35.1,
+      "maxZ": -34.9
+    },
+    {
+      "minX": 24.5,
+      "maxX": 29.5,
+      "minZ": -35.1,
+      "maxZ": -34.9
+    },
+    {
+      "minX": -1.5,
+      "maxX": 60.5,
+      "minZ": -4.1,
+      "maxZ": -3.9
+    },
+    {
+      "minX": 21.5,
+      "maxX": 37.5,
+      "minZ": 34.9,
+      "maxZ": 35.1
+    },
+    {
+      "minX": 14.5,
+      "maxX": 29.5,
+      "minZ": 42.9,
+      "maxZ": 43.1
+    },
+    {
+      "minX": 6.5,
+      "maxX": 22.5,
+      "minZ": 34.9,
+      "maxZ": 35.1
+    },
+    {
+      "minX": -5.3,
+      "maxX": 14.7,
+      "minZ": 42.9,
+      "maxZ": 43.1
+    },
+    {
+      "minX": -13.3,
+      "maxX": 2.7,
+      "minZ": 34.9,
+      "maxZ": 35.1
+    },
+    {
+      "minX": -42.5,
+      "maxX": -22.5,
+      "minZ": -9.7,
+      "maxZ": -9.5
+    },
+    {
+      "minX": -42.5,
+      "maxX": -22.5,
+      "minZ": -3.6999999999999997,
+      "maxZ": -3.4999999999999996
+    },
+    {
+      "minX": -45.5,
+      "maxX": -39.5,
+      "minZ": -6.699999999999999,
+      "maxZ": -6.5
+    },
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": 1.9,
+      "maxZ": 2.1
+    },
+    {
+      "minX": -23,
+      "maxX": -13,
+      "minZ": 6.9,
+      "maxZ": 7.1
+    },
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": 11.9,
+      "maxZ": 12.1
+    },
+    {
+      "minX": -18,
+      "maxX": -8,
+      "minZ": 21.9,
+      "maxZ": 22.1
+    },
+    {
+      "minX": -23,
+      "maxX": -13,
+      "minZ": 16.9,
+      "maxZ": 17.1
+    },
+    {
+      "minX": -22.5,
+      "maxX": 24.5,
+      "minZ": 26.9,
+      "maxZ": 27.1
+    },
+    {
+      "minX": -25,
+      "maxX": -20,
+      "minZ": 24.4,
+      "maxZ": 24.6
+    },
+    {
+      "minX": 42.5,
+      "maxX": 57.5,
+      "minZ": -67.8,
+      "maxZ": -67.2
+    },
+    {
+      "minX": 50,
+      "maxX": 65,
+      "minZ": -60.3,
+      "maxZ": -59.7
+    },
+    {
+      "minX": 42.5,
+      "maxX": 57.5,
+      "minZ": -52.8,
+      "maxZ": -52.2
+    },
+    {
+      "minX": 35,
+      "maxX": 50,
+      "minZ": -60.3,
+      "maxZ": -59.7
+    },
+    {
+      "minX": 46.5,
+      "maxX": 65.5,
+      "minZ": 42.2,
+      "maxZ": 42.8
+    },
+    {
+      "minX": 53,
+      "maxX": 78,
+      "minZ": 54.7,
+      "maxZ": 55.3
+    },
+    {
+      "minX": 46.5,
+      "maxX": 65.5,
+      "minZ": 67.2,
+      "maxZ": 67.8
+    },
+    {
+      "minX": 34,
+      "maxX": 59,
+      "minZ": 54.7,
+      "maxZ": 55.3
+    },
+    {
+      "minX": -44,
+      "maxX": -34,
+      "minZ": -71.8,
+      "maxZ": -71.2
+    },
+    {
+      "minX": -41.5,
+      "maxX": -26.5,
+      "minZ": -64.3,
+      "maxZ": -63.7
+    },
+    {
+      "minX": -44,
+      "maxX": -34,
+      "minZ": -56.8,
+      "maxZ": -56.2
+    },
+    {
+      "minX": -51.5,
+      "maxX": -36.5,
+      "minZ": -64.3,
+      "maxZ": -63.7
+    }
+  ],
+  "floors": [
+    {
+      "x": -13,
+      "y": 0.06,
+      "z": -15,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -3,
+      "y": 0.06,
+      "z": 12,
+      "w": 10,
+      "d": 20,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -13,
+      "y": 0.06,
+      "z": -25,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -3,
+      "y": 0.06,
+      "z": -20,
+      "w": 10,
+      "d": 20,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 17,
+      "y": 0.06,
+      "z": 16,
+      "w": 15,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 17,
+      "y": 0.06,
+      "z": 5,
+      "w": 15,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 17,
+      "y": 0.06,
+      "z": -24,
+      "w": 15,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 17,
+      "y": 0.06,
+      "z": -13,
+      "w": 15,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -20,
+      "y": 0.06,
+      "z": -6.5,
+      "w": 5,
+      "d": 57,
+      "t": 0.12,
+      "mat": {
+        "color": "#17385e"
+      }
+    },
+    {
+      "x": 3.5,
+      "y": 0.06,
+      "z": -32.5,
+      "w": 42,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#7b92ad"
+      }
+    },
+    {
+      "x": 27,
+      "y": 0.06,
+      "z": -4,
+      "w": 5,
+      "d": 62,
+      "t": 0.12,
+      "mat": {
+        "color": "#00ff2a"
+      }
+    },
+    {
+      "x": 22,
+      "y": 0.06,
+      "z": 35,
+      "w": 15,
+      "d": 16,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 4.7,
+      "y": 0.06,
+      "z": 35,
+      "w": 20,
+      "d": 16,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -32.5,
+      "y": 0.06,
+      "z": -6.6,
+      "w": 20,
+      "d": 6,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -13,
+      "y": 0.06,
+      "z": 7,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 5.9,
+      "y": 0.06,
+      "z": -4,
+      "w": 8,
+      "d": 52,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 17,
+      "y": 0.06,
+      "z": -4.1,
+      "w": 15,
+      "d": 7.9,
+      "t": 0.12,
+      "mat": {
+        "color": "#a4bbd6"
+      }
+    },
+    {
+      "x": -13,
+      "y": 0.06,
+      "z": 17,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#1e6dc8"
+      }
+    },
+    {
+      "x": 1,
+      "y": 0.06,
+      "z": 24.5,
+      "w": 47,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#88f2bb"
+      }
+    },
+    {
+      "x": 50,
+      "y": 0.06,
+      "z": -60,
+      "w": 15,
+      "d": 15,
+      "t": 0.12,
+      "mat": {
+        "color": "#225da0"
+      }
+    },
+    {
+      "x": -7.7,
+      "y": 0.06,
+      "z": -3.2,
+      "w": 20,
+      "d": 14,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": 56,
+      "y": 0.06,
+      "z": 55,
+      "w": 19,
+      "d": 25,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -39,
+      "y": 0.06,
+      "z": -64,
+      "w": 10,
+      "d": 15,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -45,
+      "y": 0.06,
+      "z": 58,
+      "w": 31,
+      "d": 34,
+      "t": 0.12,
+      "mat": {
+        "color": "#30363d"
+      }
+    },
+    {
+      "x": -45,
+      "y": 0.06,
+      "z": 58,
+      "w": 28,
+      "d": 32,
+      "t": 0.12,
+      "name": "Floor 1",
+      "mat": {
+        "color": "#30363d"
+      }
+    }
+  ],
+  "roofs": [
+    {
+      "x": -13,
+      "y": 4.94,
+      "z": -15,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -3,
+      "y": 4.94,
+      "z": 12,
+      "w": 10,
+      "d": 20,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -13,
+      "y": 4.94,
+      "z": -25,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -3,
+      "y": 4.94,
+      "z": -20,
+      "w": 10,
+      "d": 20,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 17,
+      "y": 4.94,
+      "z": 16,
+      "w": 15,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 17,
+      "y": 4.94,
+      "z": 5,
+      "w": 15,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 17,
+      "y": 4.94,
+      "z": -24,
+      "w": 15,
+      "d": 12,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 17,
+      "y": 4.94,
+      "z": -13,
+      "w": 15,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -20,
+      "y": 4.94,
+      "z": -6.5,
+      "w": 5,
+      "d": 57,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 3.5,
+      "y": 4.94,
+      "z": -32.5,
+      "w": 42,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 27,
+      "y": 4.94,
+      "z": -4,
+      "w": 5,
+      "d": 62,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 22,
+      "y": 4.94,
+      "z": 35,
+      "w": 15,
+      "d": 16,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 4.7,
+      "y": 4.94,
+      "z": 35,
+      "w": 20,
+      "d": 16,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -32.5,
+      "y": 4.94,
+      "z": -6.6,
+      "w": 20,
+      "d": 6,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -13,
+      "y": 4.94,
+      "z": 7,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 5.9,
+      "y": 5.94,
+      "z": -4,
+      "w": 8,
+      "d": 52,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 17,
+      "y": 4.94,
+      "z": -4.1,
+      "w": 15,
+      "d": 7.9,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -13,
+      "y": 4.94,
+      "z": 17,
+      "w": 10,
+      "d": 10,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 1,
+      "y": 4.94,
+      "z": 24.5,
+      "w": 47,
+      "d": 5,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 50,
+      "y": 5.94,
+      "z": -60,
+      "w": 15,
+      "d": 15,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -7.7,
+      "y": 4.94,
+      "z": -3.2,
+      "w": 20,
+      "d": 14,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": 56,
+      "y": 4.44,
+      "z": 55,
+      "w": 19,
+      "d": 25,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -39,
+      "y": 4.44,
+      "z": -64,
+      "w": 10,
+      "d": 15,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    },
+    {
+      "x": -45,
+      "y": 4.44,
+      "z": 58,
+      "w": 31,
+      "d": 34,
+      "t": 0.12,
+      "mat": {
+        "color": "#232a31"
+      }
+    }
+  ],
+  "doors": [
+    {
+      "id": "TeamC_W_door",
+      "roomKey": "TeamC",
+      "side": "W",
+      "x": -18,
+      "y": 0,
+      "z": -15,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Kitchen_E_door",
+      "roomKey": "Kitchen",
+      "side": "E",
+      "x": 2,
+      "y": 0,
+      "z": 12,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "TeamD_W_door",
+      "roomKey": "TeamD",
+      "side": "W",
+      "x": -18,
+      "y": 0,
+      "z": -25,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Lab_E_door",
+      "roomKey": "Lab",
+      "side": "E",
+      "x": 2,
+      "y": 0,
+      "z": -20,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Mechanical_W_door",
+      "roomKey": "Mechanical",
+      "side": "W",
+      "x": 9.5,
+      "y": 0,
+      "z": 16,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "Electrical_N_door",
+      "roomKey": "Electrical",
+      "side": "N",
+      "x": 17,
+      "y": 0,
+      "z": 0,
+      "rotY": 0,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "ControlRoom_W_door",
+      "roomKey": "ControlRoom",
+      "side": "W",
+      "x": 9.5,
+      "y": 0,
+      "z": -24,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "DataCenter_S_door",
+      "roomKey": "DataCenter",
+      "side": "S",
+      "x": 17,
+      "y": 0,
+      "z": -8,
+      "rotY": 0,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "CorridorWest_W_door",
+      "roomKey": "CorridorWest",
+      "side": "W",
+      "x": -22.5,
+      "y": 0,
+      "z": -6.5,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "EntranceB_W_door",
+      "roomKey": "EntranceB",
+      "side": "W",
+      "x": -5.3,
+      "y": 0,
+      "z": 35,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "EntranceA_W_door",
+      "roomKey": "EntranceA",
+      "side": "W",
+      "x": -42.5,
+      "y": 0,
+      "z": -6.6,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "TeamB_W_door",
+      "roomKey": "TeamB",
+      "side": "W",
+      "x": -18,
+      "y": 0,
+      "z": 7,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "TeamA_W_door",
+      "roomKey": "TeamA",
+      "side": "W",
+      "x": -18,
+      "y": 0,
+      "z": 17,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "CorridorSouth_S_door",
+      "roomKey": "CorridorSouth",
+      "side": "S",
+      "x": 5.4,
+      "y": 0,
+      "z": 27,
+      "rotY": 0,
+      "width": 4.5,
+      "height": 4.88,
+      "panels": 2,
+      "thickness": 0.18,
+      "open": 0,
+      "offset": 4.4
+    },
+    {
+      "id": "lockdown_W_door",
+      "roomKey": "lockdown",
+      "side": "W",
+      "x": 42.5,
+      "y": 0,
+      "z": -60,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 5.88,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "GreenHouse_E_door",
+      "roomKey": "GreenHouse",
+      "side": "E",
+      "x": 65.5,
+      "y": 0,
+      "z": 55,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.38,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "GreenHouse_W_door",
+      "roomKey": "GreenHouse",
+      "side": "W",
+      "x": 46.5,
+      "y": 0,
+      "z": 55,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.38,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    },
+    {
+      "id": "PowerGenerate_E_door",
+      "roomKey": "PowerGenerate",
+      "side": "E",
+      "x": -34,
+      "y": 0,
+      "z": -64,
+      "rotY": 1.571,
+      "width": 4.5,
+      "height": 4.38,
+      "panels": 2,
+      "thickness": 0.3,
+      "open": 0,
+      "offset": 0
+    }
+  ]
+}
