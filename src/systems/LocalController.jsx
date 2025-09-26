@@ -178,7 +178,7 @@ function LocalControllerInner() {
                 ? window.__doorAABBs
                 : null;
         const dynamicDoorAABBs = doorStore ? Array.from(doorStore.values()) : [];
-        const colliders = wallAABBs.concat(getStaticAABBs(), dynamicDoorAABBs);
+        const colliders = wallAABBs.concat(/* getStaticAABBs(), */ dynamicDoorAABBs);
 
         // yaw rotation keys
         if (keys.current["q"]) yawRef.current += 1.5 * dt;

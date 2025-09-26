@@ -15,7 +15,8 @@ export const WORLD_GLB = {
     scale: 1,
     showColliderDebug: false,
     // NEW (optional): bake colliders from "all" meshes or only "tagged" blockers
-    bakeColliders: "all",     // "all" | "tagged"
+    bakeColliders: "tagged",
+    disableCollision: true,  // "all" | "tagged"
     // NEW (optional): also place cam blockers on a dedicated layer for fast raycasts
     blockerLayer: 2
 };
@@ -37,6 +38,7 @@ function WorldGLBInner({
     castShadows = true,
     showColliderDebug = false,
     bakeColliders = "all",  // "all" | "tagged"
+    disableCollision = false,
     blockerLayer = 2,
     ...rest
 }) {
@@ -56,6 +58,7 @@ function WorldGLBInner({
 
     // Tag camera blockers on the GLB meshes
     useLayoutEffect(() => {
+        if (disableCollision) return; 
         const nameIsBlocker = (name) => {
             const n = (name || "").toLowerCase();
             // Tweak this list to your naming scheme
@@ -91,13 +94,13 @@ function WorldGLBInner({
                 }
             }
         });
-    }, [cloned, castShadows, receiveShadows, blockerLayer]);
+    }, [cloned, castShadows, receiveShadows, blockerLayer, disableCollision]);
 
     // 🔒 Bake AABBs for movement collision
     // - "all":  from every mesh (original behavior)
     // - "tagged": only from meshes flagged camBlocker (or authored staticCollider)
     const aabbs = useMemo(() => {
-        if (!cloned) return [];
+        if (!cloned || disableCollision) return [];  // ⬅️ short-circuit
         const groupMatrix = new THREE.Matrix4();
         const pos = new THREE.Vector3(...position);
         const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation));
@@ -128,13 +131,13 @@ function WorldGLBInner({
             });
         });
         return boxes;
-    }, [cloned, position, rotation, scale, bakeColliders]);
+    }, [cloned, position, rotation, scale, bakeColliders, disableCollision]);
 
     // Publish to collision registry
     useEffect(() => {
-        setStaticAABBs(aabbs);
+        setStaticAABBs(disableCollision ? [] : aabbs); // ⬅️ publish empty list
         // console.log("[WorldGLB] baked boxes:", aabbs.length);
-    }, [aabbs]);
+    }, [aabbs, disableCollision]);
 
     return (
         <group position={position} rotation={rotation} scale={scale} {...rest}>

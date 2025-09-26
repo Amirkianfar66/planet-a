@@ -1,5 +1,7 @@
 ﻿import React, { useMemo, useState } from "react";
 import "./ui.css";
+import { ICONS } from "./itemIcons";
+import { myPlayer } from "playroomkit";
 
 /**
  * BackpackPanel (illustrated shell + your own styling)
@@ -14,6 +16,12 @@ export default function BackpackPanel({
     title = "Backpack",
 }) {
     const [selectedKey, setSelectedKey] = useState(null);
+
+    // who is viewing (for poison visibility)
+    const me = myPlayer();
+    const myRole = String(me?.getState?.("role") || "");
+    const visibleType = (t) =>
+        t === "poison_food" && myRole !== "FoodSupplier" ? "food" : t;
 
     // ----- grouping logic (unchanged, but we ensure primaryId may be null) -----
     const NO_STACK = new Set(["food_tank"]);
@@ -99,6 +107,7 @@ export default function BackpackPanel({
                                 const qtyBadge = isTank ? `${g.stored}/${g.cap}` : g.qty > 1 ? `×${g.qty}` : null;
 
                                 const canThrow = !!g.primaryId; // only world-entity rows (id) can be thrown
+                                const typeForIcon = visibleType(g.type);
 
                                 return (
                                     <button
@@ -120,7 +129,9 @@ export default function BackpackPanel({
                                                 : `${g.name}${g.qty > 1 ? ` × ${g.qty}` : ""}`
                                         }
                                     >
-                                        <span className="bp-item__icon">{renderIcon(g)}</span>
+                                        <span className="bp-item__icon">
+                                            {renderIcon(typeForIcon, g.name)}
+                                        </span>
                                         {qtyBadge && <span className="bp-item__qty">{qtyBadge}</span>}
                                     </button>
                                 );
@@ -154,19 +165,28 @@ export default function BackpackPanel({
     );
 }
 
-function renderIcon(it) {
-    if (it.icon) return <span style={{ fontSize: 26 }}>{it.icon}</span>;
-    const TYPE_ICON = {
-        food: "🥫",
-        poison_food: "🥫",
-        fuel: "🔋",
-        protection: "🛡️",
-        cure_red: "🧪",
-        cure_blue: "🧪",
-        cure_advanced: "💊", // ← add icon for the advanced cure
-        food_tank: "🧃",
-    };
-    if (it.type && TYPE_ICON[it.type]) return <span style={{ fontSize: 26 }}>{TYPE_ICON[it.type]}</span>;
-    const ch = (it.name || "?").trim()[0] || "?";
+/** Render an SVG icon from public/assets/icons with fallback */
+function renderIcon(type, name = "") {
+    // if you still pass a custom it.icon somewhere, you can handle it here first.
+
+    // known icon?
+    const src = ICONS[type];
+    if (src) {
+        return (
+            <img
+                src={src}
+                alt={type}
+                width={24}
+                height={24}
+                draggable={false}
+                loading="eager"
+                decoding="async"
+                style={{ display: "block" }}
+            />
+        );
+    }
+
+    // fallback: first letter badge
+    const ch = (name || type || "?").trim()[0] || "?";
     return <span style={{ fontWeight: 900, fontSize: 22 }}>{ch.toUpperCase()}</span>;
 }
