@@ -70,7 +70,13 @@ export default function InteractionSystem() {
                  if (!carryId && dev && dev.id === "wire_console") {
                     me.setState("ui_wireOpen", 1, true); // WireConsoleSystem listens for this
                     return;
-                 }
+                }
+                // If NOT carrying and near the Engine Console: open its overlay
+                if (!carryId && dev && dev.id === "engine_pipes") {
+                    me.setState("ui_pipesOpen", 1, true); // PipesConsoleSystem listens for this
+                    return;
+                }
+
                 // Carried special cases: place CCTV, use Advanced Cure, or eat carried food
                 if (carryId) {
                     const worldItem = (itemsRef.current || []).find(x => x.id === carryId);

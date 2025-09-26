@@ -189,23 +189,17 @@ const DEVICES_RAW = [
     { id: "medbay", type: "medbay", x: 4, z: 2, radius: 2.4, label: "MedBay" },
     { id: "shield", type: "shield", x: -2, z: 4, radius: 2.2, label: "Shield Station" },
     { id: "cctv_console", type: "console", x: -3.5, z: -3, radius: 2.0, label: "CCTV Console" },
-    { id: "wire_console", type: "puzzle", roomKey: "Rocket", offset: { x: 1, z: -2 }, radius: 2.0, label: "Wire Console" }
-    // src/data/gameObjects.js
-    // In DEVICES_RAW, near your wire_console entry:
+    { id: "wire_console", type: "puzzle", roomKey: "Rocket", offset: { x: 1, z: -2 }, radius: 2.0, label: "Wire Console" },
+    { id: "engine_pipes", type: "puzzle_engine", roomKey: "Rocket", offset: { x: -1, z: -0.8 }, radius: 2.0, label: "Engine Console" }
+
    
 
 
 ];
 
 const DEVICESTV_RAW = [
-    {
-        id: "wire_mural", type: "mural_key",
-        roomKey: "Rocket", offset: { x: -1.2, z: -2.0 },
-        yaw: Math.PI,           // face into the room (tweak as needed)
-        width: 2, height: 2,  // <-- bigger panel (meters/world units)
-        y: 2,                 // lift to eye height
-        radius: 2, label: ""
-    }
+    { id: "wire_mural", type: "mural_key", roomKey: "Rocket", offset: { x: -1.2, z: -2.0 }, yaw: Math.PI, width: 2, height: 2, y: 2 }
+
 
 
 ];

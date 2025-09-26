@@ -7,7 +7,7 @@ import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES, INITIAL_ITEMS, ITEM_TYPES } from "../data/gameObjects.js";
 import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
 import { OUTSIDE_AREA, pointInRect, clampToRect, roomCenter } from "../map/deckA";
-
+import { useMultiplayerState } from "playroomkit";
 // ---------------------------------
 // Bounds / placement helpers
 // ---------------------------------
@@ -486,7 +486,8 @@ function ItemEntity({ it }) {
 // ---------------------------------
 export default function ItemsAndDevices() {
     const { items } = useItemsSync();
-
+    const [wireSolved] = useMultiplayerState("wire:solved", false);
+    const [engineSolved] = useMultiplayerState("engine:solved", false);
     // OPTIONAL: support "optimistic ghost hide" if your InteractionSystem sets window.__ghostItems
     const [ghostVer, setGhostVer] = useState(0);
     useEffect(() => {
@@ -537,6 +538,16 @@ export default function ItemsAndDevices() {
             {DEVICES.map((d) => {
                 const x = d.x ?? 0, z = d.z ?? 0; // devices already resolved to world coords
                 const y = (d.y || 0) + 0.5;
+                const isWireConsole = d.id === "wire_console";
+                const isEngineConsole = d.id === "engine_pipes";
+
+                // one boolean to drive tint/glow for either console
+                const isSolvedConsole =
+                    (isWireConsole && wireSolved) || (isEngineConsole && engineSolved);
+
+                const bodyColor = isSolvedConsole ? "#14532d" : "#2c3444"; // dark green when solved
+                const screenColor = isSolvedConsole ? "#22c55e" : "#8fb3ff"; // bright green when solved
+
                   // Show "Press I to start" when the local player is within the console's radius
                   let showWirePrompt = false;
                   if (d.id === "wire_console") {
@@ -546,18 +557,34 @@ export default function ItemsAndDevices() {
                        const dx = px - x, dz = pz - z;
                        const r = Number(d.radius || DEVICE_RADIUS);
                        showWirePrompt = dx * dx + dz * dz <= r * r;
-                  }
+                }
+                // Engine Console proximity prompt
+                let showEnginePrompt = false;
+                if (isEngineConsole) {
+                    const me = myPlayer?.();
+                    const px = Number(me?.getState?.("x") || 0);
+                    const pz = Number(me?.getState?.("z") || 0);
+                    const dx = px - x, dz = pz - z;
+                    const r = Number(d.radius || DEVICE_RADIUS);
+                    showEnginePrompt = dx * dx + dz * dz <= r * r;
+                }
                 return (
                     <group key={d.id} position={[x, y, z]}>
                         <mesh>
                             <boxGeometry args={[1.1, 1.0, 0.6]} />
-                            <meshStandardMaterial color="#2c3444" />
+                            <meshStandardMaterial color={bodyColor} />
                         </mesh>
 
                         <mesh position={[0, 0.3, 0.33]}>
                             <planeGeometry args={[0.8, 0.35]} />
-                            <meshBasicMaterial color="#8fb3ff" />
+                            <meshBasicMaterial color={screenColor} />
                         </mesh>
+                        {(isWireConsole || isEngineConsole) && isSolvedConsole && (
+                            <mesh position={[0, 0.3, 0.34]}> {/* in front of 0.33 to avoid z-fighting */}
+                                <planeGeometry args={[0.82, 0.37]} />
+                                <meshBasicMaterial color="#22c55e" transparent opacity={0.35} />
+                            </mesh>
+                        )}
 
                         <Billboard position={[0, 0.9, 0]}>
                             <TextSprite text={d.label || d.type || d.id} width={1.1} />

@@ -30,6 +30,7 @@ import HostInfectionIncubator from "../systems/HostInfectionIncubator.jsx";
 import InfectionCountdown from "../ui/InfectionCountdown.jsx";
 import WireConsoleSystem from "../systems/WireConsoleSystem.jsx";
 import WorldImagePanels from "../world/WorldImagePanels.jsx";
+import PipesConsoleSystem from "../systems/PipesConsoleSystem.jsx";
 
 // live player position (updated by your LocalController via window.__playerPos)
 function usePlayerPosRefFromWindow() {
@@ -245,6 +246,7 @@ export default function GameCanvas({ dead = [] }) {
             {/* Death logic */}
             <DeathSystem />
             <WireConsoleSystem />
+            <PipesConsoleSystem />
         </div>
     );
 }

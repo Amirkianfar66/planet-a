@@ -1,6 +1,6 @@
 // src/ui/HUD.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { myPlayer } from "playroomkit";
+import { myPlayer, useMultiplayerState } from "playroomkit";
 import { MetersPanel, RolePanel, VotePanel, VoteResultsPanel } from ".";
 import TeamChatPanel from "./TeamChatPanel.jsx";
 import BackpackPanel from "./BackpackPanel.jsx";
@@ -129,6 +129,9 @@ function AbilityBar({ role, onUse, disabled = false, abovePx = 360 }) {
  */
 export default function HUD({ game = {} }) {
     const { oxygen = 100, power = 100, myRole = "Unassigned" } = useGameState();
+    const[wireSolved] = useMultiplayerState("wire:solved", false);
+    const [engineSolved] = useMultiplayerState("engine:solved", false);
+    const rocketReady = !!(wireSolved && engineSolved);
       // 🔗 bring phase & events from the synced store
     const [phase] = usePhase();          // e.g., "day" | "night" | "meeting" | etc.
     const [events] = useEvents();        // array of event strings (includes "Votes: ...")
@@ -427,6 +430,59 @@ export default function HUD({ game = {} }) {
             </div>
             {/* Infection incubation countdown chip (fixed overlay; non-interactive) */}
             <InfectionCountdown />
+            {/* TOP-CENTER: Rocket Launch (simple) */}
+            {/* wrapper */}
+            <div
+                style={{
+                    position: "fixed",
+                    top: 8,
+                    left: "50%",
+                    transform: "translateX(calc(-50% + 500px))", // your slight right offset
+                    zIndex: 70,
+                    pointerEvents: "none",
+                }}
+            >
+                {/* pill (scaled to half) */}
+                <div
+                    style={{
+                        transform: "scale(0.5)",
+                        transformOrigin: "top center",
+                        pointerEvents: "auto",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 16px",
+                        borderRadius: 999,
+                        border: `1px solid ${rocketReady ? "#16a34a" : "#7f1d1d"}`,
+                        background: rocketReady ? "rgba(34,197,94,.14)" : "rgba(239,68,68,.14)",
+                        boxShadow: rocketReady
+                            ? "0 0 20px rgba(34,197,94,.3), inset 0 0 10px rgba(34,197,94,.12)"
+                            : "0 0 20px rgba(239,68,68,.25), inset 0 0 10px rgba(239,68,68,.08)",
+                        backdropFilter: "blur(4px)",
+                    }}
+                >
+                    <span
+                        style={{
+                            width: 12,
+                            height: 12,
+                            borderRadius: "50%",
+                            background: rocketReady ? "#22c55e" : "#ef4444",
+                            boxShadow: `0 0 12px ${rocketReady ? "rgba(34,197,94,.8)" : "rgba(239,68,68,.8)"}`,
+                        }}
+                    />
+                    <span
+                        style={{
+                            fontWeight: 900,
+                            letterSpacing: 1.5,
+                            color: rocketReady ? "#22c55e" : "#ef4444",
+                        }}
+                    >
+                        ROCKET LAUNCH
+                    </span>
+                </div>
+            </div>
+
+
 
             {/* Death overlay */}
             {amDead && (

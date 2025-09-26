@@ -2,13 +2,13 @@
 // All puzzle keys you’re using (everything except B, D, F)
 
 export const WIRE_PATTERNS = {
- 
+    A: { triangle: "red", circle: "yellow", square: "blue", hexagon: "green" },
     C: { triangle: "red", circle: "yellow", square: "blue", hexagon: "green" },
     E: { triangle: "blue", circle: "green", square: "red", hexagon: "yellow" },
     G: { triangle: "red", circle: "green", square: "yellow", hexagon: "blue" },
-    
+
     I: { triangle: "red", circle: "blue", square: "green", hexagon: "yellow" },
-    
+
     K: { triangle: "green", circle: "red", square: "yellow", hexagon: "blue" },
     L: { triangle: "blue", circle: "yellow", square: "green", hexagon: "red" },
     M: { triangle: "yellow", circle: "red", square: "blue", hexagon: "green" },
@@ -31,11 +31,7 @@ export function getSolutionForKey(keyId) {
     return WIRE_PATTERNS[keyId] || null;
 }
 
-/** Build the mural image URL for the key (svg or png). */
-export function getMuralUrl(keyId, ext = "svg") {
-    const base = (import.meta?.env?.BASE_URL || "/");
-    return `${base}ui/wire_keys/key_${keyId}.${ext}`;
-}
+
 // Add this to src/data/wireKeys.js
 export function getMuralUrlList(keyId, exts = ["svg", "png"]) {
     const base = (import.meta?.env?.BASE_URL || "/");

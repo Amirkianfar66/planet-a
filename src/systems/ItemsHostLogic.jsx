@@ -27,6 +27,7 @@ import {
     roomCenter,
 } from "../map/deckA";
 import COOLDOWN from "../data/cooldowns"; //
+import { RANDOM_OUTDOOR_TYPES, computeOutdoorSpread } from "../data/spawnUtils.js";
 
 // id helper (prevents seeding from crashing if id is missing)
 const cryptoRandomId = () =>
@@ -496,16 +497,17 @@ const isOfficerRole = (r) => {
 };
 
 export default function ItemsHostLogic() {
-    const seededOnce = useRef(false);
     const host = isHost();
     const players = usePlayersList(true);
     const [phase] = usePhase();
 
     const { items, setItems } = useItemsSync();
+
+    // live refs
     const itemsRef = useRef(items);
     useEffect(() => {
         itemsRef.current = items;
-        // lightweight global read hook for host handlers
+        // lightweight global read hook for host handlers & debugging
         window.__itemsCache__ = () => itemsRef.current || [];
     }, [items]);
 
@@ -515,10 +517,7 @@ export default function ItemsHostLogic() {
     }, [players]);
 
     const processed = useRef(new Map());
-
-    // Day/phase tracking (energy decay uses this)
-    const dayNumber = useGameClock((s) => s.dayNumber);
-    const clockPhase = useGameClock((s) => s.phase);
+    const seededOnce = useRef(false);
 
     const getBackpack = (p) => {
         const raw = p?.getState("backpack");
@@ -526,53 +525,86 @@ export default function ItemsHostLogic() {
     };
     const setBackpack = (p, arr) =>
         p?.setState("backpack", Array.isArray(arr) ? arr : [], true);
-    const hasCapacity = (p) =>
-        getBackpack(p).length < Number(BAG_CAPACITY || 8);
+    const hasCapacity = (p) => getBackpack(p).length < Number(BAG_CAPACITY || 8);
 
-    // Seed initial items once (host only) — the ONLY place that creates world items.
+    /* ───────────────────────────────── SEEDING (host only, once) ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
         if (seededOnce.current) return;
 
         const list = itemsRef.current || [];
-        const hasNonPet = Array.isArray(list) && list.some(i => i && String(i.type).toLowerCase() !== "pet");
+        const hasNonPet =
+            Array.isArray(list) &&
+            list.some((i) => i && String(i.type).toLowerCase() !== "pet");
+        if (hasNonPet) {
             // already have items; nothing to do
-        if (hasNonPet) { seededOnce.current = true; return; }
-          
+            seededOnce.current = true;
+            return;
+        }
 
-        const seeded = (INITIAL_ITEMS || []).map((raw) => {
-                        // 1) resolve by room if provided (Food→Kitchen, Protection→Lab, Fuel→Mechanical)
-                       const it = resolveItemSpawn(raw);
-                        // 2) if no roomKey/coords, drop it in the meeting room as before
-                       const needsFallback = !(Number.isFinite(it.x) && Number.isFinite(it.z));
-                       const p = needsFallback ? spawnInMeetingRoom(it.x ?? 0, it.z ?? 0) : it;
-                        return {
-                               holder: "",
-                                vx: 0,
-                                vy: 0,
-                                vz: 0,
-                                y: 0,
-                               ...it,
-                               x: needsFallback ? p.x : it.x,
-                               z: needsFallback ? p.z : it.z,
-                               id: it.id || cryptoRandomId(),
-                        };
+        // 0) Prime IDs so the spread map has stable keys even if INITIAL_ITEMS omit id
+        const allInitialPrimed = (Array.isArray(INITIAL_ITEMS) ? INITIAL_ITEMS : []).map(
+            (raw, idx) => ({
+                ...raw,
+                id:
+                    raw.id || `seed_${idx}_${String(raw.type || "item").toLowerCase()}`,
+            })
+        );
+
+        // 1) Build randomized outdoor layout for select types
+        const toRandomize = allInitialPrimed.filter((it) =>
+            RANDOM_OUTDOOR_TYPES.has(String(it.type || "").toLowerCase())
+        );
+        const seed = Date.now(); // for deterministic replays, store/read a shared seed instead
+        const posMap = computeOutdoorSpread(toRandomize, { minDist: 10, seed });
+
+        // 2) Build the seeded list, overriding x/z for randomized types
+        const seeded = allInitialPrimed.map((raw) => {
+            const base = resolveItemSpawn(raw);
+
+            let { x, z } = base;
+            if (RANDOM_OUTDOOR_TYPES.has(String(base.type || "").toLowerCase())) {
+                const pOut = posMap.get(base.id);
+                if (pOut) {
+                    x = pOut.x;
+                    z = pOut.z;
+                }
+            }
+
+            const needsFallback = !(Number.isFinite(x) && Number.isFinite(z));
+            const p = needsFallback ? spawnInMeetingRoom(x ?? 0, z ?? 0) : { x, z };
+
+            return {
+                holder: "",
+                vx: 0,
+                vy: 0,
+                vz: 0,
+                y: 0,
+                ...base,
+                x: needsFallback ? p.x : x,
+                z: needsFallback ? p.z : z,
+                id: base.id || cryptoRandomId(),
+            };
         });
 
-        setItems((prev) => {
-            const base = Array.isArray(prev) ? prev : [];
-            const pets = base.filter(i => i && String(i.type).toLowerCase() === "pet");
-            const existing = new Set(base.map(i => i?.id));
-
-            const add = seeded.filter(i => !existing.has(i.id));
-            return [...pets, ...add];
-        }, true);
+        setItems(
+            (prev) => {
+                const base = Array.isArray(prev) ? prev : [];
+                const pets = base.filter(
+                    (i) => i && String(i.type).toLowerCase() === "pet"
+                );
+                const existing = new Set(base.map((i) => i?.id));
+                const add = seeded.filter((i) => !existing.has(i.id));
+                return [...pets, ...add];
+            },
+            true
+        );
 
         seededOnce.current = true;
         console.log("[ITEMS] Seeded items. Count:", seeded.length);
     }, [host, setItems]);
 
-    // Simple throw physics
+    /* ───────────────────────────────── THROW PHYSICS ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
         const h = setInterval(() => {
@@ -602,17 +634,19 @@ export default function ItemsHostLogic() {
         return () => clearInterval(h);
     }, [host, setItems]);
 
-    // DAILY TICKS: personal energy decay AND oxygen device consumption
+    /* ───────────────────────────────── DAILY TICKS (energy, etc.) ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
 
         const readClock = () =>
-            (typeof useGameClock.getState === "function" ? useGameClock.getState() : null);
+            typeof useGameClock.getState === "function"
+                ? useGameClock.getState()
+                : null;
 
         let lastDay = Number(readClock()?.dayNumber ?? 0);
 
         const applyDailyUpdates = (d) => {
-            // 1) Energy -25 for all alive players (unchanged)
+            // Energy -25 for all alive players
             const everyone = [...(playersRef.current || [])];
             const self = myPlayer();
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
@@ -623,10 +657,6 @@ export default function ItemsHostLogic() {
                 const next = Math.max(0, Math.min(100, cur - 25));
                 pl.setState?.("energy", next, true);
             }
-
-     
-
-
         };
 
         let rafId = 0;
@@ -646,8 +676,7 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(rafId);
     }, [host, setItems]);
 
-
-    // BASELINE per-player state (life, role charges, oxygen)
+    /* ───────────────────────────────── BASELINE PLAYER STATE ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
         const everyone = [...(playersRef.current || [])];
@@ -674,7 +703,7 @@ export default function ItemsHostLogic() {
         }
     }, [host, players]);
 
-    // OXYGEN DRAIN: outside OR indoors when Oxygen Device for this room is empty
+    /* ───────────────────────────────── OXYGEN: DRAIN ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
         const DRAIN_PER_TICK = 1; // % per second
@@ -694,7 +723,7 @@ export default function ItemsHostLogic() {
                 const pz = Number(pl.getState?.("z") || 0);
                 const outside = isOutsideByRoof(px, pz);
 
-                // ✅ room-scoped power (Rocket vs non-Rocket mapping)
+                // room-scoped power (Rocket vs non-Rocket mapping)
                 const roomPowered = isRoomOxygenPoweredForPlayer(px, pz, list);
 
                 if (outside || !roomPowered) {
@@ -706,17 +735,21 @@ export default function ItemsHostLogic() {
             }
         }, TICK_MS);
 
-        return () => clearInterval(timer);  // ✅ cleanup
+        return () => clearInterval(timer);
     }, [host]);
 
-
-    // OXYGEN REGEN: +3 each in-game hour when under a roof AND Oxygen Device has fuel
+    /* ───────────────────────────────── OXYGEN: REGEN (+3 per in-game hour) ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
 
-        // Use the game-clock's in-game seconds if available (same pattern as meeting trigger)
-        const store = typeof useGameClock.getState === "function" ? useGameClock.getState() : null;
-        const getSec = store && typeof store.nowGameSec === "function" ? store.nowGameSec : null;
+        const store =
+            typeof useGameClock.getState === "function"
+                ? useGameClock.getState()
+                : null;
+        const getSec =
+            store && typeof store.nowGameSec === "function"
+                ? store.nowGameSec
+                : null;
         if (!getSec) return; // safe no-op if your clock doesn't expose seconds
 
         let prevSec = getSec();
@@ -726,29 +759,28 @@ export default function ItemsHostLogic() {
             const self = myPlayer();
             if (self && !everyone.find((p) => p.id === self.id)) everyone.push(self);
 
-            // NEW: check oxygen device status once per hour tick
-            const indoorO2Powered = isOxygenPowered(itemsRef.current || []);
-
             for (const pl of everyone) {
                 if (pl.getState?.("dead")) continue;
 
                 const x = Number(pl.getState?.("x") || 0);
                 const z = Number(pl.getState?.("z") || 0);
                 const outside = isOutsideByRoof(x, z);
-                const roomPowered = isRoomOxygenPoweredForPlayer(x, z, itemsRef.current || []);
+                const roomPowered = isRoomOxygenPoweredForPlayer(
+                    x,
+                    z,
+                    itemsRef.current || []
+                );
                 if (!outside && roomPowered) {
                     const cur = Number(pl.getState?.("oxygen") ?? 100);
                     const next = Math.min(100, cur + 3);
                     if (next !== cur) pl.setState?.("oxygen", next, true);
                 }
-
             }
         };
 
         let raf;
         const tick = () => {
             const curSec = getSec();
-            // Fire exactly when the in-game hour changes (handles midnight wrap automatically)
             const hPrev = Math.floor(prevSec / 3600);
             const hCur = Math.floor(curSec / 3600);
             if (hCur !== hPrev) onHour();
@@ -761,8 +793,7 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(raf);
     }, [host]);
 
-
-    // POISON TICK: -1 life/sec while poisoned, stops when cured (using Protection)
+    /* ───────────────────────────────── POISON DOT ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
         const DMG_PER_TICK = 1;
@@ -789,32 +820,41 @@ export default function ItemsHostLogic() {
         return () => clearInterval(timer);
     }, [host]);
 
-    // EVERY day (real time): empty all oxygen devices
+    /* ───────────────────────────────── O2 RESET (every in-game “day”) ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
-        const store = typeof useGameClock.getState === "function" ? useGameClock.getState() : null;
-        const getSec = store && typeof store.nowGameSec === "function" ? store.nowGameSec : null;
+        const store =
+            typeof useGameClock.getState === "function"
+                ? useGameClock.getState()
+                : null;
+        const getSec =
+            store && typeof store.nowGameSec === "function"
+                ? store.nowGameSec
+                : null;
         if (!getSec) return;
 
         const resetAll = (tag = "ingame1day") => {
-            setItems(prev => {
-                const list = Array.isArray(prev) ? prev : [];
-                const next = list.map(it =>
-                    String(it?.type || "").trim().toLowerCase() === "oxygen_device"
-                        ? { ...it, stored: 0, _o2ResetAt: Date.now(), _o2ResetTag: tag }
-                        : it
-                );
-                return next;
-            }, true);
+            setItems(
+                (prev) => {
+                    const list = Array.isArray(prev) ? prev : [];
+                    const next = list.map((it) =>
+                        String(it?.type || "").trim().toLowerCase() === "oxygen_device"
+                            ? { ...it, stored: 0, _o2ResetAt: Date.now(), _o2ResetTag: tag }
+                            : it
+                    );
+                    return next;
+                },
+                true
+            );
             try {
                 const arr = (window.__itemsCache__?.() || [])
-                    .filter(i => String(i?.type || "").toLowerCase() === "oxygen_device")
-                    .map(i => `${i.id}=${i.stored}`);
+                    .filter((i) => String(i?.type || "").toLowerCase() === "oxygen_device")
+                    .map((i) => `${i.id}=${i.stored}`);
                 console.log(`[HOST] O2 reset (${tag}) →`, arr.join(", "));
             } catch { }
         };
 
-        let prevBucket = Math.floor(getSec() / 79999); // 300s = 5 in-game minutes
+        let prevBucket = Math.floor(getSec() / 79999);
         let raf;
         const loop = () => {
             const curBucket = Math.floor(getSec() / 79999);
@@ -828,7 +868,7 @@ export default function ItemsHostLogic() {
         return () => cancelAnimationFrame(raf);
     }, [host, setItems]);
 
-    /* -------- give Officers/Guards exactly ONE CCTV for the whole game -------- */
+    /* ───────────────────────────────── ONE-TIME CCTV FOR OFFICERS ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
 
@@ -845,26 +885,22 @@ export default function ItemsHostLogic() {
             if (hasFlag) continue;
 
             const bp = p.getState?.("backpack") || [];
-            const camId = `cam_${p.id}`; // <-- stable id, no day suffix
+            const camId = `cam_${p.id}`;
             const alreadyHas = Array.isArray(bp) && bp.some((b) => b.id === camId);
 
             if (!alreadyHas) {
                 const nextBp = [...bp, { id: camId, type: "cctv", name: "CCTV Camera" }];
                 p.setState?.("backpack", nextBp, true);
-                // optional: auto-equip if hands free
                 const carry = String(p.getState?.("carry") || "");
                 if (!carry) p.setState?.("carry", camId, true);
                 console.log(`[HOST] Granted one-time CCTV to ${p.id}: ${camId}`);
             }
 
-            // mark as granted so we never add again (even if they drop it)
             p.setState?.("hasCCTVOnce", true, true);
         }
     }, [host]);
-    /* -------- END one-time CCTV -------- */
 
-
-    // Process client requests (pickup / drop / throw / use / abilities / container)
+    /* ───────────────────────────────── REQUEST LOOP ───────────────────────────────── */
     useEffect(() => {
         if (!host) return;
 
@@ -898,18 +934,6 @@ export default function ItemsHostLogic() {
                 const list = itemsRef.current || [];
                 const findItem = (id) => list.find((i) => i && i.id === id);
 
-                // unique id helper
-                const mkId = (prefix) => {
-                    const existing = new Set((itemsRef.current || []).map((i) => i.id));
-                    let i = 1,
-                        id = `${prefix}${i}`;
-                    while (existing.has(id)) {
-                        i += 1;
-                        id = `${prefix}${i}`;
-                    }
-                    return id;
-                };
-
                 for (const p of everyone) {
                     const reqId = Number(p?.getState("reqId") || 0);
                     if (!reqId) continue;
@@ -923,7 +947,7 @@ export default function ItemsHostLogic() {
                     const py = Number(p.getState("y") || 0);
                     const pz = Number(p.getState("z") || 0);
 
-                    // --------- ABILITIES ----------
+                    /* ───────── abilities ───────── */
                     if (type === "ability" && target === "shoot") {
                         const payload = readActionPayload(p);
                         hostHandleShoot({
@@ -940,7 +964,6 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-                    // disguise (infected-only cosmetic)
                     if (type === "ability" && target === "disguise") {
                         hostHandleDisguise({ player: p, setEvents: undefined });
                         processed.current.set(p.id, reqId);
@@ -951,15 +974,13 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-                    // Officer blood test
                     if (type === "ability" && target === "scan") {
                         hostHandleScan({ officer: p, players: everyone, setEvents: undefined });
                         processed.current.set(p.id, reqId);
                         continue;
                     }
-                    // --------- END ABILITIES ----------
 
-                    // CONTAINER (any Tank) — stationary, load-only, must be near
+                    /* ───────── container (tanks / cure device) ───────── */
                     if (type === "container") {
                         const payload = readActionPayload(p) || {};
                         const { containerId, op } = payload || {};
@@ -969,16 +990,16 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
-                        const dx = px - cont.x, dz = pz - cont.z;
+                        const dx = px - cont.x,
+                            dz = pz - cont.z;
                         if (dx * dx + dz * dz > PICKUP_RADIUS * PICKUP_RADIUS) {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        let changed = false;
                         if (op === "load" || op === "toggle") {
                             if (isTankType(cont.type)) {
-                                changed = tryLoadIntoTank({
+                                tryLoadIntoTank({
                                     player: p,
                                     tank: cont,
                                     itemsList: list,
@@ -987,7 +1008,7 @@ export default function ItemsHostLogic() {
                                     setItems,
                                 });
                             } else if (isCureDevice(cont.type)) {
-                                changed = tryLoadIntoCureDevice({
+                                tryLoadIntoCureDevice({
                                     player: p,
                                     device: cont,
                                     itemsList: list,
@@ -1002,8 +1023,7 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-
-                    // PICKUP
+                    /* ───────── pickup ───────── */
                     if (type === "pickup") {
                         const nowSec = Math.floor(Date.now() / 1000);
                         let until = Number(p.getState("pickupUntil") || 0);
@@ -1018,9 +1038,11 @@ export default function ItemsHostLogic() {
                             processed.current.set(p.id, reqId);
                             continue;
                         }
-                        // Receivers are NOT pickable — treat P near a receiver as "dispense from team tank"
+
+                        // Team food/protection receiver → dispense from team tank
                         if (isReceiverType(it.type)) {
-                            const dx = px - it.x, dz = pz - it.z;
+                            const dx = px - it.x,
+                                dz = pz - it.z;
                             if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
                                 const ok = tryDispenseFromTeamTank({
                                     player: p,
@@ -1032,15 +1054,21 @@ export default function ItemsHostLogic() {
                                 });
                                 if (ok) {
                                     const nowSec = Math.floor(Date.now() / 1000);
-                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                    p.setState(
+                                        "pickupUntil",
+                                        nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20),
+                                        true
+                                    );
                                 }
                             }
                             processed.current.set(p.id, reqId);
                             continue;
                         }
-                        // Cure Device is NOT pickable — treat P near it as "load one cure" (A or B)
+
+                        // Cure device near → load one cure unit
                         if (isCureDevice(it.type)) {
-                            const dx = px - it.x, dz = pz - it.z;
+                            const dx = px - it.x,
+                                dz = pz - it.z;
                             if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
                                 const ok = tryLoadIntoCureDevice({
                                     player: p,
@@ -1052,15 +1080,21 @@ export default function ItemsHostLogic() {
                                 });
                                 if (ok) {
                                     const nowSec = Math.floor(Date.now() / 1000);
-                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                    p.setState(
+                                        "pickupUntil",
+                                        nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20),
+                                        true
+                                    );
                                 }
                             }
                             processed.current.set(p.id, reqId);
                             continue;
                         }
-                        // Cure Receiver: press P to take one Cure (Advanced)
+
+                        // Cure receiver → take one Cure (Advanced)
                         if (it && isCureReceiver(it.type)) {
-                            const dx = px - it.x, dz = pz - it.z;
+                            const dx = px - it.x,
+                                dz = pz - it.z;
                             if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
                                 const ok = tryDispenseFromCureReceiver({
                                     player: p,
@@ -1071,15 +1105,18 @@ export default function ItemsHostLogic() {
                                 });
                                 if (ok) {
                                     const nowSec = Math.floor(Date.now() / 1000);
-                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20), true);
+                                    p.setState(
+                                        "pickupUntil",
+                                        nowSec + Number(COOLDOWN?.ITEMS?.PICKUP_SEC || 20),
+                                        true
+                                    );
                                 }
                             }
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-
-                        // Tanks are NOT pickable — treat P near any tank as "load one matching item"
+                        // Tanks near → load one matching item
                         if (isTankType(it.type)) {
                             const dx = px - it.x,
                                 dz = pz - it.z;
@@ -1093,13 +1130,18 @@ export default function ItemsHostLogic() {
                                     setItems,
                                 });
                                 if (ok) {
-                                    p.setState("pickupUntil", nowSec + Number(COOLDOWN.ITEMS.PICKUP_SEC || 20), true);
+                                    p.setState(
+                                        "pickupUntil",
+                                        nowSec + Number(COOLDOWN.ITEMS.PICKUP_SEC || 20),
+                                        true
+                                    );
                                 }
                             }
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
+                        // Regular item pickup
                         if (it.holder && it.holder !== p.id) {
                             processed.current.set(p.id, reqId);
                             continue;
@@ -1116,12 +1158,20 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
-                        // MAKE PICKED ITEM DISAPPEAR IMMEDIATELY (authoritative)
+                        // make picked item disappear immediately (authoritative)
                         setItems(
                             (prev) =>
                                 prev.map((j) =>
                                     j.id === it.id
-                                        ? { ...j, holder: p.id, vx: 0, vy: 0, vz: 0, y: -999, hidden: true }
+                                        ? {
+                                            ...j,
+                                            holder: p.id,
+                                            vx: 0,
+                                            vy: 0,
+                                            vz: 0,
+                                            y: -999,
+                                            hidden: true,
+                                        }
                                         : j
                                 ),
                             true
@@ -1136,7 +1186,6 @@ export default function ItemsHostLogic() {
                             let nextBp = [...bp, { id: it.id, type: it.type }];
 
                             const role = String(p.getState?.("role") || "");
-                            // FoodSupplier bonus: +1 FOOD (stacked)
                             if (role === "FoodSupplier" && isType(it.type, "food")) {
                                 const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "food"));
                                 if (idx >= 0) {
@@ -1150,7 +1199,6 @@ export default function ItemsHostLogic() {
                                     nextBp.push({ type: "food", qty: 1, bonus: true });
                                 }
                             }
-                            // Engineer bonus: +1 FUEL (stacked)
                             if (role === "Engineer" && isType(it.type, "fuel")) {
                                 const idx = nextBp.findIndex((b) => !b.id && isType(b.type, "fuel"));
                                 if (idx >= 0) {
@@ -1177,43 +1225,59 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-                    // DROP (world entity or stack row)
+                    /* ───────── drop ───────── */
                     if (type === "drop") {
                         const tok = String(target || "");
                         const it = findItem(tok);
 
-                        // Case 1: dropping a world entity I'm holding (existing behavior)
+                        // Case 1: dropping a world entity I'm holding
                         if (it && it.holder === p.id) {
-                            setItems(prev => prev.map(j => j.id === it.id ? {
-                                ...j,
-                                holder: null,
-                                hidden: false,
-                                x: px,
-                                y: Math.max(py + 0.5, FLOOR_Y + 0.01),
-                                z: pz,
-                                vx: 0, vy: 0, vz: 0,
-                            } : j), true);
+                            setItems(
+                                (prev) =>
+                                    prev.map((j) =>
+                                        j.id === it.id
+                                            ? {
+                                                ...j,
+                                                holder: null,
+                                                hidden: false,
+                                                x: px,
+                                                y: Math.max(py + 0.5, FLOOR_Y + 0.01),
+                                                z: pz,
+                                                vx: 0,
+                                                vy: 0,
+                                                vz: 0,
+                                            }
+                                            : j
+                                    ),
+                                true
+                            );
 
-                            if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
-                            setBackpack(p, getBackpack(p).filter(b => b.id !== it.id));
+                            if (String(p.getState("carry") || "") === it.id)
+                                p.setState("carry", "", true);
+                            setBackpack(
+                                p,
+                                getBackpack(p).filter((b) => b.id !== it.id)
+                            );
 
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        // Case 2: dropping one unit from a STACK (no id) using a type token
+                        // Case 2: drop one unit from a stack by type token
                         const tLower = tok.toLowerCase();
                         if (tLower) {
                             const bp = getBackpack(p);
-                            const idx = bp.findIndex(b => !b?.id && String(b?.type || "").toLowerCase() === tLower);
+                            const idx = bp.findIndex(
+                                (b) => !b?.id && String(b?.type || "").toLowerCase() === tLower
+                            );
                             if (idx !== -1) {
                                 const row = bp[idx];
                                 const qty = Number(row?.qty || 1);
                                 const next = [...bp];
-                                if (qty > 1) next[idx] = { ...row, qty: qty - 1 }; else next.splice(idx, 1);
+                                if (qty > 1) next[idx] = { ...row, qty: qty - 1 };
+                                else next.splice(idx, 1);
                                 setBackpack(p, next);
 
-                                // spawn a world entity of that type at player's feet
                                 const nameMap = {
                                     food: "Ration Pack",
                                     poison_food: "Poisoned Ration",
@@ -1224,30 +1288,36 @@ export default function ItemsHostLogic() {
                                     cure_blue: "Cure — B",
                                 };
                                 const spawnId = cryptoRandomId();
-                                setItems(prev => [...(Array.isArray(prev) ? prev : []), {
-                                    id: spawnId,
-                                    type: tLower,
-                                    name: nameMap[tLower] || tLower,
-                                    holder: null,
-                                    hidden: false,
-                                    x: px,
-                                    y: Math.max(py + 0.5, FLOOR_Y + 0.01),
-                                    z: pz,
-                                    vx: 0, vy: 0, vz: 0,
-                                }], true);
+                                setItems(
+                                    (prev) => [
+                                        ...(Array.isArray(prev) ? prev : []),
+                                        {
+                                            id: spawnId,
+                                            type: tLower,
+                                            name: nameMap[tLower] || tLower,
+                                            holder: null,
+                                            hidden: false,
+                                            x: px,
+                                            y: Math.max(py + 0.5, FLOOR_Y + 0.01),
+                                            z: pz,
+                                            vx: 0,
+                                            vy: 0,
+                                            vz: 0,
+                                        },
+                                    ],
+                                    true
+                                );
 
                                 processed.current.set(p.id, reqId);
                                 continue;
                             }
                         }
 
-                        // nothing to drop
                         processed.current.set(p.id, reqId);
                         continue;
                     }
 
-
-                    // THROW
+                    /* ───────── throw ───────── */
                     if (type === "throw") {
                         const it = findItem(target);
                         if (!it || it.holder !== p.id) {
@@ -1286,18 +1356,19 @@ export default function ItemsHostLogic() {
                         processed.current.set(p.id, reqId);
                         continue;
                     }
+
+                    /* ───────── use ───────── */
                     let [kind, idStr] = String(p.getState("reqTarget") || "").split("|");
                     let it = findItem(idStr);
                     const bp = getBackpack(p);
 
-                    // Resolve single-token "use|<id>"
                     if (!it && kind && !idStr) {
                         const maybe = findItem(kind);
-                        if (maybe) { it = maybe; idStr = kind; }
+                        if (maybe) {
+                            it = maybe;
+                            idStr = kind;
+                        }
                     }
-
-                    
-
 
                     if (!kind || kind === "use" || kind === "item") {
                         if (it) {
@@ -1310,80 +1381,97 @@ export default function ItemsHostLogic() {
                         }
                     }
 
-                    // --- SINGLE unified USE handler (keep only one of these in the loop) ---
                     if (type === "use") {
-                        // reuse previously parsed: kind, idStr, it, bp
-
-                        // Infer / default if UI sent just "use" (no id or type)
-                        if (!kind || kind === "use" || kind === "item") {
-                            if (it) {
-                                kind = inferKindFor(it.type);
-                            } else if (idStr) {
-                                if (isFoodConsumableType(idStr)) kind = "eat";
-                                else if (isType(idStr, "protection")) kind = "cure";
-                            } else {
-                                // nothing specified -> default to eat if any food-like item exists
-                                const hasFoodish = bp.some((b) => isFoodConsumableType(b.type));
-                                if (hasFoodish) kind = "eat";
-                            }
-                        }
-
-
-                        /* ---------- place CCTV (unchanged) ---------- */
+                        // place CCTV
                         if (kind === "place") {
-                            const heldOk = !!it && it.holder === p.id && it.type === "cctv";
+                            const heldOk =
+                                !!it && it.holder === p.id && it.type === "cctv";
                             const bpCam = bp.find((b) => b.id === idStr && b.type === "cctv");
-                            if (!heldOk && !bpCam) { processed.current.set(p.id, reqId); continue; }
+                            if (!heldOk && !bpCam) {
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
 
                             const yaw = Number(p.getState("yaw") || 0);
-                            const fdx = Math.sin(yaw), fdz = Math.cos(yaw);
+                            const fdx = Math.sin(yaw),
+                                fdz = Math.cos(yaw);
                             if (!it) {
-                                setItems(prev => [...prev, {
-                                    id: idStr, type: "cctv", name: "CCTV Camera",
-                                    holder: null, hidden: false,
-                                    x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
-                                    yaw, placed: true, owner: p.id, day: useGameClock.getState().dayNumber,
-                                }], true);
+                                setItems(
+                                    (prev) => [
+                                        ...prev,
+                                        {
+                                            id: idStr,
+                                            type: "cctv",
+                                            name: "CCTV Camera",
+                                            holder: null,
+                                            hidden: false,
+                                            x: px + fdx * 0.6,
+                                            y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                            z: pz + fdz * 0.6,
+                                            yaw,
+                                            placed: true,
+                                            owner: p.id,
+                                            day: useGameClock.getState().dayNumber,
+                                        },
+                                    ],
+                                    true
+                                );
                             } else {
-                                setItems(prev => prev.map(j => j.id === it.id ? {
-                                    ...j, holder: null, hidden: false,
-                                    x: px + fdx * 0.6, y: Math.max(py + 1.4, FLOOR_Y + 1.4), z: pz + fdz * 0.6,
-                                    vx: 0, vy: 0, vz: 0, yaw, placed: true, owner: p.id,
-                                } : j), true);
+                                setItems(
+                                    (prev) =>
+                                        prev.map((j) =>
+                                            j.id === it.id
+                                                ? {
+                                                    ...j,
+                                                    holder: null,
+                                                    hidden: false,
+                                                    x: px + fdx * 0.6,
+                                                    y: Math.max(py + 1.4, FLOOR_Y + 1.4),
+                                                    z: pz + fdz * 0.6,
+                                                    vx: 0,
+                                                    vy: 0,
+                                                    vz: 0,
+                                                    yaw,
+                                                    placed: true,
+                                                    owner: p.id,
+                                                }
+                                                : j
+                                        ),
+                                    true
+                                );
                             }
                             setBackpack(p, bp.filter((b) => b.id !== idStr));
-                            if (String(p.getState("carry") || "") === idStr) p.setState("carry", "", true);
+                            if (String(p.getState("carry") || "") === idStr)
+                                p.setState("carry", "", true);
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        /* ---------- EAT: any food-like item gives +25 energy; poison variants also set poisoned ---------- */
-                        /* ---------- EAT: any food-like item gives +25 energy; poison variants also set poisoned ---------- */
+                        // eat (any food-like; poison_* sets poisoned)
                         if (kind === "eat") {
                             const applyEat = (player, itemType) => {
-                                // +25 energy (cap 100)
                                 const e = Number(player.getState?.("energy") ?? 100);
                                 const nextE = Math.min(100, e + 25);
                                 player.setState?.("energy", nextE, true);
-
-                                // poison variants add DOT until cured
-                                if (isPoisonFoodType(itemType)) player.setState("poisoned", true, true);
+                                if (isPoisonFoodType(itemType))
+                                    player.setState("poisoned", true, true);
                             };
 
-                            // Prefer a type for stack rows when requested (e.g., "poison_food")
                             const consumeOneFoodStack = (bpArr, preferType = null) => {
                                 if (!Array.isArray(bpArr)) return null;
-
                                 const findIdx = (pred) => bpArr.findIndex(pred);
 
-                                // 1) try preferred type first
                                 let idx = -1;
                                 if (preferType) {
-                                    idx = findIdx(b => !b?.id && isFoodConsumableType(b?.type) && isType(b?.type, preferType));
+                                    idx = findIdx(
+                                        (b) =>
+                                            !b?.id &&
+                                            isFoodConsumableType(b?.type) &&
+                                            isType(b?.type, preferType)
+                                    );
                                 }
-                                // 2) else any food-like stack
                                 if (idx === -1) {
-                                    idx = findIdx(b => !b?.id && isFoodConsumableType(b?.type));
+                                    idx = findIdx((b) => !b?.id && isFoodConsumableType(b?.type));
                                 }
                                 if (idx === -1) return null;
 
@@ -1395,47 +1483,79 @@ export default function ItemsHostLogic() {
                                     next[idx] = { ...row, qty: qty - 1 };
                                     return { nextBp: next, eatenType };
                                 }
-                                return { nextBp: bpArr.filter((_, i) => i !== idx), eatenType };
+                                return {
+                                    nextBp: bpArr.filter((_, i) => i !== idx),
+                                    eatenType,
+                                };
                             };
 
-                            // Consume a *specific id* if it's a food-like entry
                             const consumeIdRowByIdIfFood = (id) => {
-                                const idEntry = bp.find((b) => b.id === id && isFoodConsumableType(b.type));
+                                const idEntry = bp.find(
+                                    (b) => b.id === id && isFoodConsumableType(b.type)
+                                );
                                 if (!idEntry) return false;
 
                                 const entity = findItem(idEntry.id);
                                 if (entity) {
-                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
-                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                    setItems(
+                                        (prev) =>
+                                            prev.map((j) =>
+                                                j.id === entity.id
+                                                    ? { ...j, holder: "_gone_", y: -999, hidden: true }
+                                                    : j
+                                            ),
+                                        true
+                                    );
+                                    if (String(p.getState("carry") || "") === entity.id)
+                                        p.setState("carry", "", true);
                                 }
                                 setBackpack(p, bp.filter((b) => b.id !== idEntry.id));
                                 applyEat(p, idEntry.type);
                                 return true;
                             };
 
-                            // Find an id-row food entry, preferring a type if given (returns the entry, does not consume)
                             const findFirstIdRowAnyFood = (bpArr, preferType = null) => {
-                                return (bpArr || []).find(b =>
-                                    b.id && isFoodConsumableType(b.type) && (!preferType || isType(b.type, preferType))
-                                ) || (bpArr || []).find(b => b.id && isFoodConsumableType(b.type));
+                                return (
+                                    (bpArr || []).find(
+                                        (b) =>
+                                            b.id &&
+                                            isFoodConsumableType(b.type) &&
+                                            (!preferType || isType(b.type, preferType))
+                                    ) ||
+                                    (bpArr || []).find((b) => b.id && isFoodConsumableType(b.type))
+                                );
                             };
 
-                            // A) explicit id (supports any food-like type): use|<id>
-                            if (idStr && consumeIdRowByIdIfFood(idStr)) { processed.current.set(p.id, reqId); continue; }
-
-                            // B) held world item
-                            if (it && it.holder === p.id && isFoodConsumableType(it.type)) {
-                                applyEat(p, it.type);
-                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
-                                setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                            // A) explicit id
+                            if (idStr && consumeIdRowByIdIfFood(idStr)) {
                                 processed.current.set(p.id, reqId);
                                 continue;
                             }
 
-                            // C) explicit type: use|food / use|poison_food / use|<anything-with-"food">
+                            // B) held world item
+                            if (it && it.holder === p.id && isFoodConsumableType(it.type)) {
+                                applyEat(p, it.type);
+                                setItems(
+                                    (prev) =>
+                                        prev.map((j) =>
+                                            j.id === it.id
+                                                ? { ...j, holder: "_gone_", y: -999, hidden: true }
+                                                : j
+                                        ),
+                                    true
+                                );
+                                setBackpack(
+                                    p,
+                                    getBackpack(p).filter((b) => b.id !== it.id)
+                                );
+                                if (String(p.getState("carry") || "") === it.id)
+                                    p.setState("carry", "", true);
+                                processed.current.set(p.id, reqId);
+                                continue;
+                            }
+
+                            // C) explicit type: food / poison_food / *food*
                             if (idStr && isFoodConsumableType(idStr)) {
-                                // 1) prefer a matching stack row
                                 const stackTry = consumeOneFoodStack(bp, idStr);
                                 if (stackTry) {
                                     setBackpack(p, stackTry.nextBp);
@@ -1443,14 +1563,21 @@ export default function ItemsHostLogic() {
                                     processed.current.set(p.id, reqId);
                                     continue;
                                 }
-
-                                // 2) prefer a matching id-row next
                                 const idEntryMatch = findFirstIdRowAnyFood(bp, idStr);
                                 if (idEntryMatch) {
                                     const entity = findItem(idEntryMatch.id);
                                     if (entity) {
-                                        setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
-                                        if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                        setItems(
+                                            (prev) =>
+                                                prev.map((j) =>
+                                                    j.id === entity.id
+                                                        ? { ...j, holder: "_gone_", y: -999, hidden: true }
+                                                        : j
+                                                ),
+                                            true
+                                        );
+                                        if (String(p.getState("carry") || "") === entity.id)
+                                            p.setState("carry", "", true);
                                     }
                                     setBackpack(p, bp.filter((b) => b.id !== idEntryMatch.id));
                                     applyEat(p, idEntryMatch.type);
@@ -1467,13 +1594,21 @@ export default function ItemsHostLogic() {
                                 processed.current.set(p.id, reqId);
                                 continue;
                             }
-
                             const idEntryAny = findFirstIdRowAnyFood(bp);
                             if (idEntryAny) {
                                 const entity = findItem(idEntryAny.id);
                                 if (entity) {
-                                    setItems(prev => prev.map(j => j.id === entity.id ? { ...j, holder: "_gone_", y: -999, hidden: true } : j), true);
-                                    if (String(p.getState("carry") || "") === entity.id) p.setState("carry", "", true);
+                                    setItems(
+                                        (prev) =>
+                                            prev.map((j) =>
+                                                j.id === entity.id
+                                                    ? { ...j, holder: "_gone_", y: -999, hidden: true }
+                                                    : j
+                                            ),
+                                        true
+                                    );
+                                    if (String(p.getState("carry") || "") === entity.id)
+                                        p.setState("carry", "", true);
                                 }
                                 setBackpack(p, bp.filter((b) => b.id !== idEntryAny.id));
                                 applyEat(p, idEntryAny.type);
@@ -1481,71 +1616,115 @@ export default function ItemsHostLogic() {
                                 continue;
                             }
 
-                            // nothing edible
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-
-
-                        /* ---------- CURE: Protection clears poison (unchanged) ---------- */
+                        // cure (Protection)
                         if (kind === "cure") {
                             const consumeOneProtectionFromStack = (bpArr) => {
-                                const idx = Array.isArray(bpArr) ? bpArr.findIndex((b) => !b?.id && isType(b?.type, "protection")) : -1;
+                                const idx = Array.isArray(bpArr)
+                                    ? bpArr.findIndex(
+                                        (b) => !b?.id && isType(b?.type, "protection")
+                                    )
+                                    : -1;
                                 if (idx === -1) return null;
                                 const row = bpArr[idx];
                                 const qty = Number(row?.qty || 1);
-                                if (qty > 1) { const next = [...bpArr]; next[idx] = { ...row, qty: qty - 1 }; return next; }
+                                if (qty > 1) {
+                                    const next = [...bpArr];
+                                    next[idx] = { ...row, qty: qty - 1 };
+                                    return next;
+                                }
                                 return bpArr.filter((_, i) => i !== idx);
                             };
 
                             let cured = false;
                             if (it && it.holder === p.id && isType(it.type, "protection")) {
-                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
-                                setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                setItems(
+                                    (prev) =>
+                                        prev.map((j) =>
+                                            j.id === it.id
+                                                ? { ...j, holder: "_used_", y: -999, hidden: true }
+                                                : j
+                                        ),
+                                    true
+                                );
+                                setBackpack(
+                                    p,
+                                    getBackpack(p).filter((b) => b.id !== it.id)
+                                );
+                                if (String(p.getState("carry") || "") === it.id)
+                                    p.setState("carry", "", true);
                                 cured = true;
                             } else {
                                 const nextBp = consumeOneProtectionFromStack(bp);
-                                if (nextBp) { setBackpack(p, nextBp); cured = true; }
+                                if (nextBp) {
+                                    setBackpack(p, nextBp);
+                                    cured = true;
+                                }
                             }
                             if (cured) p.setState("poisoned", false, true);
                             processed.current.set(p.id, reqId);
                             continue;
                         }
 
-                        /* ---------- ADVANCED CURE: extend incubation countdown by +4:00 ---------- */
-                        if (kind === "adv" || (it && isType(it.type, "cure_advanced")) || isType(idStr, "cure_advanced")) {
+                        // advanced cure (extend incubation)
+                        if (
+                            kind === "adv" ||
+                            (it && isType(it.type, "cure_advanced")) ||
+                            isType(idStr, "cure_advanced")
+                        ) {
                             const ADD_MS = 4 * 60 * 1000;
                             const bpNow = getBackpack(p);
                             let consumed = false;
 
-                            // Prefer consuming the carried world entity if it's cure_advanced
                             if (it && it.holder === p.id && isType(it.type, "cure_advanced")) {
-                                setItems(prev => prev.map(j => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
-                                setBackpack(p, bpNow.filter(b => b.id !== it.id));
-                                if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                setItems(
+                                    (prev) =>
+                                        prev.map((j) =>
+                                            j.id === it.id
+                                                ? { ...j, holder: "_used_", y: -999, hidden: true }
+                                                : j
+                                        ),
+                                    true
+                                );
+                                setBackpack(p, bpNow.filter((b) => b.id !== it.id));
+                                if (String(p.getState("carry") || "") === it.id)
+                                    p.setState("carry", "", true);
                                 consumed = true;
                             } else if (idStr) {
-                                // consume a matching id-row from backpack
-                                const row = bpNow.find(b => b.id === idStr && isType(b.type, "cure_advanced"));
+                                const row = bpNow.find(
+                                    (b) => b.id === idStr && isType(b.type, "cure_advanced")
+                                );
                                 if (row) {
-                                    const ent = (itemsRef.current || []).find(x => x.id === idStr);
+                                    const ent = (itemsRef.current || []).find((x) => x.id === idStr);
                                     if (ent) {
-                                        setItems(prev => prev.map(j => j.id === ent.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
-                                        if (String(p.getState("carry") || "") === ent.id) p.setState("carry", "", true);
+                                        setItems(
+                                            (prev) =>
+                                                prev.map((j) =>
+                                                    j.id === ent.id
+                                                        ? { ...j, holder: "_used_", y: -999, hidden: true }
+                                                        : j
+                                                ),
+                                            true
+                                        );
+                                        if (String(p.getState("carry") || "") === ent.id)
+                                            p.setState("carry", "", true);
                                     }
-                                    setBackpack(p, bpNow.filter(b => b.id !== idStr));
+                                    setBackpack(p, bpNow.filter((b) => b.id !== idStr));
                                     consumed = true;
                                 }
                             } else {
-                                // consume from a stack row
-                                const idx = bpNow.findIndex(b => !b?.id && isType(b?.type, "cure_advanced"));
+                                const idx = bpNow.findIndex(
+                                    (b) => !b?.id && isType(b?.type, "cure_advanced")
+                                );
                                 if (idx !== -1) {
                                     const row = bpNow[idx];
                                     const qty = Number(row?.qty || 1);
                                     const next = [...bpNow];
-                                    if (qty > 1) next[idx] = { ...row, qty: qty - 1 }; else next.splice(idx, 1);
+                                    if (qty > 1) next[idx] = { ...row, qty: qty - 1 };
+                                    else next.splice(idx, 1);
                                     setBackpack(p, next);
                                     consumed = true;
                                 }
@@ -1554,12 +1733,10 @@ export default function ItemsHostLogic() {
                             if (consumed) {
                                 const now = Date.now();
                                 const infected = !!p.getState("infected");
-                                const until = Number(p.getState("infectionRevealUntil") || 0); // ms (HostInfectionIncubator uses ms)
-                                // Only extend if player is in incubation (not yet infected) and has a future deadline
+                                const until = Number(p.getState("infectionRevealUntil") || 0);
                                 if (!infected && until > now) {
                                     const extended = until + ADD_MS;
-                                    p.setState("infectionRevealUntil", extended, true); // drives InfectionCountdown UI
-                                    // keep the “can’t-bite” lock aligned with the new reveal time
+                                    p.setState("infectionRevealUntil", extended, true);
                                     p.setState("cd_bite_until", extended, true);
                                 }
                             }
@@ -1568,18 +1745,31 @@ export default function ItemsHostLogic() {
                             continue;
                         }
 
-                        // Device use fallback (unchanged)
+                        // device use fallback
                         if (it && it.holder === p.id) {
                             const dev = DEVICES.find((d) => d.id === kind);
                             if (dev) {
-                                const dx = px - dev.x, dz = pz - dev.z;
+                                const dx = px - dev.x,
+                                    dz = pz - dev.z;
                                 const r = Number(dev.radius || DEVICE_RADIUS);
                                 if (dx * dx + dz * dz <= r * r) {
                                     const eff = USE_EFFECTS?.[it.type]?.[dev.type];
                                     if (eff) {
-                                        setItems(prev => prev.map((j) => j.id === it.id ? { ...j, holder: "_used_", y: -999, hidden: true } : j), true);
-                                        setBackpack(p, getBackpack(p).filter((b) => b.id !== it.id));
-                                        if (String(p.getState("carry") || "") === it.id) p.setState("carry", "", true);
+                                        setItems(
+                                            (prev) =>
+                                                prev.map((j) =>
+                                                    j.id === it.id
+                                                        ? { ...j, holder: "_used_", y: -999, hidden: true }
+                                                        : j
+                                                ),
+                                            true
+                                        );
+                                        setBackpack(
+                                            p,
+                                            getBackpack(p).filter((b) => b.id !== it.id)
+                                        );
+                                        if (String(p.getState("carry") || "") === it.id)
+                                            p.setState("carry", "", true);
                                     }
                                 }
                             }
@@ -1588,8 +1778,7 @@ export default function ItemsHostLogic() {
                         continue;
                     }
 
-
-                    // Fallback
+                    // fallback
                     processed.current.set(p.id, reqId);
                 }
             } catch (err) {
@@ -1597,10 +1786,9 @@ export default function ItemsHostLogic() {
             } finally {
                 timerId = setTimeout(loop, 50);
             }
-        }; // end loop
+        };
 
         loop();
-
         return () => {
             cancelled = true;
             if (timerId) clearTimeout(timerId);
