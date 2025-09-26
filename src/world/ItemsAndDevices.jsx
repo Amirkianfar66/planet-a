@@ -5,8 +5,8 @@ import { useThree, useFrame } from "@react-three/fiber";
 import { myPlayer } from "playroomkit";
 import useItemsSync from "../systems/useItemsSync.js";
 import { DEVICES, INITIAL_ITEMS, ITEM_TYPES } from "../data/gameObjects.js";
-import { PICKUP_RADIUS } from "../data/constants.js";
-import { OUTSIDE_AREA, pointInRect, clampToRect } from "../map/deckA";
+import { PICKUP_RADIUS, DEVICE_RADIUS } from "../data/constants.js";
+import { OUTSIDE_AREA, pointInRect, clampToRect, roomCenter } from "../map/deckA";
 
 // ---------------------------------
 // Bounds / placement helpers
@@ -535,8 +535,18 @@ export default function ItemsAndDevices() {
         <group>
             {/* Devices */}
             {DEVICES.map((d) => {
-                const { x, z } = ensureOutdoorPos(d.x ?? 0, d.z ?? 0);
+                const x = d.x ?? 0, z = d.z ?? 0; // devices already resolved to world coords
                 const y = (d.y || 0) + 0.5;
+                  // Show "Press I to start" when the local player is within the console's radius
+                  let showWirePrompt = false;
+                  if (d.id === "wire_console") {
+                       const me = myPlayer?.();
+                       const px = Number(me?.getState?.("x") || 0);
+                       const pz = Number(me?.getState?.("z") || 0);
+                       const dx = px - x, dz = pz - z;
+                       const r = Number(d.radius || DEVICE_RADIUS);
+                       showWirePrompt = dx * dx + dz * dz <= r * r;
+                  }
                 return (
                     <group key={d.id} position={[x, y, z]}>
                         <mesh>
@@ -552,6 +562,12 @@ export default function ItemsAndDevices() {
                         <Billboard position={[0, 0.9, 0]}>
                             <TextSprite text={d.label || d.type || d.id} width={1.1} />
                         </Billboard>
+                        {/* Wire Console proximity prompt */}
+                        {d.id === "wire_console" && showWirePrompt && (
+                            <Billboard position={[0, 0.6, 0]}>
+                            <TextSprite text="Press I to start" width={0.9} />
+                            </Billboard>
+                        )}
                     </group>
                 );
             })}

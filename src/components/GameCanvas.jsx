@@ -28,6 +28,9 @@ import CCTVViewer from "../systems/CCTVViewer.jsx";
 import CCTVControlPanel from "../ui/CCTVControlPanel.jsx";
 import HostInfectionIncubator from "../systems/HostInfectionIncubator.jsx";
 import InfectionCountdown from "../ui/InfectionCountdown.jsx";
+import WireConsoleSystem from "../systems/WireConsoleSystem.jsx";
+import WorldImagePanels from "../world/WorldImagePanels.jsx";
+
 // live player position (updated by your LocalController via window.__playerPos)
 function usePlayerPosRefFromWindow() {
     const ref = useRef([0, 0, 0]);
@@ -210,6 +213,7 @@ export default function GameCanvas({ dead = [] }) {
                 {/* Items & players */}
                 <Pets3D /> 
                 <ItemsAndDevices />
+                <WorldImagePanels />
                 <Players3D dead={dead} />
                 <VoiceIndicators3D />
                 {/* Death FX */}
@@ -240,6 +244,7 @@ export default function GameCanvas({ dead = [] }) {
             <HostInfectionIncubator setEvents={undefined /* optional: pipe your TopBar events setter here */} />
             {/* Death logic */}
             <DeathSystem />
+            <WireConsoleSystem />
         </div>
     );
 }

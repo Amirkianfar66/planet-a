@@ -1,0 +1,93 @@
+<!-- /public/ui/wire_keys/key_P.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <defs>
+    <style>
+      .bg{fill:#0b1220}
+      .panel{fill:#0f1624;stroke:#1e293b;stroke-width:4}
+      .shape{fill:#0f172a;stroke:#94a3b8;stroke-width:6}
+      .frame{fill:none;stroke:#64748b;stroke-width:2}
+      .tick{fill:#94a3b8}
+      .start{fill:#94a3b8}
+      .sock{fill:none;stroke-width:6}
+      .grid{fill:none;stroke:#64748b;stroke-width:2}
+      .cell{fill:#cbd5e1}
+    </style>
+  </defs>
+
+  <rect class="bg" width="768" height="768"></rect>
+  <rect class="panel" x="64" y="64" width="640" height="640" rx="28"></rect>
+
+  <!-- LEFT SHAPES + 2D Gray-code frames (row: T/B, col: L/R). Start chevron shows 'top'. -->
+  <!-- Gray sequence per axis: 00 (T/L), 01 (T/R), 11 (B/R), 10 (B/L) -->
+
+  <!-- TRIANGLE → row=10 (bottom), col=00 (left) => cell (1,0) => YELLOW -->
+  <polygon class="shape" points="160,150 210,230 110,230"></polygon>
+  <rect class="frame" x="124" y="178" width="72" height="52" rx="6"></rect>
+  <path class="start" d="M160,172 l6,8 h-12 z"></path>
+  <!-- row=10: bottom tick ON, top OFF -->
+  <rect class="tick" x="156" y="538" width="8" height="8" rx="2" transform="translate(0,-346)"></rect>   <!-- bottom -->
+  <!-- col=00: left ON, right OFF -->
+  <rect class="tick" x="118" y="200" width="8" height="8" rx="2"></rect>
+
+  <!-- CIRCLE → row=00 (top), col=01 (right) => cell (0,1) => BLUE -->
+  <circle class="shape" cx="160" cy="300" r="46"></circle>
+  <rect class="frame" x="124" y="274" width="72" height="52" rx="6"></rect>
+  <path class="start" d="M160,268 l6,8 h-12 z"></path>
+  <!-- row=00: top ON -->
+  <rect class="tick" x="156" y="268" width="8" height="8" rx="2"></rect>
+  <!-- col=01: right ON -->
+  <rect class="tick" x="196" y="300" width="8" height="8" rx="2"></rect>
+
+  <!-- SQUARE → row=11 (bottom+right), col=11 (right) => cell (1,1) => GREEN -->
+  <rect class="shape" x="116" y="372" width="88" height="88" rx="10"></rect>
+  <rect class="frame" x="124" y="406" width="72" height="52" rx="6"></rect>
+  <path class="start" d="M160,400 l6,8 h-12 z"></path>
+  <!-- row=11: bottom ON (we imply right by consistent drawing; only ON/OFF positions matter per axis) -->
+  <rect class="tick" x="156" y="458" width="8" height="8" rx="2"></rect>
+  <!-- col=11: right ON -->
+  <rect class="tick" x="196" y="432" width="8" height="8" rx="2"></rect>
+
+  <!-- HEXAGON → row=01 (top+right), col=10 (left+bottom) => cell (0,0) => RED -->
+  <polygon class="shape" points="160,520 188,505 188,475 160,460 132,475 132,505"></polygon>
+  <rect class="frame" x="124" y="486" width="72" height="52" rx="6"></rect>
+  <path class="start" d="M160,480 l6,8 h-12 z"></path>
+  <!-- row=01: top ON -->
+  <rect class="tick" x="156" y="480" width="8" height="8" rx="2"></rect>
+  <!-- col=10: left ON -->
+  <rect class="tick" x="118" y="512" width="8" height="8" rx="2"></rect>
+
+  <!-- RIGHT SOCKETS: 2x2 grid with one filled cell (row, col) -->
+  <g transform="translate(560,160)">
+    <!-- RED: cell (0,0) -->
+    <rect class="sock" stroke="#ef4444" x="0" y="200" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,218)">
+      <rect class="grid" x="0" y="0" width="36" height="36" rx="4"></rect>
+      <line class="grid" x1="18" y1="0" x2="18" y2="36"></line><line class="grid" x1="0" y1="18" x2="36" y2="18"></line>
+      <rect class="cell" x="2" y="2" width="14" height="14" rx="2"></rect>
+    </g>
+
+    <!-- BLUE: cell (0,1) -->
+    <rect class="sock" stroke="#3b82f6" x="0" y="0" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,18)">
+      <rect class="grid" x="0" y="0" width="36" height="36" rx="4"></rect>
+      <line class="grid" x1="18" y1="0" x2="18" y2="36"></line><line class="grid" x1="0" y1="18" x2="36" y2="18"></line>
+      <rect class="cell" x="20" y="2" width="14" height="14" rx="2"></rect>
+    </g>
+
+    <!-- GREEN: cell (1,1) -->
+    <rect class="sock" stroke="#22c55e" x="0" y="300" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,318)">
+      <rect class="grid" x="0" y="0" width="36" height="36" rx="4"></rect>
+      <line class="grid" x1="18" y1="0" x2="18" y2="36"></line><line class="grid" x1="0" y1="18" x2="36" y2="18"></line>
+      <rect class="cell" x="20" y="20" width="14" height="14" rx="2"></rect>
+    </g>
+
+    <!-- YELLOW: cell (1,0) -->
+    <rect class="sock" stroke="#f59e0b" x="0" y="100" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,118)">
+      <rect class="grid" x="0" y="0" width="36" height="36" rx="4"></rect>
+      <line class="grid" x1="18" y1="0" x2="18" y2="36"></line><line class="grid" x1="0" y1="18" x2="36" y2="18"></line>
+      <rect class="cell" x="2" y="20" width="14" height="14" rx="2"></rect>
+    </g>
+  </g>
+</svg>

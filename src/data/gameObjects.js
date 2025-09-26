@@ -1,4 +1,5 @@
 // src/data/gameObjects.js
+import { roomCenter } from "../map/deckA";  // add this at the top
 
 // Optional: central colors you can re-use in UI (e.g., Backpack icons)
 export const ITEM_TYPES = {
@@ -183,13 +184,52 @@ export const INITIAL_ITEMS = [
 
 
 // World devices you can interact with when pressing "I"
-export const DEVICES = [
+const DEVICES_RAW = [
     { id: "reactor", type: "reactor", x: 0, z: 0, radius: 2.8, label: "Reactor" },
     { id: "medbay", type: "medbay", x: 4, z: 2, radius: 2.4, label: "MedBay" },
     { id: "shield", type: "shield", x: -2, z: 4, radius: 2.2, label: "Shield Station" },
     { id: "cctv_console", type: "console", x: -3.5, z: -3, radius: 2.0, label: "CCTV Console" },
+    { id: "wire_console", type: "puzzle", roomKey: "Rocket", offset: { x: 1, z: -2 }, radius: 2.0, label: "Wire Console" }
+    // src/data/gameObjects.js
+    // In DEVICES_RAW, near your wire_console entry:
+   
+
+
 ];
 
+const DEVICESTV_RAW = [
+    {
+        id: "wire_mural", type: "mural_key",
+        roomKey: "Rocket", offset: { x: -1.2, z: -2.0 },
+        yaw: Math.PI,           // face into the room (tweak as needed)
+        width: 2, height: 2,  // <-- bigger panel (meters/world units)
+        y: 2,                 // lift to eye height
+        radius: 2, label: ""
+    }
+
+
+];
+
+export const DEVICES = DEVICES_RAW.map(d => {
+     if (Number.isFinite(d.x) && Number.isFinite(d.z)) return d;
+     if (d.roomKey) {
+            const c = roomCenter(d.roomKey) || { x: 0, z: 0 };
+            const ox = d.offset?.x ?? 0;
+            const oz = d.offset?.z ?? 0;
+            return { ...d, x: c.x + ox, z: c.z + oz };
+     }
+      return { ...d, x: 0, z: 0 };
+});
+export const DEVICESTV = DEVICESTV_RAW.map(d => {
+    if (Number.isFinite(d.x) && Number.isFinite(d.z)) return d;
+    if (d.roomKey) {
+        const c = roomCenter(d.roomKey) || { x: 0, z: 0 };
+        const ox = d.offset?.x ?? 0;
+        const oz = d.offset?.z ?? 0;
+        return { ...d, x: c.x + ox, z: c.z + oz };
+    }
+    return { ...d, x: 0, z: 0 };
+});
 // What can be used on what
 export const USE_EFFECTS = {
     fuel: { reactor: ["power", +40] },

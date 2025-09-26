@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <defs>
+    <style>
+      .bg{fill:#0b1220}
+      .panel{fill:#111827;stroke:#1e293b;stroke-width:4}
+      .shape{fill:#0f172a;stroke:#94a3b8;stroke-width:6}
+      .dot{fill:#cbd5e1}
+      .hint{fill:#94a3b8;opacity:.22}
+    </style>
+  </defs>
+
+  <!-- background + panel -->
+  <rect class="bg" width="768" height="768"></rect>
+  <rect class="panel" x="64" y="64" width="640" height="640" rx="28"></rect>
+
+  <!-- (subtle legend hint, optional) ghost text with the rule -->
+  <g transform="translate(84,92)">
+    <rect class="hint" x="0" y="-6" width="240" height="20" rx="4" opacity=".08"></rect>
+  </g>
+
+  <!-- LEFT SHAPES (same positions as other keys) -->
+  <!-- Triangle (maps to BLUE → 4 letters → 4 dots) -->
+  <polygon class="shape" points="160,150 210,230 110,230"></polygon>
+  <circle class="dot" cx="160" cy="188" r="6"></circle>
+  <circle class="dot" cx="144" cy="210" r="6"></circle>
+  <circle class="dot" cx="176" cy="210" r="6"></circle>
+  <circle class="dot" cx="160" cy="228" r="6"></circle>
+
+  <!-- Circle (maps to GREEN → 5 letters → 5 dots) -->
+  <circle class="shape" cx="160" cy="300" r="46"></circle>
+  <circle class="dot" cx="160" cy="280" r="6"></circle>
+  <circle class="dot" cx="142" cy="298" r="6"></circle>
+  <circle class="dot" cx="178" cy="298" r="6"></circle>
+  <circle class="dot" cx="150" cy="318" r="6"></circle>
+  <circle class="dot" cx="170" cy="318" r="6"></circle>
+
+  <!-- Square (maps to RED → 3 letters → 3 dots) -->
+  <rect class="shape" x="116" y="372" width="88" height="88" rx="10"></rect>
+  <circle class="dot" cx="140" cy="410" r="6"></circle>
+  <circle class="dot" cx="160" cy="410" r="6"></circle>
+  <circle class="dot" cx="180" cy="410" r="6"></circle>
+
+  <!-- Hexagon (maps to YELLOW → 6 letters → 6 dots) -->
+  <polygon class="shape" points="160,520 188,505 188,475 160,460 132,475 132,505"></polygon>
+  <circle class="dot" cx="146" cy="474" r="5.5"></circle>
+  <circle class="dot" cx="174" cy="474" r="5.5"></circle>
+  <circle class="dot" cx="160" cy="488" r="5.5"></circle>
+  <circle class="dot" cx="146" cy="502" r="5.5"></circle>
+  <circle class="dot" cx="174" cy="502" r="5.5"></circle>
+  <circle class="dot" cx="160" cy="516" r="5.5"></circle>
+
+  <!-- (Optional) right-side abstract color swatches (very subtle) -->
+  <g transform="translate(560,160)" opacity=".2">
+    <rect x="0" y="0" width="72" height="72" rx="12" fill="#3b82f6"></rect> <!-- blue -->
+    <rect x="0" y="100" width="72" height="72" rx="12" fill="#22c55e"></rect> <!-- green -->
+    <rect x="0" y="200" width="72" height="72" rx="12" fill="#ef4444"></rect> <!-- red -->
+    <rect x="0" y="300" width="72" height="72" rx="12" fill="#f59e0b"></rect> <!-- yellow -->
+  </g>
+</svg>

@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <defs>
+    <style>
+      .bg{fill:#0b1220}
+      .panel{fill:#111827;stroke:#1e293b;stroke-width:4}
+      .shape{fill:#0f172a;stroke:#94a3b8;stroke-width:6}
+      .cut{fill:#0b1220}
+      .grid{fill:none;stroke:#475569;stroke-width:2}
+      .cell{fill:#cbd5e1}
+      .sock{fill:none;stroke-width:6}
+    </style>
+    <!-- 3x3 grid frame -->
+    <symbol id="g3">
+      <rect class="grid" x="0" y="0" width="36" height="36" rx="4"></rect>
+      <line class="grid" x1="12" y1="0" x2="12" y2="36"></line>
+      <line class="grid" x1="24" y1="0" x2="24" y2="36"></line>
+      <line class="grid" x1="0" y1="12" x2="36" y2="12"></line>
+      <line class="grid" x1="0" y1="24" x2="36" y2="24"></line>
+    </symbol>
+  </defs>
+
+  <rect class="bg" width="768" height="768"></rect>
+  <rect class="panel" x="64" y="64" width="640" height="640" rx="28"></rect>
+
+  <!-- LEFT SHAPES with key-hole cutouts -->
+  <!-- TRIANGLE -> BLUE : 'T' tetromino (rotated) -->
+  <polygon class="shape" points="160,150 210,230 110,230"></polygon>
+  <g transform="translate(142,190) rotate(90 18 18)">
+    <rect class="cut" x="6" y="0" width="24" height="12"></rect>
+    <rect class="cut" x="12" y="12" width="12" height="24"></rect>
+  </g>
+
+  <!-- CIRCLE -> YELLOW : 'I' tetromino -->
+  <circle class="shape" cx="160" cy="300" r="46"></circle>
+  <rect class="cut" x="152" y="276" width="16" height="48" rx="3"></rect>
+
+  <!-- SQUARE -> GREEN : 'S' tetromino (mirrored) -->
+  <rect class="shape" x="116" y="372" width="88" height="88" rx="10"></rect>
+  <g transform="translate(140,404)">
+    <rect class="cut" x="0" y="12" width="24" height="12"></rect>
+    <rect class="cut" x="12" y="0" width="24" height="12"></rect>
+  </g>
+
+  <!-- HEXAGON -> RED : 'L' tetromino -->
+  <polygon class="shape" points="160,520 188,505 188,475 160,460 132,475 132,505"></polygon>
+  <g transform="translate(144,486)">
+    <rect class="cut" x="0" y="0" width="12" height="36"></rect>
+    <rect class="cut" x="12" y="24" width="24" height="12"></rect>
+  </g>
+
+  <!-- RIGHT sockets with neutral tetromino stamps in 3x3 frames -->
+  <g transform="translate(560,160)">
+    <!-- BLUE (T piece) -->
+    <rect class="sock" stroke="#3b82f6" x="0" y="300" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,318)"><use href="#g3"></use>
+      <rect class="cell" x="12" y="0" width="12" height="12"></rect>
+      <rect class="cell" x="0" y="12" width="36" height="12"></rect>
+    </g>
+
+    <!-- YELLOW (I piece) -->
+    <rect class="sock" stroke="#f59e0b" x="0" y="0" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,18)"><use href="#g3"></use>
+      <rect class="cell" x="12" y="0" width="12" height="36"></rect>
+    </g>
+
+    <!-- GREEN (S piece) -->
+    <rect class="sock" stroke="#22c55e" x="0" y="200" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,218)"><use href="#g3"></use>
+      <rect class="cell" x="0" y="12" width="24" height="12"></rect>
+      <rect class="cell" x="12" y="0" width="24" height="12"></rect>
+    </g>
+
+    <!-- RED (L piece) -->
+    <rect class="sock" stroke="#ef4444" x="0" y="100" width="72" height="72" rx="12"></rect>
+    <g transform="translate(18,118)"><use href="#g3"></use>
+      <rect class="cell" x="0" y="0" width="12" height="36"></rect>
+      <rect class="cell" x="12" y="24" width="24" height="12"></rect>
+    </g>
+  </g>
+</svg>

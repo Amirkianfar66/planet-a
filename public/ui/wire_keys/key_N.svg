@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <defs>
+    <style>
+      .bg{fill:#0b1220}
+      .panel{fill:#111827;stroke:#1e293b;stroke-width:4}
+      .shape{fill:#0f172a;stroke:#94a3b8;stroke-width:6}
+      .win{fill:#0b1220;stroke:#64748b;stroke-width:2}
+      .stripe{stroke:#94a3b8;stroke-width:3}
+      .dot{fill:#cbd5e1}
+      .sock{fill:none;stroke-width:6}
+    </style>
+  </defs>
+
+  <rect class="bg" width="768" height="768"></rect>
+  <rect class="panel" x="64" y="64" width="640" height="640" rx="28"></rect>
+
+  <!-- LEFT SHAPES -->
+  <!-- TRIANGLE -> GREEN : 3 stripes, dot ON stripe center -->
+  <polygon class="shape" points="160,150 210,230 110,230"></polygon>
+  <rect class="win" x="138" y="188" width="44" height="28" rx="6"></rect>
+  <g>
+    <line class="stripe" x1="144" y1="192" x2="144" y2="212"></line>
+    <line class="stripe" x1="160" y1="188" x2="160" y2="216"></line>
+    <line class="stripe" x1="176" y1="192" x2="176" y2="212"></line>
+    <circle class="dot" cx="160" cy="202" r="4"></circle>
+  </g>
+
+  <!-- CIRCLE -> RED : 4 stripes, dot IN gap center -->
+  <circle class="shape" cx="160" cy="300" r="46"></circle>
+  <rect class="win" x="138" y="286" width="44" height="28" rx="6"></rect>
+  <g>
+    <line class="stripe" x1="144" y1="288" x2="144" y2="314"></line>
+    <line class="stripe" x1="156" y1="288" x2="156" y2="314"></line>
+    <line class="stripe" x1="168" y1="288" x2="168" y2="314"></line>
+    <line class="stripe" x1="180" y1="288" x2="180" y2="314"></line>
+    <circle class="dot" cx="162" cy="301" r="4"></circle>
+  </g>
+
+  <!-- SQUARE -> YELLOW : 6 stripes, dot ON stripe near right -->
+  <rect class="shape" x="116" y="372" width="88" height="88" rx="10"></rect>
+  <rect class="win" x="138" y="406" width="44" height="28" rx="6"></rect>
+  <g>
+    <line class="stripe" x1="142" y1="408" x2="142" y2="432"></line>
+    <line class="stripe" x1="150" y1="408" x2="150" y2="432"></line>
+    <line class="stripe" x1="158" y1="408" x2="158" y2="432"></line>
+    <line class="stripe" x1="166" y1="408" x2="166" y2="432"></line>
+    <line class="stripe" x1="174" y1="408" x2="174" y2="432"></line>
+    <line class="stripe" x1="182" y1="408" x2="182" y2="432"></line>
+    <circle class="dot" cx="174" cy="420" r="4"></circle>
+  </g>
+
+  <!-- HEXAGON -> BLUE : 5 stripes, dot IN gap near left -->
+  <polygon class="shape" points="160,520 188,505 188,475 160,460 132,475 132,505"></polygon>
+  <rect class="win" x="138" y="486" width="44" height="28" rx="6"></rect>
+  <g>
+    <line class="stripe" x1="144" y1="488" x2="144" y2="512"></line>
+    <line class="stripe" x1="154" y1="488" x2="154" y2="512"></line>
+    <line class="stripe" x1="164" y1="488" x2="164" y2="512"></line>
+    <line class="stripe" x1="174" y1="488" x2="174" y2="512"></line>
+    <line class="stripe" x1="184" y1="488" x2="184" y2="512"></line>
+    <circle class="dot" cx="149" cy="500" r="4"></circle>
+  </g>
+
+  <!-- RIGHT SOCKETS: small windows with SAME (freq, phase) pairs -->
+  <g transform="translate(560,160)">
+    <!-- GREEN: 3 stripes, dot on stripe -->
+    <rect class="sock" stroke="#22c55e" x="0" y="0" width="72" height="72" rx="12"></rect>
+    <rect class="win" x="18" y="18" width="36" height="20" rx="5"></rect>
+    <g transform="translate(0,0)">
+      <line class="stripe" x1="30" y1="22" x2="30" y2="38"></line>
+      <line class="stripe" x1="36" y1="22" x2="36" y2="38"></line>
+      <line class="stripe" x1="42" y1="22" x2="42" y2="38"></line>
+      <circle class="dot" cx="36" cy="30" r="3.5"></circle>
+    </g>
+
+    <!-- RED: 4 stripes, dot in gap -->
+    <rect class="sock" stroke="#ef4444" x="0" y="100" width="72" height="72" rx="12"></rect>
+    <rect class="win" x="18" y="118" width="36" height="20" rx="5"></rect>
+    <g>
+      <line class="stripe" x1="26" y1="122" x2="26" y2="138"></line>
+      <line class="stripe" x1="32" y1="122" x2="32" y2="138"></line>
+      <line class="stripe" x1="38" y1="122" x2="38" y2="138"></line>
+      <line class="stripe" x1="44" y1="122" x2="44" y2="138"></line>
+      <circle class="dot" cx="35" cy="130" r="3.5"></circle>
+    </g>
+
+    <!-- YELLOW: 6 stripes, dot on stripe near right -->
+    <rect class="sock" stroke="#f59e0b" x="0" y="200" width="72" height="72" rx="12"></rect>
+    <rect class="win" x="18" y="218" width="36" height="20" rx="5"></rect>
+    <g>
+      <line class="stripe" x1="24" y1="222" x2="24" y2="238"></line>
+      <line class="stripe" x1="28" y1="222" x2="28" y2="238"></line>
+      <line class="stripe" x1="32" y1="222" x2="32" y2="238"></line>
+      <line class="stripe" x1="36" y1="222" x2="36" y2="238"></line>
+      <line class="stripe" x1="40" y1="222" x2="40" y2="238"></line>
+      <line class="stripe" x1="44" y1="222" x2="44" y2="238"></line>
+      <circle class="dot" cx="40" cy="230" r="3.5"></circle>
+    </g>
+
+    <!-- BLUE: 5 stripes, dot in gap near left -->
+    <rect class="sock" stroke="#3b82f6" x="0" y="300" width="72" height="72" rx="12"></rect>
+    <rect class="win" x="18" y="318" width="36" height="20" rx="5"></rect>
+    <g>
+      <line class="stripe" x1="24" y1="322" x2="24" y2="338"></line>
+      <line class="stripe" x1="28" y1="322" x2="28" y2="338"></line>
+      <line class="stripe" x1="32" y1="322" x2="32" y2="338"></line>
+      <line class="stripe" x1="36" y1="322" x2="36" y2="338"></line>
+      <line class="stripe" x1="40" y1="322" x2="40" y2="338"></line>
+      <circle class="dot" cx="25.5" cy="330" r="3.5"></circle>
+    </g>
+  </g>
+</svg>

@@ -814,10 +814,10 @@ export default function ItemsHostLogic() {
             } catch { }
         };
 
-        let prevBucket = Math.floor(getSec() / 48000); // 300s = 5 in-game minutes
+        let prevBucket = Math.floor(getSec() / 79999); // 300s = 5 in-game minutes
         let raf;
         const loop = () => {
-            const curBucket = Math.floor(getSec() / 48000);
+            const curBucket = Math.floor(getSec() / 79999);
             if (curBucket !== prevBucket) {
                 resetAll();
                 prevBucket = curBucket;

@@ -66,7 +66,11 @@ export default function InteractionSystem() {
                     if (d2 < best && d2 <= r * r) { dev = d; best = d2; }
                 }
                 if (carryId && dev) { sendReq("use", `${dev.id}|${carryId}`, 0); return; }
-
+                // If NOT carrying and near the Wire Console: open its overlay (no ItemsHostLogic)
+                 if (!carryId && dev && dev.id === "wire_console") {
+                    me.setState("ui_wireOpen", 1, true); // WireConsoleSystem listens for this
+                    return;
+                 }
                 // Carried special cases: place CCTV, use Advanced Cure, or eat carried food
                 if (carryId) {
                     const worldItem = (itemsRef.current || []).find(x => x.id === carryId);

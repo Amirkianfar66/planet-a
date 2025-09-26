@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <defs>
+    <style>
+      .bg{fill:#0b1220}
+      .panel{fill:#0f1624;stroke:#1e293b;stroke-width:4}
+      .shape{fill:#0f172a;stroke:#94a3b8;stroke-width:6}
+      .slit{fill:#0b1220;stroke:#64748b;stroke-width:3}
+      .rear{fill:#0b1220;stroke:#334155;stroke-width:2}
+      .rod{fill:#94a3b81a;stroke:#64748b;stroke-width:2}
+      .cap{fill:none;stroke:#94a3b8;stroke-width:2}
+      .sock{fill:none;stroke-width:6}
+      .proj{stroke:#64748b88;stroke-dasharray:6 6;stroke-width:2;fill:none}
+    </style>
+  </defs>
+
+  <rect class="bg" width="768" height="768"></rect>
+  <rect class="panel" x="64" y="64" width="640" height="640" rx="28"></rect>
+
+  <!-- Rear plate with 4 rods (neutral) -->
+  <rect class="rear" x="420" y="120" width="250" height="520" rx="10"></rect>
+  <g>
+    <rect class="rod" x="445" y="160" width="16" height="460" rx="4"></rect>
+    <rect class="rod" x="500" y="160" width="16" height="460" rx="4"></rect>
+    <rect class="rod" x="555" y="160" width="16" height="460" rx="4"></rect>
+    <rect class="rod" x="610" y="160" width="16" height="460" rx="4"></rect>
+    <!-- unique caps (patterns) at top -->
+    <circle class="cap" cx="453" cy="160" r="8"></circle>                 <!-- ring -->
+    <path class="cap" d="M492,152 h16 v16 h-16 z"></path>             <!-- square -->
+    <path class="cap" d="M555,152 l8,16 l-16,0 z"></path>             <!-- triangle -->
+    <path class="cap" d="M606,160 a8,8 0 1 1 16,0 a8,8 0 1 1 -16,0"></path> <!-- double ring -->
+  </g>
+
+  <!-- Left shapes with slits (orientations chosen to align to rod caps) -->
+  <polygon class="shape" points="160,150 210,230 110,230"></polygon>
+  <rect class="slit" x="150" y="190" width="20" height="6" transform="rotate(-20 160 193)"></rect>
+  <path class="proj" d="M160,193 C300,180 360,170 448,160"></path>   <!-- aligns to rod1 cap (ring) -> GREEN -->
+
+  <circle class="shape" cx="160" cy="300" r="46"></circle>
+  <rect class="slit" x="146" y="298" width="28" height="6" transform="rotate(0 160 300)"></rect>
+  <path class="proj" d="M160,300 C300,300 380,290 508,160"></path>   <!-- aligns to rod2 cap (square) -> RED -->
+
+  <rect class="shape" x="116" y="372" width="88" height="88" rx="10"></rect>
+  <rect class="slit" x="154" y="414" width="6" height="20" transform="rotate(15 157 424)"></rect>
+  <path class="proj" d="M157,424 C300,420 380,400 562,160"></path>   <!-- aligns to rod3 cap (triangle) -> YELLOW -->
+
+  <polygon class="shape" points="160,520 188,505 188,475 160,460 132,475 132,505"></polygon>
+  <rect class="slit" x="140" y="492" width="28" height="6" transform="rotate(30 154 495)"></rect>
+  <path class="proj" d="M154,495 C300,500 400,480 618,160"></path>   <!-- aligns to rod4 cap (double ring) -> BLUE -->
+
+  <!-- Right sockets labeled by the same caps (color is the answer) -->
+  <g transform="translate(560,160)">
+    <rect class="sock" stroke="#22c55e" x="0" y="0" width="72" height="72" rx="12"></rect>   <!-- GREEN -->
+    <circle class="cap" cx="36" cy="36" r="12"></circle>
+
+    <rect class="sock" stroke="#ef4444" x="0" y="100" width="72" height="72" rx="12"></rect> <!-- RED -->
+    <rect class="cap" x="20" y="120" width="32" height="32"></rect>
+
+    <rect class="sock" stroke="#f59e0b" x="0" y="200" width="72" height="72" rx="12"></rect> <!-- YELLOW -->
+    <path class="cap" d="M36,210 l14,28 h-28 z"></path>
+
+    <rect class="sock" stroke="#3b82f6" x="0" y="300" width="72" height="72" rx="12"></rect> <!-- BLUE -->
+    <circle class="cap" cx="36" cy="336" r="10"></circle>
+    <circle class="cap" cx="36" cy="336" r="6"></circle>
+  </g>
+</svg>
