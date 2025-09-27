@@ -189,8 +189,8 @@ export default function GameCanvas({ dead = [] }) {
     return (
         <div style={{ position: "relative", width: "100%", height: "100%" }}>
             <Canvas
-                shadows
-                dpr={[1, 2]}
+                dpr={[1, 1.25]}
+                shadows={false}
                 camera={{ position: [0, 8, 10], fov: 50 }}
                 gl={{ powerPreference: "high-performance" }}
             >

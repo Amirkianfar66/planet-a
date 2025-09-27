@@ -1,163 +1,143 @@
 ﻿// src/components/Players3D.jsx
-import React, { useRef } from "react";
+import React, { useMemo, useRef } from "react";
+import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { myPlayer, usePlayersList } from "playroomkit";
-import { ROLE_COMPONENTS, Engineer as DefaultRole } from "./characters3d/index.js";
-import { DEVICES } from "../data/gameObjects.js";
-import { requestAction } from "../network/playroom";
-// import GunAttachment from "./GunAttachment.jsx"; // (unused below)
 
-/* --- tiny easing + wrapper for dead fall --- */
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+/* -------------------------------------------------------------------------- */
+/* Small helpers                                                              */
+/* -------------------------------------------------------------------------- */
+const lerp = (a, b, k) => a + (b - a) * k;
+const v3 = (...a) => new THREE.Vector3(...a);
 
-function DeadFallRig({ p, isDead, children }) {
-    const ref = useRef();
-    useFrame(() => {
-        const g = ref.current;
-        if (!g) return;
+/**
+ * PlayerRig
+ * Smoothly applies target position/yaw to a <group> once per frame.
+ * - For LOCAL player: targetPos should come from your LocalController
+ *   via window.__playerPos = [x, y, z].
+ * - For REMOTE players: targetPos/yaw come from network state (x,y,z,yaw).
+ *   We apply a small critically-damped blend to kill jitter.
+ */
+function PlayerRig({ id, targetPos, targetYaw, children, storeLocalRef = false }) {
+    const g = useRef();
+    const pos = useRef(new THREE.Vector3(
+        targetPos?.[0] || 0, targetPos?.[1] || 0, targetPos?.[2] || 0
+    ));
+    const yaw = useRef(targetYaw || 0);
+    const tmp = useRef({ tx: 0, ty: 0, tz: 0, tyaw: 0 });
 
-        // Default (alive)
-        let drop = 0;
-        let rx = 0;
-        let rz = 0;
+    useFrame((_, dt) => {
+        // Read targets that may change outside React
+        const T = tmp.current;
+        T.tx = +targetPos?.[0] || 0;
+        T.ty = +targetPos?.[1] || 0;
+        T.tz = +targetPos?.[2] || 0;
+        T.tyaw = +targetYaw || 0;
 
-        if (isDead) {
-            const ts = Number(p?.getState?.("deadTs") || 0);
-            const now = performance.now();
-            // if we only know from prop 'dead' (no ts), render fully fallen
-            const t = ts ? Math.max(0, Math.min(1, (now - ts) / 900)) : 1;
-            const k = easeOutCubic(t);
+        // Critically-damped smoothing (feel free to tune multipliers)
+        const kPos = Math.min(1, dt * 12);  // 12 = ~snappy but no buzz
+        const kYaw = Math.min(1, dt * 14);
 
-            rx = -k * (Math.PI / 2); // tip onto the side
-            // tiny side tilt to add variety (based on yaw)
-            const yaw = Number(p?.getState?.("yaw") || 0);
-            rz = 0.15 * Math.sin(yaw) * k;
-            drop = 0.25 * k; // sink a bit as it lands
+        pos.current.set(
+            lerp(pos.current.x, T.tx, kPos),
+            lerp(pos.current.y, T.ty, kPos),
+            lerp(pos.current.z, T.tz, kPos)
+        );
+
+        // shortest-arc yaw blend
+        let d = T.tyaw - yaw.current;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        yaw.current += d * kYaw;
+
+        if (g.current) {
+            g.current.position.copy(pos.current);
+            g.current.rotation.set(0, yaw.current, 0);
+            if (storeLocalRef) window.__localPlayerGroup = g.current; // helpful for debug tools
         }
-
-        g.position.set(0, -drop, 0);   // offset only Y; inner group still sets world x,y,z
-        g.rotation.set(rx, 0, rz);     // rotate only X/Z; inner group keeps yaw
     });
-    return <group ref={ref}>{children}</group>;
+
+    return <group ref={g} name={`player-${id}`}>{children}</group>;
 }
 
-export default function Players3D({ dead = [] }) {
+/* -------------------------------------------------------------------------- */
+/* Players3D                                                                  */
+/* -------------------------------------------------------------------------- */
+/**
+ * This component renders:
+ * - Local player from window.__playerPos (your LocalController sets it)
+ * - Remote players from network state with smoothing
+ *
+ * Avatar rendering:
+ * - If you already have your own avatar component, expose it globally:
+ *   window.__renderAvatar = (player, isLocal) => <YourAvatar ... />
+ * - Otherwise we draw a simple capsule so this file compiles on its own.
+ */
+export default function Players3D() {
+    const me = myPlayer();
+    const myId = me?.id || "";
     const players = usePlayersList(true);
 
-    const nearestDevice = (x, z) => {
-        let best = null, bestD2 = Infinity;
-        for (const d of DEVICES) {
-            const dx = d.x - x, dz = d.z - z;
-            const d2 = dx * dx + dz * dz;
-            const r = (d.radius || 1.3);
-            if (d2 <= r * r && d2 < bestD2) { best = d; bestD2 = d2; }
+    // Sort stable so React keys remain consistent
+    const list = useMemo(() => [...players].sort((a, b) => (a.id > b.id ? 1 : -1)), [players]);
+
+    // Fallback avatar (simple capsule) if no custom renderer provided
+    const renderAvatar = (p, isLocal) => {
+        if (typeof window.__renderAvatar === "function") {
+            return window.__renderAvatar(p, isLocal);
         }
-        return best;
+        // Default placeholder avatar
+        return (
+            <group>
+                <mesh castShadow receiveShadow>
+                    <capsuleGeometry args={[0.3, 1.0, 4, 10]} />
+                    <meshStandardMaterial metalness={0} roughness={0.9} />
+                </mesh>
+                {/* tiny name tag */}
+                <group position={[0, 1.2, 0]}>
+                    <mesh>
+                        <planeGeometry args={[0.8, 0.25]} />
+                        <meshBasicMaterial transparent opacity={0.45} />
+                    </mesh>
+                    {/* keep text optional; remove if you use @react-three/drei Text elsewhere */}
+                </group>
+            </group>
+        );
     };
 
     return (
-        <>
-            {players.map((p) => {
-                // keep compatibility with prop 'dead', but don't hide — animate instead
-                const isDead = dead.includes(p.id) || Boolean(p.getState?.("dead"));
+        <group name="Players3D">
+            {list.map((p) => {
+                const isLocal = p.id === myId;
 
-                const x = Number(p.getState("x") ?? 0);
-                const y = Number(p.getState("y") ?? 0);
-                const z = Number(p.getState("z") ?? 0);
-                const yaw = Number(p.getState("yaw") ?? 0);
+                // --- Read network state (used for REMOTE, and as fallback for LOCAL) ---
+                const nx = +p.getState?.("x") || 0;
+                const ny = +p.getState?.("y") || 0;
+                const nz = +p.getState?.("z") || 0;
+                const nyaw = +p.getState?.("yaw") || 0;
 
-                // name
-                const nameState = String(p.getState?.("name") ?? "").trim();
-                const baseName =
-                    nameState ||
-                    p.getProfile?.().name ||
-                    p.name ||
-                    `Player-${String(p.id || "").slice(-4)}`;
+                // --- LOCAL authoritative pos from controller ---
+                const lp = Array.isArray(window.__playerPos) ? window.__playerPos : null;
 
-                // role + visuals
-                const roleState = String(p.getState("role") || "Engineer");
-                const infected = !!p.getState?.("infected");
-                const disguiseOn = infected && !!p.getState?.("disguiseOn");
-                const role = ROLE_COMPONENTS[roleState] ? roleState : roleState.toLowerCase(); // ✅ normalize ke
-                const suit = p.getState("suit"); // ✅ only use if provided (let role default color otherwise)
+                // Choose target:
+                const targetPos = isLocal && lp ? lp : [nx, ny, nz];
+                const targetYaw = nyaw;
 
-                // movement / carry
-                const speed = Number(p.getState("spd") || 0);
-                const airborne = !!p.getState("air");
-                const carry = String(p.getState("carry") || "");
-
-                const Comp = disguiseOn
-                   ? (ROLE_COMPONENTS.InfectedDisguise || DefaultRole)
-                   : (ROLE_COMPONENTS[role] ||
-                      ROLE_COMPONENTS[role.toLowerCase()] ||
-                      DefaultRole);
-
-                const isLocal = myPlayer().id === p.id;
-
-                const handleUseCarry = () => {
-                    if (!isLocal || !carry) return;
-                    const dev = nearestDevice(x, z);
-                    if (dev) requestAction("use", `${dev.id}|${carry}`, 0);
-                    else requestAction("use", `eat|${carry}`, 0);
-                };
-
-                const handleThrowCarry = () => {
-                    if (!isLocal || !carry) return;
-                    requestAction("throw", carry, yaw);
-                };
-
-                const isShooting = Number(p.getState?.("shootingUntil") || 0) > Date.now();
+                // Store a ref only for the local player (debug / camera helpers)
+                const storeLocalRef = isLocal;
 
                 return (
-                    <DeadFallRig key={p.id} p={p} isDead={isDead}>
-                        <group position={[x, y, z]} rotation={[0, yaw, 0]}>
-                            {/* pass `dead` if your role models support a death pose */}
-                            <Comp
-                                // world transform is on the parent group
-                                name={baseName}
-                                role={role}
-                                {...(suit ? { suit } : {})}
-                                showName
-                                bob
-                                speed={speed}
-                                airborne={airborne}
-                                carry={carry}
-                                isLocal={isLocal}
-                                dead={isDead}
-                                onClickCarry={handleUseCarry}
-                                onContextMenuCarry={handleThrowCarry}
-                            />
-                            {/* show sidearm only when NOT disguised and real role is Guard/Officer */}
-                            {!disguiseOn && (roleState === "Guard" || roleState === "Officer") && (
-                                <group position={[0.25, 1.1, 0.15]}>
-                                    {/* gun body */}
-                                    <mesh position={[0, 0, 0.08]}>
-                                        <boxGeometry args={[0.08, 0.06, 0.22]} />
-                                        <meshStandardMaterial color="#1f2937" metalness={0.4} roughness={0.3} />
-                                    </mesh>
-                                    {/* grip */}
-                                    <mesh position={[-0.03, -0.05, 0]}>
-                                        <boxGeometry args={[0.03, 0.1, 0.04]} />
-                                        <meshStandardMaterial color="#111827" metalness={0.2} roughness={0.6} />
-                                    </mesh>
-                                    {/* barrel tip (emissive) */}
-                                    <mesh position={[0, 0, 0.22]}>
-                                        <cylinderGeometry args={[0.012, 0.012, 0.08, 12]} />
-                                        <meshStandardMaterial color="#7f1d1d" emissive="#ef4444" emissiveIntensity={2} />
-                                    </mesh>
-                                    {/* muzzle glow while shooting */}
-                                    {isShooting && (
-                                        <mesh position={[0, 0, 0.28]} scale={[0.12, 0.12, 0.12]}>
-                                            <sphereGeometry args={[1, 12, 12]} />
-                                            <meshBasicMaterial color="red" transparent opacity={0.9} depthWrite={false} />
-                                        </mesh>
-                                    )}
-                                </group>
-                            )}
-                        </group>
-                    </DeadFallRig>
+                    <PlayerRig
+                        key={p.id}
+                        id={p.id}
+                        targetPos={targetPos}
+                        targetYaw={targetYaw}
+                        storeLocalRef={storeLocalRef}
+                    >
+                        {renderAvatar(p, isLocal)}
+                    </PlayerRig>
                 );
             })}
-        </>
+        </group>
     );
 }

@@ -1,39 +1,55 @@
 // src/ui/TopBar.jsx
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { myPlayer } from "playroomkit";
 import { useGameClock } from "../systems/dayNightClock";
 import "./ui.css";
 
 export function TopBar({ phase, timer, players, events = [] }) {
-    // --- Game clock state ---
+    // --- Game clock state (Zustand-style) ---
     const format = useGameClock((s) => s.format);
-    const phaseFn = useGameClock((s) => s.phase);
-    const pct = useGameClock((s) => s.phaseProgress);
+    const phaseFn = useGameClock((s) => s.phase);          // "day" | "night"
+    const pctFn = useGameClock((s) => s.phaseProgress);  // function → 0..1
     const dayNumber = useGameClock((s) => s.dayNumber);
     const maxDays = useGameClock((s) => s.maxDays);
 
+    // ---- Clock (tick once per second) ----
     const [clock, setClock] = useState(format());
+    useEffect(() => {
+        const id = setInterval(() => setClock(format()), 1000);
+        setClock(format()); // initial
+        return () => clearInterval(id);
+    }, [format]);
+
+    // ---- Day/Night chip (subscribe to store; no per-frame polling) ----
     const [ph, setPh] = useState(phaseFn());
     useEffect(() => {
-        let raf;
-        const loop = () => {
-            setClock(format());
-            setPh(phaseFn());
-            raf = requestAnimationFrame(loop);
-        };
-        raf = requestAnimationFrame(loop);
-        return () => cancelAnimationFrame(raf);
-    }, [format, phaseFn]);
+        const api = useGameClock.getState?.();
+        if (!api?.subscribe) { setPh(phaseFn()); return; }
+        setPh(phaseFn()); // initial
+        // subscribe to phase changes only
+        const unsub = api.subscribe((s) => s.phase, (nextPhase) => setPh(nextPhase));
+        return () => unsub?.();
+    }, [phaseFn]);
 
-    const progress = Math.floor(pct() * 100);
+    // ---- Progress bar (update ~4×/sec; only setState when value changes) ----
+    const [progress, setProgress] = useState(() => Math.floor((pctFn?.() || 0) * 100));
+    useEffect(() => {
+        let mounted = true;
+        const id = setInterval(() => {
+            const p = Math.floor((pctFn?.() || 0) * 100);
+            if (!mounted) return;
+            setProgress((prev) => (prev === p ? prev : p));
+        }, 250);
+        return () => { mounted = false; clearInterval(id); };
+    }, [pctFn]);
 
-    // Meeting countdown
+    // ---- Meeting countdown (from props; parent updates this) ----
     const isMeeting = phase === "meeting";
     const mt = Number(timer ?? 0);
     const mm = String(Math.floor(mt / 60)).padStart(2, "0");
     const ss = String(mt % 60).padStart(2, "0");
 
-    // Events popover
+    // ---- Events popover ----
     const [open, setOpen] = useState(false);
     const popRef = useRef(null);
     useEffect(() => {
@@ -45,7 +61,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
         return () => document.removeEventListener("mousedown", onDoc);
     }, []);
 
-    // ---- Votes detection ----
+    // ---- Votes detection & flash ----
     const isVotesLine = (s) => /^Votes:\s*/i.test(String(s));
     const list = Array.isArray(events) ? events : [];
 
@@ -56,12 +72,10 @@ export function TopBar({ phase, timer, players, events = [] }) {
         }
         return { index: -1, line: null };
     };
-    const { index: latestVotesIndex, line: latestVotesLine } = findLatestVotes(list);
 
+    const { index: latestVotesIndex, line: latestVotesLine } = findLatestVotes(list);
     const eventsRef = useRef(list);
-    useEffect(() => {
-        eventsRef.current = Array.isArray(events) ? events : [];
-    }, [events]);
+    useEffect(() => { eventsRef.current = Array.isArray(events) ? events : []; }, [events]);
 
     const [votesFlash, setVotesFlash] = useState(null);
     const hideTimerRef = useRef(null);
@@ -76,7 +90,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
         hideTimerRef.current = setTimeout(() => setVotesFlash(null), 20000);
     }, [latestVotesIndex, latestVotesLine]);
 
-    // post-meeting poll for late "Votes:" line
+    // post-meeting poll for late "Votes:" line (kept as-is)
     const prevPhaseRef = useRef(phase);
     useEffect(() => {
         const prev = prevPhaseRef.current;
@@ -98,13 +112,9 @@ export function TopBar({ phase, timer, players, events = [] }) {
         }
     }, [phase]);
 
-    useEffect(() => {
-        return () => {
-            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        };
-    }, []);
+    useEffect(() => () => hideTimerRef.current && clearTimeout(hideTimerRef.current), []);
 
-    const parsedRows = (() => {
+    const parsedRows = useMemo(() => {
         if (!votesFlash) return [];
         const raw = String(votesFlash).replace(/^Votes:\s*/i, "");
         return raw
@@ -116,7 +126,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
                 return { id: i, name: name || "Player", votes: Number(num) || 0 };
             })
             .sort((a, b) => b.votes - a.votes);
-    })();
+    }, [votesFlash]);
 
     const latestPreview = latestVotesLine
         ? latestVotesLine
@@ -142,29 +152,22 @@ export function TopBar({ phase, timer, players, events = [] }) {
                 color: TEXT,
                 fontFamily:
                     'ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, Arial, sans-serif',
-                // removed background/border/blur/shadow per request
+                // (background/border/blur intentionally minimal)
             }}
         >
             {/* Left cluster */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <strong style={{ letterSpacing: ".03em" }}>Planet A — Prototype</strong>
-                <span className="tb-dim">
-                    | Day: <b>{dayNumber}/{maxDays}</b>
-                </span>
-                <span className="tb-dim">
-                    | Phase: <b>{String(phase)}</b>
-                </span>
+                <span className="tb-dim">| Day: <b>{dayNumber}/{maxDays}</b></span>
+                <span className="tb-dim">| Phase: <b>{String(phase)}</b></span>
 
-                {/* Day/Night chip (keeps tiny pill, smaller type) */}
+                {/* Day/Night chip */}
                 <span
                     className="tb-chip"
                     style={{
                         marginLeft: 6,
                         border: `2px solid ${INK}`,
-                        background:
-                            ph === "day"
-                                ? "transparent"
-                                : "transparent",
+                        background: "transparent",
                         fontWeight: 800,
                         letterSpacing: ".04em",
                     }}
@@ -173,9 +176,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
                 </span>
 
                 {/* Clock */}
-                <span className="tb-dim">
-                    | Clock: <b style={{ letterSpacing: 0.5 }}>{clock}</b>
-                </span>
+                <span className="tb-dim">| Clock: <b style={{ letterSpacing: 0.5 }}>{clock}</b></span>
             </div>
 
             {/* Vote Results (compact) */}
@@ -205,13 +206,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
                             ))
                             : <span>{String(votesFlash).replace(/^Votes:\s*/i, "")}</span>}
                     </div>
-                    <button
-                        onClick={() => setVotesFlash(null)}
-                        title="Hide"
-                        className="tb-btn"
-                    >
-                        ×
-                    </button>
+                    <button onClick={() => setVotesFlash(null)} title="Hide" className="tb-btn">×</button>
                 </div>
             )}
 
@@ -242,9 +237,7 @@ export function TopBar({ phase, timer, players, events = [] }) {
                     }}
                 >
                     Events
-                    <span className="tb-badge">
-                        {events?.length ?? 0}
-                    </span>
+                    <span className="tb-badge">{events?.length ?? 0}</span>
                 </button>
 
                 {/* Latest preview */}
@@ -331,29 +324,24 @@ export function TopBar({ phase, timer, players, events = [] }) {
 
             {/* Right cluster */}
             <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="tb-dim">
-                    Alive: <b>{players}</b>
-                </span>
-                <span className="tb-dim">
-                    you are: {myPlayer()?.getProfile?.().name || "Anon"}
-                </span>
+                <span className="tb-dim">Alive: <b>{players}</b></span>
+                <span className="tb-dim">you are: {myPlayer()?.getProfile?.().name || "Anon"}</span>
             </div>
 
-            {/* Phase progress — slimmer */}
+            {/* Phase progress */}
             <div
                 style={{
                     position: "absolute",
                     left: 6,
                     right: 6,
                     bottom: 4,
-                    height: 6,            // was 4
-                    borderRadius: 6,      // was 4
+                    height: 6,
+                    borderRadius: 6,
                     border: `1px solid ${INK}`,
                     background: "transparent",
                     overflow: "hidden",
                 }}
             >
-
                 <div
                     style={{
                         height: "100%",
